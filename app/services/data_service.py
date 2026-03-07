@@ -241,6 +241,27 @@ class DataService:
         )
         return cursor.fetchall()
 
+    def list_documents(self) -> List[DocumentRecord]:
+        cursor = self.connection.cursor()
+        cursor.execute(
+            """
+            SELECT id, filename, path, status
+            FROM documents
+            WHERE company_id = ?
+            ORDER BY imported_at DESC
+            """,
+            (self.company_id,),
+        )
+        return [
+            DocumentRecord(
+                id=row["id"],
+                filename=row["filename"],
+                path=row["path"],
+                status=row["status"],
+            )
+            for row in cursor.fetchall()
+        ]
+
     def add_document(self, filename: str, path: str) -> int:
         cursor = self.connection.cursor()
         cursor.execute(
@@ -289,6 +310,31 @@ class DataService:
             ORDER BY id DESC
             """,
             (document_id,),
+        )
+        return [
+            DocumentTransactionRecord(
+                id=row["id"],
+                document_id=row["document_id"],
+                txn_date=row["txn_date"],
+                description=row["description"],
+                amount=row["amount"],
+                vendor_name=row["vendor_name"],
+                suggested_account_id=row["suggested_account_id"],
+                confidence=row["confidence"],
+                status=row["status"],
+            )
+            for row in cursor.fetchall()
+        ]
+
+    def list_all_document_transactions(self) -> List[DocumentTransactionRecord]:
+        cursor = self.connection.cursor()
+        cursor.execute(
+            """
+            SELECT id, document_id, txn_date, description, amount, vendor_name,
+                   suggested_account_id, confidence, status
+            FROM document_transactions
+            ORDER BY id DESC
+            """
         )
         return [
             DocumentTransactionRecord(

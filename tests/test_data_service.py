@@ -1,7 +1,7 @@
 from datetime import datetime
 
 from app.db import connect_db, ensure_company, init_db
-from app.services.data_service import DataService
+from app.services.data_service import DataService, DocumentTransactionRecord
 
 
 def make_service():
@@ -43,3 +43,29 @@ def test_budget_and_reports():
 
     expense_rows = service.expense_by_category()
     assert expense_rows[0]["account_name"] == "Office Supplies"
+
+
+def test_document_listing():
+    service = make_service()
+    doc_id = service.add_document("statement.pdf", "/tmp/statement.pdf")
+    service.add_document_transactions(
+        doc_id,
+        [
+            DocumentTransactionRecord(
+                id=0,
+                document_id=doc_id,
+                txn_date="2025-02-05",
+                description="Test Charge",
+                amount=-45.0,
+                vendor_name="Vendor",
+                suggested_account_id=None,
+                confidence=0.5,
+                status="review",
+            )
+        ],
+    )
+    documents = service.list_documents()
+    assert len(documents) == 1
+
+    document_rows = service.list_all_document_transactions()
+    assert len(document_rows) == 1
