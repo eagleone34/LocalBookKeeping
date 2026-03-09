@@ -1,0 +1,182 @@
+"""
+Documents & PDF Inbox API endpoints.
+"""
+from __future__ import annotations
+
+import os
+import shutil
+from pathlib import Path
+from typing import List, Optional
+
+from fastapi import APIRouter, File, HTTPException, UploadFile
+
+from app.models import DocumentOut, DocTransactionOut, DocTransactionAction, BulkDocTransactionAction
+from app.main_state import get_conn, get_company_id, get_upload_dir
+from app.services import data_service as ds
+from app.services.categorization import suggest_account
+from app.services.pdf_parser import parse_pdf, get_page_count
+
+router = APIRouter(prefix="/api/documents", tags=["documents"])
+
+
+@router.get("", response_model=List[DocumentOut])
+def list_documents():
+    rows = ds.list_documents(get_conn(), get_company_id())
+    return [_doc_out(r) for r in rows]
+
+
+@router.post("/upload", response_model=List[DocumentOut])
+async def upload_documents(files: List[UploadFile] = File(...)):
+    """Upload one or more PDF files for processing."""
+    conn = get_conn()
+    cid = get_company_id()
+    upload_dir = get_upload_dir()
+    results = []
+
+    for file in files:
+        if not file.filename:
+            continue
+
+        # Save file to upload directory
+        safe_name = file.filename.replace(" ", "_")
+        dest = upload_dir / safe_name
+        counter = 1
+        while dest.exists():
+            stem = Path(safe_name).stem
+            suffix = Path(safe_name).suffix
+            dest = upload_dir / f"{stem}_{counter}{suffix}"
+            counter += 1
+
+        content = await file.read()
+        dest.write_bytes(content)
+
+        # Create document record
+        doc_id = ds.create_document(conn, cid, file.filename, str(dest), len(content))
+
+        # Parse the PDF
+        try:
+            ds.update_document(conn, doc_id, status="processing")
+            parsed = parse_pdf(str(dest))
+            pages = get_page_count(str(dest))
+            ds.update_document(conn, doc_id, page_count=pages)
+
+            # Create document transactions with categorization suggestions
+            for entry in parsed:
+                acct_id, confidence = suggest_account(conn, cid, entry.description, entry.vendor_name)
+                ds.create_doc_transaction(
+                    conn, doc_id,
+                    txn_date=entry.txn_date,
+                    description=entry.description,
+                    amount=entry.amount,
+                    vendor_name=entry.vendor_name,
+                    suggested_account_id=acct_id,
+                    confidence=confidence,
+                )
+
+            status = "review" if parsed else "completed"
+            ds.update_document(conn, doc_id, status=status, processed_at=ds._now())
+        except Exception as e:
+            ds.update_document(conn, doc_id, status="error", error_msg=str(e))
+
+        row = ds.list_documents(conn, cid)
+        for r in row:
+            if r["id"] == doc_id:
+                results.append(_doc_out(r))
+                break
+
+    return results
+
+
+@router.get("/transactions", response_model=List[DocTransactionOut])
+def list_doc_transactions(doc_id: Optional[int] = None, status: Optional[str] = None):
+    rows = ds.list_doc_transactions(get_conn(), doc_id=doc_id, status=status)
+    return [_dt_out(r) for r in rows]
+
+
+@router.post("/transactions/{dt_id}/action")
+def action_doc_transaction(dt_id: int, body: DocTransactionAction):
+    """Approve or reject a document transaction."""
+    conn = get_conn()
+    cid = get_company_id()
+    dt = ds.get_doc_transaction(conn, dt_id)
+    if not dt:
+        raise HTTPException(404, "Document transaction not found")
+
+    if body.action == "approve":
+        account_id = body.account_id or dt["user_account_id"] or dt["suggested_account_id"]
+        if not account_id:
+            raise HTTPException(400, "No account specified for approval")
+
+        # Post to main ledger
+        ds.create_transaction(
+            conn, cid,
+            account_id=account_id,
+            txn_date=dt["txn_date"] or "2025-01-01",
+            amount=dt["amount"] or 0,
+            description=dt["description"] or "",
+            vendor_name=dt["vendor_name"] or "",
+            source="pdf_import",
+            source_doc_id=dt["document_id"],
+        )
+        ds.update_doc_transaction(conn, dt_id, status="posted", user_account_id=account_id)
+    elif body.action == "reject":
+        ds.update_doc_transaction(conn, dt_id, status="rejected")
+
+    return {"ok": True}
+
+
+@router.post("/transactions/bulk-action")
+def bulk_action(body: BulkDocTransactionAction):
+    """Bulk approve or reject document transactions."""
+    conn = get_conn()
+    cid = get_company_id()
+    processed = 0
+
+    for dt_id in body.ids:
+        dt = ds.get_doc_transaction(conn, dt_id)
+        if not dt or dt["status"] != "review":
+            continue
+
+        if body.action == "approve":
+            account_id = body.account_id or dt["user_account_id"] or dt["suggested_account_id"]
+            if not account_id:
+                continue
+            ds.create_transaction(
+                conn, cid,
+                account_id=account_id,
+                txn_date=dt["txn_date"] or "2025-01-01",
+                amount=dt["amount"] or 0,
+                description=dt["description"] or "",
+                vendor_name=dt["vendor_name"] or "",
+                source="pdf_import",
+                source_doc_id=dt["document_id"],
+            )
+            ds.update_doc_transaction(conn, dt_id, status="posted", user_account_id=account_id)
+        elif body.action == "reject":
+            ds.update_doc_transaction(conn, dt_id, status="rejected")
+        processed += 1
+
+    return {"processed": processed}
+
+
+def _doc_out(r: dict) -> DocumentOut:
+    return DocumentOut(
+        id=r["id"], filename=r["filename"], file_path=r["file_path"],
+        file_size=r.get("file_size"), page_count=r.get("page_count"),
+        status=r["status"], error_msg=r.get("error_msg"),
+        imported_at=r["imported_at"], processed_at=r.get("processed_at"),
+    )
+
+
+def _dt_out(r: dict) -> DocTransactionOut:
+    return DocTransactionOut(
+        id=r["id"], document_id=r["document_id"],
+        txn_date=r.get("txn_date"), description=r.get("description"),
+        amount=r.get("amount"), vendor_name=r.get("vendor_name"),
+        suggested_account_id=r.get("suggested_account_id"),
+        suggested_account_name=r.get("suggested_account_name"),
+        confidence=r.get("confidence", 0),
+        status=r["status"],
+        user_account_id=r.get("user_account_id"),
+        user_account_name=r.get("user_account_name"),
+    )
