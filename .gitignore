@@ -1,4 +1,13 @@
 __pycache__/
 *.pyc
-.local_bookkeeping.db
+*.pyo
+.env
+*.db
+*.db-wal
+*.db-shm
 company_data/
+node_modules/
+dist/
+.vite/
+*.log
+.DS_Store
