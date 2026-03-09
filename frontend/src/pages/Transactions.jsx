@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import {
   getTransactions, getAccounts, createTransaction, updateTransaction,
   deleteTransaction, bulkRecategorize,
@@ -24,19 +24,32 @@ export default function Transactions() {
   const [editId, setEditId] = useState(null);
   const [editForm, setEditForm] = useState({});
 
-  const load = async () => {
+  // Use ref to avoid stale closure in debounced search
+  const filtersRef = useRef(filters);
+  filtersRef.current = filters;
+
+  const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [txns, accts] = await Promise.all([getTransactions(filters), getAccounts()]);
+      const currentFilters = filtersRef.current;
+      const [txns, accts] = await Promise.all([
+        getTransactions(currentFilters),
+        getAccounts(),
+      ]);
       setTransactions(txns);
       setAccounts(accts);
     } catch (e) { console.error(e); }
     setLoading(false);
-  };
+  }, []);
 
-  useEffect(() => { load(); }, []);
+  // Initial load
+  useEffect(() => { load(); }, [load]);
 
-  const applyFilters = () => load();
+  // Auto-search with debounce when filters change
+  useEffect(() => {
+    const timer = setTimeout(() => { load(); }, 300);
+    return () => clearTimeout(timer);
+  }, [filters.search, filters.account_id, filters.date_from, filters.date_to, load]);
 
   // ─── Create new ───
   const handleSubmit = async (e) => {
@@ -116,12 +129,19 @@ export default function Transactions() {
     else setSelected(new Set(transactions.map(t => t.id)));
   };
 
+  // Clear all filters
+  const clearFilters = () => {
+    setFilters({ search: '', account_id: '', date_from: '', date_to: '' });
+  };
+
+  const hasActiveFilters = filters.search || filters.account_id || filters.date_from || filters.date_to;
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Transactions</h1>
-          <p className="text-gray-500 mt-1">{transactions.length} transactions</p>
+          <p className="text-gray-500 mt-1">{transactions.length} transactions{hasActiveFilters ? ' (filtered)' : ''}</p>
         </div>
         <button onClick={() => { setShowForm(true); cancelEdit(); }} className="btn-primary">
           <Plus className="w-4 h-4 mr-2" /> New Transaction
@@ -135,7 +155,12 @@ export default function Transactions() {
             <label className="label">Search</label>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-              <input value={filters.search} onChange={e => setFilters({...filters, search: e.target.value})} className="input-field pl-10" placeholder="Search vendor, description..." />
+              <input
+                value={filters.search}
+                onChange={e => setFilters({...filters, search: e.target.value})}
+                className="input-field pl-10"
+                placeholder="Search vendor, description..."
+              />
             </div>
           </div>
           <div>
@@ -155,7 +180,11 @@ export default function Transactions() {
             <label className="label">To</label>
             <input type="date" value={filters.date_to} onChange={e => setFilters({...filters, date_to: e.target.value})} className="input-field" />
           </div>
-          <button onClick={applyFilters} className="btn-primary"><Filter className="w-4 h-4 mr-1" /> Filter</button>
+          {hasActiveFilters && (
+            <button onClick={clearFilters} className="btn-secondary text-sm">
+              <X className="w-4 h-4 mr-1" /> Clear
+            </button>
+          )}
         </div>
       </div>
 
@@ -238,7 +267,7 @@ export default function Transactions() {
             <tbody>
               {transactions.map(txn => (
                 editId === txn.id ? (
-                  /* ═══ INLINE EDIT ROW ═══ */
+                  /* INLINE EDIT ROW */
                   <tr key={txn.id} className="border-b border-primary-100 bg-primary-50/40">
                     <td className="py-2 px-3">
                       <input type="checkbox" checked={selected.has(txn.id)} onChange={() => toggleSelect(txn.id)} className="rounded text-primary-600" />
@@ -301,7 +330,7 @@ export default function Transactions() {
                     </td>
                   </tr>
                 ) : (
-                  /* ═══ NORMAL DISPLAY ROW ═══ */
+                  /* NORMAL DISPLAY ROW */
                   <tr key={txn.id} className={`border-b border-gray-100 hover:bg-gray-50 ${selected.has(txn.id) ? 'bg-primary-50' : ''}`}>
                     <td className="py-3 px-3">
                       <input type="checkbox" checked={selected.has(txn.id)} onChange={() => toggleSelect(txn.id)} className="rounded text-primary-600" />
@@ -332,7 +361,11 @@ export default function Transactions() {
           </table>
         </div>
         {loading && <div className="p-8 text-center text-gray-400">Loading...</div>}
-        {!loading && transactions.length === 0 && <div className="p-8 text-center text-gray-400">No transactions found</div>}
+        {!loading && transactions.length === 0 && (
+          <div className="p-8 text-center text-gray-400">
+            {hasActiveFilters ? 'No transactions match your filters.' : 'No transactions found'}
+          </div>
+        )}
       </div>
     </div>
   );

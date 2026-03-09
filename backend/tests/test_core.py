@@ -16,7 +16,9 @@ from app.services.data_service import (
     profit_and_loss, budget_vs_actual, expense_by_category,
     expense_by_vendor, monthly_trend, balance_sheet, summary_totals,
     upsert_vendor, list_vendors,
-    get_vendor_account_suggestion,
+    get_vendor_account_suggestion, _update_vendor_account_map,
+    upsert_bank_account, get_bank_account, list_bank_accounts,
+    find_duplicate_transaction, check_doc_transaction_duplicate,
 )
 from app.services.categorization import suggest_account
 
@@ -259,3 +261,133 @@ class TestAccountDelete:
         assert count_account_transactions(db, aid) == 1
         # In the API layer, this would be blocked; here we verify the count logic
         # The data_service.delete_account itself doesn't check -- the router does
+
+
+class TestBankAccounts:
+    """Tests for bank account recognition and linking."""
+
+    @pytest.fixture
+    def company(self, db):
+        return ensure_company(db, "Test")
+
+    def test_upsert_and_get_bank_account(self, db, company):
+        ba_id = upsert_bank_account(db, company, "Chase", "7890")
+        assert ba_id > 0
+        ba = get_bank_account(db, ba_id)
+        assert ba["bank_name"] == "Chase"
+        assert ba["last_four"] == "7890"
+
+    def test_upsert_idempotent(self, db, company):
+        ba1 = upsert_bank_account(db, company, "Chase", "7890")
+        ba2 = upsert_bank_account(db, company, "Chase", "7890")
+        assert ba1 == ba2  # same ID returned
+
+    def test_link_ledger_account(self, db, company):
+        acct = create_account(db, company, "Business Checking", "asset")
+        ba_id = upsert_bank_account(db, company, "Chase", "7890", ledger_account_id=acct)
+        ba = get_bank_account(db, ba_id)
+        assert ba["ledger_account_id"] == acct
+
+    def test_list_bank_accounts(self, db, company):
+        upsert_bank_account(db, company, "Chase", "7890")
+        upsert_bank_account(db, company, "Bank of America", "1234")
+        banks = list_bank_accounts(db, company)
+        assert len(banks) == 2
+
+
+class TestDuplicateDetection:
+    """Tests for duplicate transaction detection."""
+
+    @pytest.fixture
+    def company(self, db):
+        return ensure_company(db, "Test")
+
+    def test_detect_exact_duplicate(self, db, company):
+        aid = create_account(db, company, "Expenses", "expense")
+        create_transaction(db, company, aid, "2026-02-15", -50.00, description="Amazon purchase")
+        is_dup, dup_id = check_doc_transaction_duplicate(db, company, "2026-02-15", -50.00, "Amazon purchase")
+        assert is_dup is True
+        assert dup_id is not None
+
+    def test_no_duplicate_different_date(self, db, company):
+        aid = create_account(db, company, "Expenses", "expense")
+        create_transaction(db, company, aid, "2026-02-15", -50.00, description="Amazon purchase")
+        is_dup, dup_id = check_doc_transaction_duplicate(db, company, "2026-02-16", -50.00, "Amazon purchase")
+        assert is_dup is False
+
+    def test_no_duplicate_different_amount(self, db, company):
+        aid = create_account(db, company, "Expenses", "expense")
+        create_transaction(db, company, aid, "2026-02-15", -50.00, description="Amazon purchase")
+        is_dup, dup_id = check_doc_transaction_duplicate(db, company, "2026-02-15", -75.00, "Amazon purchase")
+        assert is_dup is False
+
+    def test_detect_partial_description_match(self, db, company):
+        aid = create_account(db, company, "Expenses", "expense")
+        create_transaction(db, company, aid, "2026-02-15", -50.00, description="AMAZON BUSINESS PURCHASE")
+        is_dup, _ = check_doc_transaction_duplicate(db, company, "2026-02-15", -50.00, "Amazon Business")
+        assert is_dup is True
+
+
+class TestSmartCategorization:
+    """Tests for the full categorization pipeline."""
+
+    @pytest.fixture
+    def company(self, db):
+        return ensure_company(db, "Test")
+
+    def test_vendor_memory_learning(self, db, company):
+        aid = create_account(db, company, "Office Supplies", "expense")
+        # Simulate: user approved 3 Amazon transactions
+        _update_vendor_account_map(db, company, "Amazon", aid)
+        _update_vendor_account_map(db, company, "Amazon", aid)
+        _update_vendor_account_map(db, company, "Amazon", aid)
+        # Now suggest_account should return Office Supplies with high confidence
+        acct_id, conf = suggest_account(db, company, "Amazon purchase", "Amazon")
+        assert acct_id == aid
+        assert conf >= 0.7
+
+    def test_keyword_heuristic_fallback(self, db, company):
+        create_account(db, company, "Travel", "expense")
+        acct_id, conf = suggest_account(db, company, "Uber ride to airport", "Uber")
+        assert acct_id is not None
+        assert conf >= 0.4
+
+    def test_rule_based_override(self, db, company):
+        aid = create_account(db, company, "Marketing", "expense")
+        create_rule(db, company, "facebook ads", "contains", aid, priority=1)
+        acct_id, conf = suggest_account(db, company, "Facebook Ads payment Q1", "Facebook")
+        assert acct_id == aid
+        assert conf >= 0.9
+
+
+class TestPDFParser:
+    """Tests for the PDF parser (requires sample fixture)."""
+
+    def test_parse_chase_statement(self):
+        import os
+        fixture = os.path.join(os.path.dirname(__file__), "fixtures", "sample_chase_statement.pdf")
+        if not os.path.exists(fixture):
+            pytest.skip("Sample PDF not available")
+
+        from app.services.pdf_parser import parse_statement
+        info = parse_statement(fixture)
+        assert info.bank_name == "Chase"
+        assert info.account_last_four == "7890"
+        assert len(info.transactions) >= 18  # should be 19
+
+    def test_parse_transactions_have_correct_signs(self):
+        import os
+        fixture = os.path.join(os.path.dirname(__file__), "fixtures", "sample_chase_statement.pdf")
+        if not os.path.exists(fixture):
+            pytest.skip("Sample PDF not available")
+
+        from app.services.pdf_parser import parse_statement
+        info = parse_statement(fixture)
+        # Find the Stripe deposit - should be positive
+        stripe = [t for t in info.transactions if "STRIPE" in t.description.upper()]
+        assert len(stripe) >= 1
+        assert stripe[0].amount > 0
+        # Find Amazon debit - should be negative
+        amazon = [t for t in info.transactions if "AMAZON" in t.description.upper()]
+        assert len(amazon) >= 1
+        assert amazon[0].amount < 0

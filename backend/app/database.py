@@ -89,6 +89,9 @@ CREATE TABLE IF NOT EXISTS documents (
     page_count  INTEGER,
     status      TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','processing','review','completed','error')),
     error_msg   TEXT,
+    bank_name   TEXT,
+    account_last_four TEXT,
+    bank_account_id INTEGER REFERENCES bank_accounts(id),
     imported_at TEXT NOT NULL,
     processed_at TEXT
 );
@@ -103,8 +106,11 @@ CREATE TABLE IF NOT EXISTS document_transactions (
     vendor_name         TEXT,
     suggested_account_id INTEGER REFERENCES accounts(id),
     confidence          REAL DEFAULT 0.0,
-    status              TEXT NOT NULL DEFAULT 'review' CHECK(status IN ('review','approved','rejected','posted')),
+    status              TEXT NOT NULL DEFAULT 'review' CHECK(status IN ('review','approved','rejected','posted','duplicate')),
     user_account_id     INTEGER REFERENCES accounts(id),
+    is_duplicate        INTEGER NOT NULL DEFAULT 0,
+    duplicate_of_txn_id INTEGER,
+    bank_account_id     INTEGER REFERENCES bank_accounts(id),
     created_at          TEXT NOT NULL
 );
 
@@ -129,6 +135,20 @@ CREATE TABLE IF NOT EXISTS vendor_account_map (
     hit_count   INTEGER NOT NULL DEFAULT 1,
     last_used   TEXT NOT NULL,
     UNIQUE(company_id, vendor_name)
+);
+
+-- Bank accounts (learned from PDF statements)
+CREATE TABLE IF NOT EXISTS bank_accounts (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    company_id  INTEGER NOT NULL REFERENCES company(id),
+    bank_name   TEXT NOT NULL,
+    last_four   TEXT NOT NULL,
+    full_number TEXT,
+    nickname    TEXT,
+    ledger_account_id INTEGER REFERENCES accounts(id),
+    created_at  TEXT NOT NULL,
+    updated_at  TEXT NOT NULL,
+    UNIQUE(company_id, bank_name, last_four)
 );
 
 -- Audit trail
@@ -161,6 +181,27 @@ def connect(db_path: Optional[Path] = None) -> sqlite3.Connection:
 
 
 def init_schema(conn: sqlite3.Connection) -> None:
-    """Initialize all tables."""
+    """Initialize all tables and run migrations for existing DBs."""
     conn.executescript(SCHEMA_SQL)
     conn.commit()
+    _migrate(conn)
+
+
+def _migrate(conn: sqlite3.Connection) -> None:
+    """Add columns that may be missing in older databases."""
+    migrations = [
+        ("document_transactions", "is_duplicate", "ALTER TABLE document_transactions ADD COLUMN is_duplicate INTEGER NOT NULL DEFAULT 0"),
+        ("document_transactions", "duplicate_of_txn_id", "ALTER TABLE document_transactions ADD COLUMN duplicate_of_txn_id INTEGER"),
+        ("document_transactions", "bank_account_id", "ALTER TABLE document_transactions ADD COLUMN bank_account_id INTEGER REFERENCES bank_accounts(id)"),
+        ("documents", "bank_name", "ALTER TABLE documents ADD COLUMN bank_name TEXT"),
+        ("documents", "account_last_four", "ALTER TABLE documents ADD COLUMN account_last_four TEXT"),
+        ("documents", "bank_account_id", "ALTER TABLE documents ADD COLUMN bank_account_id INTEGER REFERENCES bank_accounts(id)"),
+    ]
+    for table, column, sql in migrations:
+        try:
+            cols = [r[1] for r in conn.execute(f"PRAGMA table_info({table})").fetchall()]
+            if column not in cols:
+                conn.execute(sql)
+                conn.commit()
+        except Exception:
+            pass

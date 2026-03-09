@@ -117,3 +117,8 @@ export const deleteRule = (id) =>
 export const createBackup = () =>
   request('/api/backup', { method: 'POST' });
 export const getBackups = () => request('/api/backups');
+
+// Bank Accounts
+export const getBankAccounts = () => request('/api/documents/bank-accounts');
+export const updateBankAccount = (id, data) =>
+  request(`/api/documents/bank-accounts/${id}`, { method: 'PUT', body: JSON.stringify(data) });

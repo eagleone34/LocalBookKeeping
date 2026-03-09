@@ -168,9 +168,9 @@ def list_transactions(conn: sqlite3.Connection, company_id: int,
         sql += " AND t.vendor_id=?"
         params.append(vendor_id)
     if search:
-        sql += " AND (t.description LIKE ? OR v.name LIKE ? OR t.memo LIKE ?)"
+        sql += " AND (t.description LIKE ? OR v.name LIKE ? OR t.memo LIKE ? OR a.name LIKE ?)"
         like = f"%{search}%"
-        params.extend([like, like, like])
+        params.extend([like, like, like, like])
     if date_from:
         sql += " AND t.txn_date>=?"
         params.append(date_from)
@@ -348,9 +348,13 @@ def list_doc_transactions(conn: sqlite3.Connection, doc_id: Optional[int] = None
         sql += " AND dt.document_id=?"
         params.append(doc_id)
     if status:
-        sql += " AND dt.status=?"
-        params.append(status)
-    sql += " ORDER BY dt.id DESC"
+        # Support special 'duplicate' filter that matches is_duplicate flag
+        if status == "duplicate":
+            sql += " AND dt.is_duplicate=1"
+        else:
+            sql += " AND dt.status=?"
+            params.append(status)
+    sql += " ORDER BY dt.txn_date DESC, dt.id DESC"
     return [dict(r) for r in conn.execute(sql, params).fetchall()]
 
 
@@ -591,6 +595,137 @@ def _audit(conn: sqlite3.Connection, company_id: int, entity_type: str,
         (company_id, entity_type, entity_id, action, details, _now()),
     )
     conn.commit()
+
+
+# ═══════════════════════════════════════════════════════
+#  BANK ACCOUNTS (learned from statements)
+# ═══════════════════════════════════════════════════════
+
+def upsert_bank_account(conn: sqlite3.Connection, company_id: int,
+                        bank_name: str, last_four: str,
+                        full_number: str = "", nickname: str = "",
+                        ledger_account_id: Optional[int] = None) -> int:
+    """Find or create a bank account. Returns the bank_account id."""
+    if not bank_name or not last_four:
+        return 0
+    now = _now()
+    row = conn.execute(
+        "SELECT id, ledger_account_id FROM bank_accounts WHERE company_id=? AND bank_name=? AND last_four=?",
+        (company_id, bank_name, last_four),
+    ).fetchone()
+    if row:
+        # Update ledger mapping if provided and not already set
+        if ledger_account_id and not row["ledger_account_id"]:
+            conn.execute(
+                "UPDATE bank_accounts SET ledger_account_id=?, updated_at=? WHERE id=?",
+                (ledger_account_id, now, row["id"]),
+            )
+            conn.commit()
+        return int(row["id"])
+    cur = conn.execute(
+        """INSERT INTO bank_accounts (company_id, bank_name, last_four, full_number, nickname, ledger_account_id, created_at, updated_at)
+           VALUES (?,?,?,?,?,?,?,?)""",
+        (company_id, bank_name, last_four, full_number, nickname, ledger_account_id, now, now),
+    )
+    conn.commit()
+    return int(cur.lastrowid)
+
+
+def get_bank_account(conn: sqlite3.Connection, bank_account_id: int) -> Optional[Dict]:
+    row = conn.execute("SELECT * FROM bank_accounts WHERE id=?", (bank_account_id,)).fetchone()
+    return dict(row) if row else None
+
+
+def list_bank_accounts(conn: sqlite3.Connection, company_id: int) -> List[Dict]:
+    return [dict(r) for r in conn.execute(
+        "SELECT ba.*, a.name AS ledger_account_name FROM bank_accounts ba LEFT JOIN accounts a ON ba.ledger_account_id = a.id WHERE ba.company_id=? ORDER BY ba.bank_name, ba.last_four",
+        (company_id,),
+    ).fetchall()]
+
+
+def update_bank_account(conn: sqlite3.Connection, bank_account_id: int, **kwargs) -> None:
+    sets, vals = [], []
+    for k, v in kwargs.items():
+        if v is not None:
+            sets.append(f"{k}=?")
+            vals.append(v)
+    if not sets:
+        return
+    sets.append("updated_at=?")
+    vals.append(_now())
+    vals.append(bank_account_id)
+    conn.execute(f"UPDATE bank_accounts SET {','.join(sets)} WHERE id=?", vals)
+    conn.commit()
+
+
+def find_bank_account_by_last_four(conn: sqlite3.Connection, company_id: int,
+                                    bank_name: str, last_four: str) -> Optional[Dict]:
+    """Look up a bank account by bank name + last 4 digits."""
+    row = conn.execute(
+        "SELECT ba.*, a.name AS ledger_account_name FROM bank_accounts ba LEFT JOIN accounts a ON ba.ledger_account_id = a.id WHERE ba.company_id=? AND ba.bank_name=? AND ba.last_four=?",
+        (company_id, bank_name, last_four),
+    ).fetchone()
+    return dict(row) if row else None
+
+
+# ═══════════════════════════════════════════════════════
+#  DUPLICATE DETECTION
+# ═══════════════════════════════════════════════════════
+
+def find_duplicate_transaction(conn: sqlite3.Connection, company_id: int,
+                                txn_date: str, amount: float,
+                                description: str = "") -> Optional[Dict]:
+    """
+    Check if a transaction with the same date, amount, and similar description
+    already exists in the ledger. Returns the existing transaction if found.
+    """
+    # Exact match on date + amount
+    sql = """
+        SELECT t.*, v.name AS vendor_name, a.name AS account_name
+        FROM transactions t
+        LEFT JOIN vendors v ON t.vendor_id = v.id
+        LEFT JOIN accounts a ON t.account_id = a.id
+        WHERE t.company_id=? AND t.txn_date=? AND ABS(t.amount - ?) < 0.01
+    """
+    params: list = [company_id, txn_date, amount]
+
+    rows = [dict(r) for r in conn.execute(sql, params).fetchall()]
+    if not rows:
+        return None
+
+    # If description provided, check for similarity
+    if description:
+        desc_lower = description.lower().strip()
+        for row in rows:
+            existing_desc = (row.get("description") or "").lower().strip()
+            # Exact match
+            if existing_desc == desc_lower:
+                return row
+            # Partial match (one contains the other or >60% overlap)
+            if desc_lower in existing_desc or existing_desc in desc_lower:
+                return row
+            # Word overlap check
+            words_new = set(desc_lower.split())
+            words_old = set(existing_desc.split())
+            if words_new and words_old:
+                overlap = len(words_new & words_old) / max(len(words_new), len(words_old))
+                if overlap > 0.5:
+                    return row
+
+    # If no description or no desc match, return first date+amount match
+    return rows[0]
+
+
+def check_doc_transaction_duplicate(conn: sqlite3.Connection, company_id: int,
+                                     txn_date: str, amount: float,
+                                     description: str = "") -> Tuple[bool, Optional[int]]:
+    """
+    Returns (is_duplicate, existing_txn_id).
+    """
+    dup = find_duplicate_transaction(conn, company_id, txn_date, amount, description)
+    if dup:
+        return True, int(dup["id"])
+    return False, None
 
 
 # ═══════════════════════════════════════════════════════
