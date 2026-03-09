@@ -5,6 +5,7 @@ Extracts:
   - Bank name and account number (learns and remembers)
   - All transactions with dates, descriptions, amounts
   - Handles table-format statements and line-by-line formats
+  - Word-level extraction for PDFs with tight character spacing (e.g., RBC)
   - Uses pdfplumber for text + table extraction, falls back to OCR
 """
 from __future__ import annotations
@@ -13,7 +14,7 @@ import re
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, Dict
 
 try:
     import pdfplumber
@@ -55,6 +56,20 @@ class StatementInfo:
 # -------------------------------------------------------
 
 BANK_PATTERNS = [
+    # Canadian banks (check before US banks to avoid false positives)
+    (re.compile(r"royal\s*bank\s*of\s*canada|royalbankofcanada|\brbc\b", re.I), "RBC"),
+    (re.compile(r"toronto[- ]?dominion|\btd\s+canada\b", re.I), "TD Canada Trust"),
+    (re.compile(r"bank\s*of\s*montreal|\bbmo\b", re.I), "BMO"),
+    (re.compile(r"scotiabank|bank\s*of\s*nova\s*scotia", re.I), "Scotiabank"),
+    (re.compile(r"\bcibc\b|canadian\s*imperial", re.I), "CIBC"),
+    (re.compile(r"national\s*bank\s*of\s*canada|banque\s*nationale", re.I), "National Bank"),
+    (re.compile(r"desjardins", re.I), "Desjardins"),
+    (re.compile(r"\btangerine\b", re.I), "Tangerine"),
+    (re.compile(r"\bsimplii\b", re.I), "Simplii Financial"),
+    (re.compile(r"\beq\s*bank\b", re.I), "EQ Bank"),
+    (re.compile(r"laurentian\s*bank|banque\s*laurentienne", re.I), "Laurentian Bank"),
+    (re.compile(r"\bhsbc\s*canada\b", re.I), "HSBC Canada"),
+    # US banks
     (re.compile(r"\bchase\b", re.I), "Chase"),
     (re.compile(r"jpmorgan\s*chase", re.I), "Chase"),
     (re.compile(r"bank\s*of\s*america|bofa", re.I), "Bank of America"),
@@ -85,13 +100,18 @@ BANK_PATTERNS = [
     (re.compile(r"silicon\s*valley\s*bank|\bsvb\b", re.I), "Silicon Valley Bank"),
     (re.compile(r"citizens\s*bank", re.I), "Citizens Bank"),
     (re.compile(r"m&t\s*bank", re.I), "M&T Bank"),
-    (re.compile(r"bmo\s*(harris)?", re.I), "BMO"),
     (re.compile(r"usaa", re.I), "USAA"),
     (re.compile(r"navy\s*federal", re.I), "Navy Federal"),
+    # International
+    (re.compile(r"\bhsbc\b", re.I), "HSBC"),
+    (re.compile(r"\bbarclays\b", re.I), "Barclays"),
 ]
 
 # Account number patterns - look for last 4 digits
 ACCOUNT_NUM_PATTERNS = [
+    # Canadian format: "Account number: 09231 101-694-8" → last 4 = "6948"
+    re.compile(r"account\s*(?:#|number|no\.?|num)?[:\s]*[\d\s]+-(\d{3})-?(\d)(?:\s|$)", re.I),
+    # Standard patterns
     re.compile(r"account\s*(?:#|number|no\.?|num)?[:\s]*[*xX.\-]*(\d{4})\b", re.I),
     re.compile(r"acct\.?[:\s#]*[*xX.\-]*(\d{4})\b", re.I),
     re.compile(r"(?:ending\s+in|last\s+4|last\s+four)[:\s]*(\d{4})", re.I),
@@ -102,6 +122,8 @@ ACCOUNT_NUM_PATTERNS = [
 ]
 
 FULL_ACCOUNT_PATTERNS = [
+    # Canadian format: "09231 101-694-8"
+    re.compile(r"account\s*(?:#|number|no\.?)?[:\s]*([\d]{4,5}\s+[\d]+-[\d]+-[\d]+)", re.I),
     re.compile(r"account\s*(?:#|number|no\.?)?[:\s]*(\d{6,17})", re.I),
     re.compile(r"acct\.?[:\s#]*(\d{6,17})", re.I),
 ]
@@ -116,6 +138,8 @@ DATE_PATTERNS = [
     re.compile(r"\b([A-Z][a-z]{2}\s+\d{1,2},?\s+\d{4})\b"),
     re.compile(r"\b(\d{1,2}\s+[A-Z][a-z]{2}\s+\d{4})\b"),
     re.compile(r"\b([A-Z][a-z]{2}\.\?\s+\d{1,2},?\s+\d{4})\b"),
+    # Canadian DD Mon format (no year): "01 Dec", "04 Dec", "01Dec", "04Dec"
+    re.compile(r"\b(\d{1,2}\s*[A-Z][a-z]{2})\b"),
 ]
 
 # Amount patterns
@@ -127,11 +151,11 @@ AMOUNT_PATTERNS = [
 
 # Lines/sections to skip
 SKIP_PATTERNS = [
-    re.compile(r"opening balance", re.I),
-    re.compile(r"closing balance", re.I),
-    re.compile(r"beginning balance", re.I),
-    re.compile(r"ending balance", re.I),
-    re.compile(r"statement period", re.I),
+    re.compile(r"^opening\s*balance$", re.I),
+    re.compile(r"^closing\s*balance$", re.I),
+    re.compile(r"^beginning\s*balance$", re.I),
+    re.compile(r"^ending\s*balance$", re.I),
+    re.compile(r"statement\s*period", re.I),
     re.compile(r"page \d+\s*(of\s*\d+)?", re.I),
     re.compile(r"^\s*date\s+(description|details)", re.I),
     re.compile(r"^\s*trans\.?\s*date", re.I),
@@ -141,13 +165,20 @@ SKIP_PATTERNS = [
     re.compile(r"new balance", re.I),
     re.compile(r"minimum payment", re.I),
     re.compile(r"payment due", re.I),
-    re.compile(r"total\s+(charges|credits|debits|deposits|fees|interest|withdrawals|payments)", re.I),
+    re.compile(r"total\s+(charges|credits|debits|deposits|fees|interest|withdrawals|payments|cheques|debit)", re.I),
     re.compile(r"^interest\s+charged\s*$", re.I),
     re.compile(r"annual\s+percentage", re.I),
     re.compile(r"customer\s+service", re.I),
-    re.compile(r"(subtotal|balance\s*forward)", re.I),
+    re.compile(r"^(subtotal|balance\s*forward)$", re.I),
     re.compile(r"^\s*$"),
+    re.compile(r"^account\s*(summary|activity|fees)", re.I),
 ]
+
+# Month abbreviations for parsing "DDMon" format
+MONTH_MAP = {
+    "jan": 1, "feb": 2, "mar": 3, "apr": 4, "may": 5, "jun": 6,
+    "jul": 7, "aug": 8, "sep": 9, "oct": 10, "nov": 11, "dec": 12,
+}
 
 
 # -------------------------------------------------------
@@ -163,20 +194,35 @@ def parse_statement(file_path: str) -> StatementInfo:
     if not path.exists():
         return StatementInfo()
 
-    all_text, tables, page_texts = _extract_all(path)
+    all_text, tables, page_texts, page_words = _extract_all(path)
 
     info = StatementInfo()
-    info.bank_name = _detect_bank(all_text)
-    info.account_last_four = _detect_account_last_four(all_text)
-    info.account_full_number = _detect_full_account(all_text)
-    info.statement_period = _detect_statement_period(all_text)
 
-    # Try table extraction first (most accurate for bank statements)
+    # For bank/account detection, also try the word-spaced text
+    # (fixes PDFs where default extract_text() concatenates words)
+    word_text = _words_to_spaced_text(page_words) if page_words else ""
+    detection_text = all_text + "\n" + word_text
+
+    info.bank_name = _detect_bank(detection_text)
+    info.account_last_four = _detect_account_last_four(detection_text)
+    info.account_full_number = _detect_full_account(detection_text)
+    info.statement_period = _detect_statement_period(detection_text)
+
+    # Try table extraction first (most accurate for statements with grid lines)
     txns = _parse_tables(tables)
 
-    # If tables didn't yield much, parse line by line
+    # If tables didn't yield much, try word-level extraction
+    # (best for PDFs like RBC where text runs together but words are separate)
+    if len(txns) < 2 and page_words:
+        txns = _parse_word_rows(page_words, info)
+
+    # If word-level didn't work either, try line-by-line on spaced text
+    if len(txns) < 2 and word_text:
+        txns = _parse_lines(word_text.splitlines(), info)
+
+    # Last resort: line-by-line on raw text
     if len(txns) < 2:
-        txns = _parse_lines(all_text.splitlines())
+        txns = _parse_lines(all_text.splitlines(), info)
 
     # De-duplicate within the same statement (same date+amount+desc)
     txns = _dedup_extracted(txns)
@@ -205,26 +251,38 @@ def get_page_count(file_path: str) -> int:
 #  TEXT EXTRACTION
 # -------------------------------------------------------
 
-def _extract_all(path: Path) -> Tuple[str, list, List[str]]:
-    """Extract full text, tables, and per-page text from PDF."""
+def _extract_all(path: Path) -> Tuple[str, list, List[str], List[list]]:
+    """Extract full text, tables, per-page text, and per-page words from PDF."""
     if not pdfplumber:
-        return "", [], []
+        return "", [], [], []
 
     all_lines = []
     tables = []
     page_texts = []
+    page_words = []
 
     try:
         with pdfplumber.open(str(path)) as pdf:
             for page in pdf.pages:
-                # Extract text
+                # Extract text (default)
                 text = page.extract_text() or ""
                 all_lines.append(text)
                 page_texts.append(text)
 
+                # Extract individual words with tight tolerance
+                # This is critical for PDFs where characters are spaced tightly
+                try:
+                    words = page.extract_words(
+                        x_tolerance=1,
+                        y_tolerance=1,
+                        keep_blank_chars=False,
+                    )
+                    page_words.append(words)
+                except Exception:
+                    page_words.append([])
+
                 # Extract tables with custom settings for better detection
                 try:
-                    # Try with explicit table settings
                     ts = {
                         "vertical_strategy": "lines",
                         "horizontal_strategy": "lines",
@@ -232,14 +290,12 @@ def _extract_all(path: Path) -> Tuple[str, list, List[str]]:
                     }
                     page_tables = page.extract_tables(table_settings=ts) or []
                     if not page_tables:
-                        # Fallback to default table detection
                         page_tables = page.extract_tables() or []
 
                     for tbl in page_tables:
                         if tbl and len(tbl) > 1:
                             tables.append(tbl)
                 except Exception:
-                    # Last resort: try default
                     try:
                         page_tables = page.extract_tables() or []
                         for tbl in page_tables:
@@ -248,12 +304,38 @@ def _extract_all(path: Path) -> Tuple[str, list, List[str]]:
                     except Exception:
                         pass
     except Exception:
-        # Fall back to OCR
         ocr_text = _ocr_extract(path)
         all_lines = [ocr_text]
         page_texts = [ocr_text]
 
-    return "\n".join(all_lines), tables, page_texts
+    return "\n".join(all_lines), tables, page_texts, page_words
+
+
+def _words_to_spaced_text(page_words: List[list]) -> str:
+    """Convert word-level extraction to properly spaced text lines."""
+    all_lines = []
+    for words in page_words:
+        if not words:
+            continue
+        # Group words by y-position (same row)
+        rows: Dict[float, list] = {}
+        for w in words:
+            top = round(w['top'], 0)
+            # Find nearby row (within 3 units tolerance)
+            matched = False
+            for existing_top in list(rows.keys()):
+                if abs(existing_top - top) <= 3:
+                    rows[existing_top].append(w)
+                    matched = True
+                    break
+            if not matched:
+                rows[top] = [w]
+
+        for top in sorted(rows.keys()):
+            row_words = sorted(rows[top], key=lambda w: w['x0'])
+            line = " ".join(w['text'] for w in row_words)
+            all_lines.append(line)
+    return "\n".join(all_lines)
 
 
 def _ocr_extract(path: Path) -> str:
@@ -278,12 +360,10 @@ def _ocr_extract(path: Path) -> str:
 
 def _detect_bank(text: str) -> str:
     """Detect bank name from statement text."""
-    # Check first 3000 chars (header area)
-    header = text[:3000]
+    header = text[:5000]
     for pattern, name in BANK_PATTERNS:
         if pattern.search(header):
             return name
-    # Check full doc
     for pattern, name in BANK_PATTERNS:
         if pattern.search(text):
             return name
@@ -292,22 +372,43 @@ def _detect_bank(text: str) -> str:
 
 def _detect_account_last_four(text: str) -> str:
     """Detect last 4 digits of account number."""
-    header = text[:4000]
+    header = text[:6000]
+
+    # Special Canadian format: "Account number: 09231 101-694-8"
+    # Last four = last 4 digits ignoring hyphens/spaces
+    ca_pattern = re.compile(
+        r"account\s*(?:#|number|no\.?|num)?[:\s]*([\d]+[\s-]+[\d]+-[\d]+-[\d]+)",
+        re.I,
+    )
+    m = ca_pattern.search(header)
+    if m:
+        digits = re.sub(r"[^\d]", "", m.group(1))
+        if len(digits) >= 4:
+            return digits[-4:]
+
+    # Standard patterns
     for pattern in ACCOUNT_NUM_PATTERNS:
         m = pattern.search(header)
         if m:
-            return m.group(1)
-    # Try full text
+            groups = m.groups()
+            if len(groups) == 2:
+                # Canadian hyphenated format: groups are (3-digit, 1-digit)
+                return groups[0][-3:] + groups[1]
+            return groups[0]
+
     for pattern in ACCOUNT_NUM_PATTERNS:
         m = pattern.search(text)
         if m:
-            return m.group(1)
+            groups = m.groups()
+            if len(groups) == 2:
+                return groups[0][-3:] + groups[1]
+            return groups[0]
     return ""
 
 
 def _detect_full_account(text: str) -> str:
     """Try to find full account number."""
-    header = text[:4000]
+    header = text[:6000]
     for pattern in FULL_ACCOUNT_PATTERNS:
         m = pattern.search(header)
         if m:
@@ -317,17 +418,391 @@ def _detect_full_account(text: str) -> str:
 
 def _detect_statement_period(text: str) -> str:
     """Try to detect statement period from text."""
-    header = text[:3000]
+    header = text[:5000]
     period_patterns = [
         re.compile(r"statement\s+period[:\s]*(.+?)(?:\n|$)", re.I),
         re.compile(r"(?:for\s+)?period[:\s]+(\w+\s+\d{1,2},?\s+\d{4}\s*(?:to|-|through)\s*\w+\s+\d{1,2},?\s+\d{4})", re.I),
         re.compile(r"(\w+\s+\d{1,2},?\s+\d{4})\s*(?:to|-|through)\s*(\w+\s+\d{1,2},?\s+\d{4})", re.I),
+        # Canadian format: "December 1, 2025 to January 2, 2026"
+        re.compile(r"(\w+\s*\d{1,2}\s*,?\s*\d{4})\s*to\s*(\w+\s*\d{1,2}\s*,?\s*\d{4})", re.I),
     ]
     for pattern in period_patterns:
         m = pattern.search(header)
         if m:
             return m.group(0).strip()[:100]
     return ""
+
+
+# -------------------------------------------------------
+#  WORD-LEVEL ROW PARSING (for PDFs with tight spacing)
+# -------------------------------------------------------
+
+def _parse_word_rows(page_words: List[list], info: StatementInfo) -> List[ParsedTransaction]:
+    """
+    Parse transactions using word-level extraction.
+    This handles PDFs where extract_text() concatenates words (e.g., RBC).
+    
+    Strategy: group words into rows by y-position, then identify columns by
+    x-position. Date words appear at x<80, descriptions at x~90-300,
+    amounts at x>300.
+    
+    Key insight: continuation lines (no date) that have their OWN amount
+    are separate transactions sharing the previous date, not description
+    continuations of the prior transaction. Only lines with NO amount
+    are true description continuations.
+    """
+    results = []
+
+    for words in page_words:
+        if not words:
+            continue
+
+        # Group words into rows by y-position
+        rows = _group_words_into_rows(words)
+
+        # Find the header row to determine column boundaries
+        col_bounds = _detect_column_boundaries(rows)
+        if not col_bounds:
+            continue
+
+        # Parse transaction rows
+        last_date = None
+        i = 0
+        sorted_tops = sorted(rows.keys())
+
+        while i < len(sorted_tops):
+            top = sorted_tops[i]
+            row_words = sorted(rows[top], key=lambda w: w['x0'])
+
+            # Build a readable line from this row
+            line_text = " ".join(w['text'] for w in row_words)
+
+            # Skip headers, summaries, etc.
+            if _should_skip_word_row(line_text):
+                i += 1
+                continue
+
+            # Try to extract a date from the leftmost words
+            date_str = _extract_date_from_row_words(row_words, col_bounds, info)
+
+            # Extract amounts from words in the amount columns
+            debit, credit, balance = _extract_amounts_from_row(row_words, col_bounds)
+
+            # Determine if this is a transaction row
+            has_amount = (debit is not None and debit != 0) or (credit is not None and credit != 0)
+
+            if date_str:
+                last_date = date_str
+            elif not has_amount:
+                # No date and no amount => skip (pure text line like closing balance)
+                i += 1
+                continue
+
+            # Use current date or inherited date from previous dated row
+            effective_date = date_str or last_date
+            if not effective_date:
+                i += 1
+                continue
+
+            # Collect description words for this row
+            desc_words = _collect_description_words(row_words, col_bounds)
+            desc = " ".join(desc_words)
+
+            # Look ahead for pure continuation lines (no date AND no amount)
+            # These are description-only lines that belong to this transaction
+            lookahead = 1
+            while i + lookahead < len(sorted_tops):
+                next_top = sorted_tops[i + lookahead]
+                next_words = sorted(rows[next_top], key=lambda w: w['x0'])
+                next_line = " ".join(w['text'] for w in next_words)
+
+                if _should_skip_word_row(next_line):
+                    lookahead += 1
+                    continue
+
+                next_date = _extract_date_from_row_words(next_words, col_bounds, info)
+                if next_date:
+                    break  # New dated row = new transaction
+
+                next_debit, next_credit, _ = _extract_amounts_from_row(next_words, col_bounds)
+                next_has_amount = (next_debit is not None and next_debit != 0) or \
+                                  (next_credit is not None and next_credit != 0)
+
+                if next_has_amount:
+                    break  # Continuation with own amount = separate transaction
+
+                # Pure description continuation (no date, no amount)
+                next_desc_words = _collect_description_words(next_words, col_bounds)
+                if next_desc_words:
+                    desc += " " + " ".join(next_desc_words)
+                lookahead += 1
+
+            # Determine amount
+            amount = None
+            if debit is not None and debit != 0:
+                amount = -abs(debit)
+            elif credit is not None and credit != 0:
+                amount = abs(credit)
+
+            if amount is not None and desc and len(desc) >= 2:
+                vendor = _guess_vendor(desc)
+                results.append(ParsedTransaction(
+                    txn_date=effective_date,
+                    description=desc[:200],
+                    amount=round(amount, 2),
+                    vendor_name=vendor,
+                    raw_line=line_text[:300],
+                    balance=balance,
+                ))
+
+            i += lookahead
+
+    return results
+
+
+def _group_words_into_rows(words: list) -> Dict[float, list]:
+    """Group words into rows by y-position with tolerance."""
+    rows: Dict[float, list] = {}
+    for w in words:
+        top = round(w['top'], 0)
+        matched = False
+        for existing_top in list(rows.keys()):
+            if abs(existing_top - top) <= 3:
+                rows[existing_top].append(w)
+                matched = True
+                break
+        if not matched:
+            rows[top] = [w]
+    return rows
+
+
+def _detect_column_boundaries(rows: Dict[float, list]) -> Optional[dict]:
+    """
+    Detect column boundaries from the header row.
+    Returns dict with approximate x-ranges for date, description, debit, credit, balance.
+    """
+    for top in sorted(rows.keys()):
+        row_words = sorted(rows[top], key=lambda w: w['x0'])
+        line_lower = " ".join(w['text'].lower() for w in row_words)
+
+        # Look for header-like row
+        if ("date" in line_lower and "description" in line_lower) or \
+           ("date" in line_lower and ("debit" in line_lower or "cheque" in line_lower)) or \
+           ("date" in line_lower and "balance" in line_lower):
+
+            bounds = {"date_max_x": 85, "desc_min_x": 85, "desc_max_x": 300}
+
+            for w in row_words:
+                txt = w['text'].lower()
+                if "date" in txt:
+                    bounds["date_max_x"] = w['x1'] + 10
+                    bounds["desc_min_x"] = w['x1'] + 10
+                elif "description" in txt or "detail" in txt:
+                    bounds["desc_min_x"] = w['x0'] - 5
+                elif any(k in txt for k in ["cheque", "debit", "withdrawal", "charge"]):
+                    bounds["desc_max_x"] = w['x0'] - 5
+                    bounds["debit_min_x"] = w['x0'] - 10
+                    bounds["debit_max_x"] = w['x1'] + 30
+                elif any(k in txt for k in ["deposit", "credit"]):
+                    bounds["credit_min_x"] = w['x0'] - 10
+                    bounds["credit_max_x"] = w['x1'] + 30
+                elif "balance" in txt:
+                    bounds["balance_min_x"] = w['x0'] - 10
+
+            # Set defaults if not found
+            bounds.setdefault("debit_min_x", 300)
+            bounds.setdefault("debit_max_x", 420)
+            bounds.setdefault("credit_min_x", 400)
+            bounds.setdefault("credit_max_x", 530)
+            bounds.setdefault("balance_min_x", 530)
+
+            return bounds
+
+    # If no header found, use generic layout for common banks
+    # (date < 85, desc 85-300, amounts > 300, balance > 530)
+    return {
+        "date_max_x": 85,
+        "desc_min_x": 85,
+        "desc_max_x": 310,
+        "debit_min_x": 310,
+        "debit_max_x": 420,
+        "credit_min_x": 400,
+        "credit_max_x": 530,
+        "balance_min_x": 530,
+    }
+
+
+def _extract_date_from_row_words(row_words: list, col_bounds: dict, info_or_year) -> Optional[str]:
+    """Extract a date from the leftmost words in a row."""
+    date_words = [w for w in row_words if w['x0'] < col_bounds.get("date_max_x", 85)]
+    if not date_words:
+        return None
+
+    date_text = " ".join(w['text'] for w in sorted(date_words, key=lambda w: w['x0']))
+    date_text = date_text.strip()
+
+    if not date_text or not any(c.isdigit() for c in date_text):
+        return None
+
+    # Try standard date normalization first
+    result = _normalize_date(date_text)
+    if result:
+        return result
+
+    # Try DDMon / DD Mon format (e.g., "01 Dec", "01Dec", "04 Dec")
+    result = _parse_ddmon_date(date_text, info_or_year)
+    if result:
+        return result
+
+    return None
+
+
+def _parse_ddmon_date(text: str, info_or_year) -> Optional[str]:
+    """Parse dates in DD Mon format (e.g., '01 Dec', '01Dec', '15Dec').
+    
+    info_or_year can be a StatementInfo (for smart year inference) or an int year.
+    """
+    text = text.strip()
+    m = re.match(r'^(\d{1,2})\s*([A-Za-z]{3})$', text)
+    if not m:
+        return None
+    day = int(m.group(1))
+    mon_str = m.group(2).lower()
+    month = MONTH_MAP.get(mon_str)
+    if not month or day < 1 or day > 31:
+        return None
+
+    # Determine year
+    if isinstance(info_or_year, int):
+        year = info_or_year
+    else:
+        year = _infer_date_year_from_period(month, info_or_year)
+
+    try:
+        dt = datetime(year, month, day)
+        return dt.strftime("%Y-%m-%d")
+    except ValueError:
+        return None
+
+
+def _collect_description_words(row_words: list, col_bounds: dict) -> List[str]:
+    """Collect words that fall in the description column."""
+    desc_min = col_bounds.get("desc_min_x", 85)
+    desc_max = col_bounds.get("desc_max_x", 300)
+    desc_words = []
+    for w in sorted(row_words, key=lambda w: w['x0']):
+        # Words in the description area (between date and amount columns)
+        if w['x0'] >= desc_min - 5 and w['x1'] <= desc_max + 100:
+            # Exclude words that look like amounts
+            if not _looks_like_amount(w['text']):
+                desc_words.append(w['text'])
+    return desc_words
+
+
+def _extract_amounts_from_row(row_words: list, col_bounds: dict) -> Tuple[Optional[float], Optional[float], Optional[float]]:
+    """Extract debit, credit, and balance amounts from row words."""
+    debit_min = col_bounds.get("debit_min_x", 300)
+    debit_max = col_bounds.get("debit_max_x", 420)
+    credit_min = col_bounds.get("credit_min_x", 400)
+    credit_max = col_bounds.get("credit_max_x", 530)
+    balance_min = col_bounds.get("balance_min_x", 530)
+
+    # Collect amount words in each zone
+    debit_texts = []
+    credit_texts = []
+    balance_texts = []
+
+    for w in sorted(row_words, key=lambda w: w['x0']):
+        x_mid = (w['x0'] + w['x1']) / 2
+        txt = w['text'].strip()
+        if not txt:
+            continue
+
+        if x_mid >= balance_min:
+            balance_texts.append(txt)
+        elif x_mid >= credit_min:
+            credit_texts.append(txt)
+        elif x_mid >= debit_min:
+            debit_texts.append(txt)
+
+    debit = _parse_amount("".join(debit_texts)) if debit_texts else None
+    credit = _parse_amount("".join(credit_texts)) if credit_texts else None
+    balance = _parse_amount("".join(balance_texts)) if balance_texts else None
+
+    return debit, credit, balance
+
+
+def _should_skip_word_row(line: str) -> bool:
+    """Check if a word row should be skipped."""
+    line_lower = line.strip().lower()
+    if not line_lower or len(line_lower) < 3:
+        return True
+    skip_terms = [
+        "opening balance", "closing balance", "beginning balance", "ending balance",
+        "account summary", "account activity", "account fees",
+        "total deposits", "total cheques", "total debits", "total credits",
+        "total withdrawals", "total charges",
+        "page ", "continued on", "how to reach",
+        "please contact", "www.", "http",
+    ]
+    for term in skip_terms:
+        if term in line_lower:
+            return True
+    # Skip if it's just a header row
+    if "date" in line_lower and ("description" in line_lower or "balance" in line_lower):
+        return True
+    return False
+
+
+def _infer_statement_year(info: StatementInfo) -> int:
+    """Infer the year from the statement period or use current year."""
+    if info.statement_period:
+        years = re.findall(r"20\d{2}", info.statement_period)
+        if years:
+            return int(years[0])  # Use the first (start) year
+    return datetime.now().year
+
+
+def _infer_date_year_from_period(month: int, info: StatementInfo) -> int:
+    """
+    Infer the correct year for a DDMon date using the statement period.
+    Handles cross-year statements (e.g., Dec 2025 to Jan 2026).
+    """
+    if not info.statement_period:
+        return datetime.now().year
+
+    # Extract month-year pairs from period, sorted by position in text
+    period_lower = info.statement_period.lower()
+    month_year_pairs = []
+    for mon_name, mon_num in MONTH_MAP.items():
+        pat = re.compile(rf"{mon_name}\w*\s*\d{{0,2}}\s*,?\s*(20\d{{2}})", re.I)
+        for m in pat.finditer(period_lower):
+            month_year_pairs.append((m.start(), mon_num, int(m.group(1))))
+
+    # Sort by position in text (start date first, end date second)
+    month_year_pairs.sort(key=lambda x: x[0])
+
+    if len(month_year_pairs) >= 2:
+        _, start_month, start_year = month_year_pairs[0]
+        _, end_month, end_year = month_year_pairs[-1]
+
+        # If cross-year (e.g., Dec 2025 to Jan 2026)
+        if start_year != end_year:
+            if month >= start_month:
+                return start_year
+            else:
+                return end_year
+
+        return start_year
+
+    if month_year_pairs:
+        return month_year_pairs[0][2]
+
+    years = re.findall(r"20\d{2}", info.statement_period)
+    if years:
+        return int(years[0])
+
+    return datetime.now().year
 
 
 # -------------------------------------------------------
@@ -341,14 +816,12 @@ def _parse_tables(tables: list) -> List[ParsedTransaction]:
         if not table or len(table) < 2:
             continue
 
-        # Find the header row to identify columns
         header = table[0]
         if not header:
             continue
 
         col_map = _identify_columns(header)
         if not col_map.get("date") and not col_map.get("amount") and not col_map.get("debit"):
-            # Try using row 1 as header (some tables have merged header cells)
             if len(table) > 2:
                 col_map = _identify_columns(table[1])
                 if col_map.get("date") or col_map.get("amount"):
@@ -360,7 +833,6 @@ def _parse_tables(tables: list) -> List[ParsedTransaction]:
                             results.append(txn)
                     continue
 
-            # No structured header found, try to parse generically
             for row in table[1:]:
                 txn = _parse_generic_row(row)
                 if txn:
@@ -389,7 +861,7 @@ def _identify_columns(header: list) -> dict:
                 col_map["date"] = i
         elif any(w in cell_lower for w in ["description", "details", "memo", "payee", "narrative", "reference"]):
             col_map["description"] = i
-        elif any(w in cell_lower for w in ["debit", "withdrawal", "charge", "payment", "money out"]):
+        elif any(w in cell_lower for w in ["debit", "withdrawal", "charge", "payment", "money out", "cheque"]):
             col_map["debit"] = i
         elif any(w in cell_lower for w in ["credit", "deposit", "money in"]):
             col_map["credit"] = i
@@ -403,14 +875,12 @@ def _identify_columns(header: list) -> dict:
 def _parse_table_row(row: list, col_map: dict) -> Optional[ParsedTransaction]:
     """Parse a single table row into a transaction using the column map."""
     try:
-        # Get date
         date_str = None
         if "date" in col_map and col_map["date"] < len(row):
             raw = str(row[col_map["date"]] or "").strip()
             date_str = _normalize_date(raw)
 
         if not date_str:
-            # Try to find a date anywhere in the row
             for cell in row:
                 if cell:
                     d = _normalize_date(str(cell).strip())
@@ -421,12 +891,10 @@ def _parse_table_row(row: list, col_map: dict) -> Optional[ParsedTransaction]:
         if not date_str:
             return None
 
-        # Get description
         desc = ""
         if "description" in col_map and col_map["description"] < len(row):
             desc = str(row[col_map["description"]] or "").strip()
         else:
-            # Use the largest text cell as description
             best = ""
             for i, cell in enumerate(row):
                 s = str(cell or "").strip()
@@ -437,7 +905,6 @@ def _parse_table_row(row: list, col_map: dict) -> Optional[ParsedTransaction]:
         if not desc or len(desc) < 2:
             return None
 
-        # Get amount
         amount = None
         if "debit" in col_map and col_map["debit"] < len(row):
             debit_val = _parse_amount(str(row[col_map["debit"]] or ""))
@@ -453,7 +920,6 @@ def _parse_table_row(row: list, col_map: dict) -> Optional[ParsedTransaction]:
             amount = _parse_amount(str(row[col_map["amount"]] or ""))
 
         if amount is None:
-            # Try to find an amount in any cell (from right to left, skip balance)
             bal_idx = col_map.get("balance")
             for i in range(len(row) - 1, -1, -1):
                 if i == bal_idx:
@@ -467,13 +933,10 @@ def _parse_table_row(row: list, col_map: dict) -> Optional[ParsedTransaction]:
         if amount is None:
             return None
 
-        # Skip header-like or summary rows
         if _should_skip(desc):
             return None
 
         vendor = _guess_vendor(desc)
-
-        # Get balance if available
         balance = None
         if "balance" in col_map and col_map["balance"] < len(row):
             balance = _parse_amount(str(row[col_map["balance"]] or ""))
@@ -536,13 +999,14 @@ def _parse_generic_row(row: list) -> Optional[ParsedTransaction]:
 #  LINE-BY-LINE PARSING (fallback)
 # -------------------------------------------------------
 
-def _parse_lines(lines: List[str]) -> List[ParsedTransaction]:
+def _parse_lines(lines: List[str], info: Optional[StatementInfo] = None) -> List[ParsedTransaction]:
     """Parse transactions from raw text lines."""
     results = []
+    effective_info = info or StatementInfo()
     i = 0
     while i < len(lines):
         line = lines[i].strip()
-        if not line or len(line) < 8:
+        if not line or len(line) < 5:
             i += 1
             continue
 
@@ -550,8 +1014,14 @@ def _parse_lines(lines: List[str]) -> List[ParsedTransaction]:
             i += 1
             continue
 
-        # Try to parse this line (and maybe the next line for multi-line descriptions)
+        # Try to parse this line
         date_str = _extract_date_from_line(line)
+        # Also try DDMon format
+        if not date_str:
+            m = re.match(r'^(\d{1,2}\s*[A-Za-z]{3})\b', line)
+            if m:
+                date_str = _parse_ddmon_date(m.group(1), effective_info)
+
         if not date_str:
             i += 1
             continue
@@ -561,7 +1031,15 @@ def _parse_lines(lines: List[str]) -> List[ParsedTransaction]:
         lookahead = 1
         while i + lookahead < len(lines) and lookahead <= 3:
             next_line = lines[i + lookahead].strip()
-            if not next_line or _extract_date_from_line(next_line):
+            if not next_line:
+                lookahead += 1
+                continue
+            next_date = _extract_date_from_line(next_line)
+            if not next_date:
+                m = re.match(r'^(\d{1,2}\s*[A-Za-z]{3})\b', next_line)
+                if m:
+                    next_date = _parse_ddmon_date(m.group(1), effective_info)
+            if next_date:
                 break
             if _should_skip(next_line):
                 break
@@ -579,6 +1057,8 @@ def _parse_lines(lines: List[str]) -> List[ParsedTransaction]:
             desc = p.sub("", desc)
         for p in AMOUNT_PATTERNS:
             desc = p.sub("", desc)
+        # Also remove DDMon patterns from start
+        desc = re.sub(r"^\d{1,2}\s*[A-Za-z]{3}\s*", "", desc)
         desc = re.sub(r"\s+", " ", desc).strip()
 
         if len(desc) < 2:
@@ -624,26 +1104,24 @@ def _normalize_date(text: str) -> Optional[str]:
     if not text:
         return None
     text = text.strip()
-    # Quick reject: too short or doesn't contain a digit
     if len(text) < 5 or not any(c.isdigit() for c in text):
         return None
     formats = [
         "%m/%d/%Y", "%m/%d/%y", "%Y-%m-%d", "%m-%d-%Y", "%m-%d-%y",
         "%b %d, %Y", "%b %d %Y", "%d %b %Y",
         "%B %d, %Y", "%B %d %Y",
+        "%d %B %Y", "%B %d,%Y",
     ]
     for fmt in formats:
         try:
             dt = datetime.strptime(text, fmt)
             if dt.year < 100:
                 dt = dt.replace(year=dt.year + 2000)
-            # Sanity check: year should be recent
             if 2000 <= dt.year <= 2035:
                 return dt.strftime("%Y-%m-%d")
         except ValueError:
             continue
-    # Try to extract a date from the text
-    for pattern in DATE_PATTERNS:
+    for pattern in DATE_PATTERNS[:-1]:  # Skip the DDMon pattern (last one)
         m = pattern.search(text)
         if m and m.group(1) != text:
             return _normalize_date(m.group(1))
@@ -652,7 +1130,7 @@ def _normalize_date(text: str) -> Optional[str]:
 
 def _extract_date_from_line(line: str) -> Optional[str]:
     """Extract and normalize a date from a text line."""
-    for pattern in DATE_PATTERNS:
+    for pattern in DATE_PATTERNS[:-1]:  # Skip DDMon pattern
         m = pattern.search(line)
         if m:
             return _normalize_date(m.group(1))
@@ -677,6 +1155,8 @@ def _parse_amount(text: str) -> Optional[float]:
             pass
 
     text = text.replace("$", "").replace(",", "").replace(" ", "")
+    # Remove trailing non-numeric characters
+    text = re.sub(r"[^0-9.\-]$", "", text)
     try:
         val = float(text)
         return val
@@ -701,12 +1181,11 @@ def _extract_amount_from_text(text: str) -> Optional[float]:
     if not amounts:
         return None
 
-    # De-duplicate by position (regex overlap)
     amounts.sort(key=lambda x: x[1])
     deduped = []
     last_pos = -10
     for val, pos in amounts:
-        if pos - last_pos > 2:  # new position
+        if pos - last_pos > 2:
             deduped.append(val)
         last_pos = pos
 
@@ -714,16 +1193,10 @@ def _extract_amount_from_text(text: str) -> Optional[float]:
         return deduped[0]
 
     if len(deduped) >= 2:
-        # Usually: transaction amount, then balance
-        # Transaction amount is typically the first dollar-sign amount
-        # If first is smaller (absolute) than second, it's likely the txn amount
-        # If they're close in value, prefer the first
         first, second = deduped[0], deduped[1]
         if abs(first) <= abs(second):
             return first
-        # If first is larger, it might be a balance from previous line
-        # In that case prefer the second (but this is less common)
-        return first  # default: trust position
+        return first
     
     return deduped[0]
 
@@ -749,14 +1222,16 @@ def _guess_vendor(description: str) -> str:
     if not description:
         return "Unknown"
 
-    # Remove common prefixes
+    # Remove common prefixes (including Canadian bank-specific ones)
     prefixes = [
         r"^(?:pos|debit|credit|ach|wire|check|chk|card|purchase|payment|transfer)\s+",
         r"^(?:recurring|online|mobile|bill)\s+(?:payment|purchase|debit)\s+",
-        r"^(?:visa|mastercard|mc|discover)\s+",
+        r"^(?:visa|mastercard|mc|discover|interac)\s+",
         r"^(?:checkcard|debit\s+card|credit\s+card)\s+\d*\s*",
         r"^(?:external|internal)\s+(?:transfer|withdrawal|deposit)\s+",
         r"^(?:zelle|venmo|paypal|cashapp)\s+(?:payment\s+)?(?:to|from)\s+",
+        r"^(?:e-?transfer\s+(?:sent|received|from|to))\s+",
+        r"^(?:bill\s*payment|misc\s*payment)\s+",
     ]
     clean = description
     for p in prefixes:
@@ -766,15 +1241,19 @@ def _guess_vendor(description: str) -> str:
     # Remove trailing reference numbers, dates, and location info
     clean = re.sub(r"\s+(?:ref|conf|trace|auth|seq|tran)[:\s#]*\S+\s*$", "", clean, flags=re.I)
     clean = re.sub(r"\s+\d{6,}\s*$", "", clean)
-    clean = re.sub(r"\s+[A-Z]{2}\s+\d{5}(-\d{4})?\s*$", "", clean)  # state + zip
-    clean = re.sub(r"\s+[A-Z]{2}\s*$", "", clean)  # state codes
-    clean = re.sub(r"\s+\d{1,2}/\d{1,2}\s*$", "", clean)  # trailing date
+    clean = re.sub(r"\s+[A-Z]{2}\s+\d{5}(-\d{4})?\s*$", "", clean)
+    clean = re.sub(r"\s+[A-Z]{2}\s*$", "", clean)
+    clean = re.sub(r"\s+\d{1,2}/\d{1,2}\s*$", "", clean)
+    # Remove <DEFTPYMT> style tags
+    clean = re.sub(r"\s*<[^>]+>\s*", " ", clean)
+    # Remove trailing numbers (reference codes)
+    clean = re.sub(r"\s+\d{3,}$", "", clean)
 
-    # Take meaningful words
     words = clean.split()
     noise = {"pos", "debit", "credit", "card", "purchase", "payment", "ach",
              "wire", "transfer", "ref", "#", "no.", "the", "at", "in", "on", "for",
-             "to", "from", "via", "by", "check", "deposit"}
+             "to", "from", "via", "by", "check", "deposit", "sent", "received",
+             "misc", "bill", "e-transfer"}
     meaningful = [w for w in words if w.lower() not in noise and len(w) > 1]
 
     if meaningful:
