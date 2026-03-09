@@ -1,6 +1,10 @@
 import { useEffect, useState } from 'react';
-import { getTransactions, getAccounts, createTransaction, deleteTransaction, bulkRecategorize } from '../api/client';
-import { Plus, Search, Trash2, X, Check, Tags, Filter } from 'lucide-react';
+import {
+  getTransactions, getAccounts, createTransaction, updateTransaction,
+  deleteTransaction, bulkRecategorize,
+} from '../api/client';
+import { Plus, Search, Trash2, X, Check, Tags, Filter, Edit2 } from 'lucide-react';
+import GroupedAccountSelect from '../components/GroupedAccountSelect';
 
 function formatMoney(val) {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(val);
@@ -16,6 +20,10 @@ export default function Transactions() {
   const [filters, setFilters] = useState({ search: '', account_id: '', date_from: '', date_to: '' });
   const [form, setForm] = useState({ txn_date: new Date().toISOString().slice(0, 10), vendor_name: '', description: '', amount: '', account_id: '' });
 
+  // Inline edit state
+  const [editId, setEditId] = useState(null);
+  const [editForm, setEditForm] = useState({});
+
   const load = async () => {
     setLoading(true);
     try {
@@ -30,6 +38,7 @@ export default function Transactions() {
 
   const applyFilters = () => load();
 
+  // ─── Create new ───
   const handleSubmit = async (e) => {
     e.preventDefault();
     await createTransaction({ ...form, amount: parseFloat(form.amount), account_id: parseInt(form.account_id) });
@@ -38,13 +47,56 @@ export default function Transactions() {
     load();
   };
 
+  // ─── Inline edit ───
+  const startEdit = (txn) => {
+    setEditId(txn.id);
+    setEditForm({
+      txn_date: txn.txn_date,
+      vendor_name: txn.vendor_name || '',
+      description: txn.description || '',
+      amount: txn.amount,
+      account_id: txn.account_id,
+    });
+  };
+
+  const cancelEdit = () => {
+    setEditId(null);
+    setEditForm({});
+  };
+
+  const saveEdit = async () => {
+    try {
+      await updateTransaction(editId, {
+        txn_date: editForm.txn_date,
+        vendor_name: editForm.vendor_name,
+        description: editForm.description,
+        amount: parseFloat(editForm.amount),
+        account_id: parseInt(editForm.account_id),
+      });
+      setEditId(null);
+      setEditForm({});
+      load();
+    } catch (err) {
+      console.error('Save failed', err);
+    }
+  };
+
+  // Handle Enter key to save, Escape to cancel
+  const handleEditKeyDown = (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); saveEdit(); }
+    if (e.key === 'Escape') { cancelEdit(); }
+  };
+
+  // ─── Delete ───
   const handleDelete = async (id) => {
     if (confirm('Delete this transaction?')) {
       await deleteTransaction(id);
+      if (editId === id) cancelEdit();
       load();
     }
   };
 
+  // ─── Bulk ───
   const handleBulkRecategorize = async () => {
     if (!bulkAccount || selected.size === 0) return;
     await bulkRecategorize({ transaction_ids: [...selected], account_id: parseInt(bulkAccount) });
@@ -71,7 +123,7 @@ export default function Transactions() {
           <h1 className="text-2xl font-bold text-gray-900">Transactions</h1>
           <p className="text-gray-500 mt-1">{transactions.length} transactions</p>
         </div>
-        <button onClick={() => setShowForm(true)} className="btn-primary">
+        <button onClick={() => { setShowForm(true); cancelEdit(); }} className="btn-primary">
           <Plus className="w-4 h-4 mr-2" /> New Transaction
         </button>
       </div>
@@ -88,10 +140,12 @@ export default function Transactions() {
           </div>
           <div>
             <label className="label">Account</label>
-            <select value={filters.account_id} onChange={e => setFilters({...filters, account_id: e.target.value})} className="input-field">
-              <option value="">All accounts</option>
-              {accounts.map(a => <option key={a.id} value={a.id}>{a.name} ({a.type})</option>)}
-            </select>
+            <GroupedAccountSelect
+              accounts={accounts}
+              value={filters.account_id}
+              onChange={e => setFilters({...filters, account_id: e.target.value})}
+              placeholder="All accounts"
+            />
           </div>
           <div>
             <label className="label">From</label>
@@ -107,8 +161,8 @@ export default function Transactions() {
 
       {/* Add Form */}
       {showForm && (
-        <div className="card">
-          <h3 className="text-lg font-semibold mb-4">New Transaction</h3>
+        <div className="card border-2 border-primary-200 bg-primary-50/30">
+          <h3 className="text-lg font-semibold mb-4 text-primary-700">New Transaction</h3>
           <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
             <div>
               <label className="label">Date *</label>
@@ -128,10 +182,13 @@ export default function Transactions() {
             </div>
             <div>
               <label className="label">Account *</label>
-              <select value={form.account_id} onChange={e => setForm({...form, account_id: e.target.value})} required className="input-field">
-                <option value="">Select...</option>
-                {accounts.map(a => <option key={a.id} value={a.id}>{a.name} ({a.type})</option>)}
-              </select>
+              <GroupedAccountSelect
+                accounts={accounts}
+                value={form.account_id}
+                onChange={e => setForm({...form, account_id: e.target.value})}
+                placeholder="Select..."
+                required
+              />
             </div>
             <div className="flex items-end gap-2">
               <button type="submit" className="btn-primary"><Check className="w-4 h-4 mr-1" /> Save</button>
@@ -146,10 +203,13 @@ export default function Transactions() {
         <div className="card bg-primary-50 border-primary-200">
           <div className="flex items-center gap-4">
             <span className="text-sm font-medium text-primary-700">{selected.size} selected</span>
-            <select value={bulkAccount} onChange={e => setBulkAccount(e.target.value)} className="input-field w-auto">
-              <option value="">Recategorize to...</option>
-              {accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
-            </select>
+            <GroupedAccountSelect
+              accounts={accounts}
+              value={bulkAccount}
+              onChange={e => setBulkAccount(e.target.value)}
+              placeholder="Recategorize to..."
+              className="input-field w-auto"
+            />
             <button onClick={handleBulkRecategorize} disabled={!bulkAccount} className="btn-primary btn-sm">
               <Tags className="w-4 h-4 mr-1" /> Apply
             </button>
@@ -164,38 +224,109 @@ export default function Transactions() {
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-gray-50 border-b border-gray-200">
-                <th className="py-3 px-4 text-left">
+                <th className="py-3 px-3 text-left w-10">
                   <input type="checkbox" checked={selected.size === transactions.length && transactions.length > 0} onChange={toggleAll} className="rounded text-primary-600" />
                 </th>
-                <th className="py-3 px-4 text-left text-gray-500 font-medium">Date</th>
-                <th className="py-3 px-4 text-left text-gray-500 font-medium">Vendor</th>
-                <th className="py-3 px-4 text-left text-gray-500 font-medium">Description</th>
-                <th className="py-3 px-4 text-left text-gray-500 font-medium">Category</th>
-                <th className="py-3 px-4 text-right text-gray-500 font-medium">Amount</th>
-                <th className="py-3 px-4 text-right text-gray-500 font-medium">Actions</th>
+                <th className="py-3 px-3 text-left text-gray-500 font-medium w-28">Date</th>
+                <th className="py-3 px-3 text-left text-gray-500 font-medium">Vendor</th>
+                <th className="py-3 px-3 text-left text-gray-500 font-medium">Description</th>
+                <th className="py-3 px-3 text-left text-gray-500 font-medium w-44">Category</th>
+                <th className="py-3 px-3 text-right text-gray-500 font-medium w-28">Amount</th>
+                <th className="py-3 px-3 text-right text-gray-500 font-medium w-24">Actions</th>
               </tr>
             </thead>
             <tbody>
               {transactions.map(txn => (
-                <tr key={txn.id} className={`border-b border-gray-100 hover:bg-gray-50 ${selected.has(txn.id) ? 'bg-primary-50' : ''}`}>
-                  <td className="py-3 px-4">
-                    <input type="checkbox" checked={selected.has(txn.id)} onChange={() => toggleSelect(txn.id)} className="rounded text-primary-600" />
-                  </td>
-                  <td className="py-3 px-4 whitespace-nowrap">{txn.txn_date}</td>
-                  <td className="py-3 px-4 font-medium">{txn.vendor_name || '-'}</td>
-                  <td className="py-3 px-4 text-gray-500 max-w-xs truncate">{txn.description || '-'}</td>
-                  <td className="py-3 px-4">
-                    <span className={`badge-${txn.account_type}`}>{txn.account_name}</span>
-                  </td>
-                  <td className={`py-3 px-4 text-right font-medium whitespace-nowrap ${txn.amount >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-                    {formatMoney(txn.amount)}
-                  </td>
-                  <td className="py-3 px-4 text-right">
-                    <button onClick={() => handleDelete(txn.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-500" title="Delete">
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </td>
-                </tr>
+                editId === txn.id ? (
+                  /* ═══ INLINE EDIT ROW ═══ */
+                  <tr key={txn.id} className="border-b border-primary-100 bg-primary-50/40">
+                    <td className="py-2 px-3">
+                      <input type="checkbox" checked={selected.has(txn.id)} onChange={() => toggleSelect(txn.id)} className="rounded text-primary-600" />
+                    </td>
+                    <td className="py-2 px-3">
+                      <input
+                        type="date"
+                        value={editForm.txn_date}
+                        onChange={e => setEditForm({...editForm, txn_date: e.target.value})}
+                        onKeyDown={handleEditKeyDown}
+                        className="input-field text-sm py-1"
+                      />
+                    </td>
+                    <td className="py-2 px-3">
+                      <input
+                        value={editForm.vendor_name}
+                        onChange={e => setEditForm({...editForm, vendor_name: e.target.value})}
+                        onKeyDown={handleEditKeyDown}
+                        className="input-field text-sm py-1"
+                        placeholder="Vendor"
+                      />
+                    </td>
+                    <td className="py-2 px-3">
+                      <input
+                        value={editForm.description}
+                        onChange={e => setEditForm({...editForm, description: e.target.value})}
+                        onKeyDown={handleEditKeyDown}
+                        className="input-field text-sm py-1"
+                        placeholder="Description"
+                      />
+                    </td>
+                    <td className="py-2 px-3">
+                      <GroupedAccountSelect
+                        accounts={accounts}
+                        value={editForm.account_id}
+                        onChange={e => setEditForm({...editForm, account_id: e.target.value})}
+                        includeEmpty={false}
+                        className="input-field text-sm py-1"
+                      />
+                    </td>
+                    <td className="py-2 px-3">
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={editForm.amount}
+                        onChange={e => setEditForm({...editForm, amount: e.target.value})}
+                        onKeyDown={handleEditKeyDown}
+                        className="input-field text-sm py-1 text-right"
+                      />
+                    </td>
+                    <td className="py-2 px-3 text-right">
+                      <div className="flex justify-end gap-1">
+                        <button onClick={saveEdit} className="p-1.5 rounded-lg bg-emerald-100 hover:bg-emerald-200 text-emerald-700" title="Save (Enter)">
+                          <Check className="w-4 h-4" />
+                        </button>
+                        <button onClick={cancelEdit} className="p-1.5 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-500" title="Cancel (Esc)">
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ) : (
+                  /* ═══ NORMAL DISPLAY ROW ═══ */
+                  <tr key={txn.id} className={`border-b border-gray-100 hover:bg-gray-50 ${selected.has(txn.id) ? 'bg-primary-50' : ''}`}>
+                    <td className="py-3 px-3">
+                      <input type="checkbox" checked={selected.has(txn.id)} onChange={() => toggleSelect(txn.id)} className="rounded text-primary-600" />
+                    </td>
+                    <td className="py-3 px-3 whitespace-nowrap text-gray-700">{txn.txn_date}</td>
+                    <td className="py-3 px-3 font-medium text-gray-900">{txn.vendor_name || '-'}</td>
+                    <td className="py-3 px-3 text-gray-500 max-w-xs truncate">{txn.description || '-'}</td>
+                    <td className="py-3 px-3">
+                      <span className={`badge-${txn.account_type}`}>{txn.account_name}</span>
+                    </td>
+                    <td className={`py-3 px-3 text-right font-medium whitespace-nowrap ${txn.amount >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                      {formatMoney(txn.amount)}
+                    </td>
+                    <td className="py-3 px-3 text-right">
+                      <div className="flex justify-end gap-1">
+                        <button onClick={() => startEdit(txn)} className="p-1.5 rounded-lg hover:bg-blue-50 text-gray-400 hover:text-blue-600" title="Edit">
+                          <Edit2 className="w-4 h-4" />
+                        </button>
+                        <button onClick={() => handleDelete(txn.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-500" title="Delete">
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                )
               ))}
             </tbody>
           </table>

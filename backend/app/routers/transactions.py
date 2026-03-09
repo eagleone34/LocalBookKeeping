@@ -59,11 +59,16 @@ def create_transaction(body: TransactionCreate):
     raise HTTPException(500, "Transaction created but not found")
 
 
-@router.put("/{txn_id}", response_model=dict)
+@router.put("/{txn_id}", response_model=TransactionOut)
 def update_transaction(txn_id: int, body: TransactionUpdate):
     kwargs = body.model_dump(exclude_none=True)
     ds.update_transaction(get_conn(), get_company_id(), txn_id, **kwargs)
-    return {"ok": True}
+    # Return the updated transaction
+    rows = ds.list_transactions(get_conn(), get_company_id(), limit=5000)
+    for r in rows:
+        if r["id"] == txn_id:
+            return _to_out(r)
+    raise HTTPException(404, "Transaction not found after update")
 
 
 @router.delete("/{txn_id}")

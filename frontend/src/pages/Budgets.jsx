@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { getBudgets, getAccounts, upsertBudget, deleteBudget, getBudgetVsActual } from '../api/client';
 import { Plus, Trash2, Check, X, TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, Cell } from 'recharts';
+import GroupedAccountSelect from '../components/GroupedAccountSelect';
 
 function formatMoney(val) {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0 }).format(val);
@@ -85,10 +86,13 @@ export default function Budgets() {
             </div>
             <div>
               <label className="label">Account *</label>
-              <select value={form.account_id} onChange={e => setForm({...form, account_id: e.target.value})} required className="input-field">
-                <option value="">Select account...</option>
-                {accounts.filter(a => a.type === 'expense').map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
-              </select>
+              <GroupedAccountSelect
+                accounts={accounts.filter(a => a.type === 'expense')}
+                value={form.account_id}
+                onChange={e => setForm({...form, account_id: e.target.value})}
+                placeholder="Select account..."
+                required
+              />
             </div>
             <div>
               <label className="label">Budget Amount *</label>
