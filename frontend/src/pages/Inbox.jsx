@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { getDocuments, getDocTransactions, uploadDocuments, actionDocTransaction, bulkDocAction, getAccounts } from '../api/client';
 import { Upload, FileText, CheckCircle2, XCircle, AlertCircle, Loader2, Check, X } from 'lucide-react';
+import GroupedAccountSelect from '../components/GroupedAccountSelect';
 
 function formatMoney(val) {
   if (val === null || val === undefined) return '-';
@@ -207,19 +208,15 @@ export default function Inbox() {
                   </td>
                   <td className="py-3 px-4">
                     {filter === 'review' ? (
-                      <select
-                        defaultValue={dt.suggested_account_id || ''}
+                      <GroupedAccountSelect
+                        accounts={accounts}
+                        value={dt.suggested_account_id || ''}
                         onChange={(e) => {
-                          // Store override locally - will be used on approve
                           dt._override_account = parseInt(e.target.value);
                         }}
+                        placeholder="Uncategorized"
                         className="input-field text-xs py-1"
-                      >
-                        <option value="">Uncategorized</option>
-                        {accounts.map(a => (
-                          <option key={a.id} value={a.id}>{a.name} ({a.type})</option>
-                        ))}
-                      </select>
+                      />
                     ) : (
                       <span>{dt.suggested_account_name || dt.user_account_name || 'Uncategorized'}</span>
                     )}

@@ -55,6 +55,30 @@ def restore_account(account_id: int):
     return {"ok": True}
 
 
+@router.delete("/{account_id}")
+def delete_account(account_id: int):
+    """Delete account only if it has zero transactions."""
+    txn_count = ds.count_account_transactions(get_conn(), account_id)
+    if txn_count > 0:
+        raise HTTPException(
+            400,
+            f"Cannot delete account: it has {txn_count} transaction(s). "
+            "Remove or re-categorize them first, or archive the account instead.",
+        )
+    acc = ds.get_account(get_conn(), account_id)
+    if not acc:
+        raise HTTPException(404, "Account not found")
+    ds.delete_account(get_conn(), account_id)
+    return {"ok": True, "message": f"Account '{acc['name']}' deleted"}
+
+
+@router.get("/{account_id}/transaction-count")
+def account_transaction_count(account_id: int):
+    """Return how many transactions reference this account."""
+    count = ds.count_account_transactions(get_conn(), account_id)
+    return {"account_id": account_id, "count": count}
+
+
 def _to_out(row: dict) -> AccountOut:
     return AccountOut(
         id=row["id"],

@@ -107,6 +107,18 @@ def restore_account(conn: sqlite3.Connection, account_id: int) -> None:
     conn.commit()
 
 
+def count_account_transactions(conn: sqlite3.Connection, account_id: int) -> int:
+    """Return the number of transactions linked to this account."""
+    row = conn.execute("SELECT COUNT(*) as cnt FROM transactions WHERE account_id=?", (account_id,)).fetchone()
+    return int(row["cnt"])
+
+
+def delete_account(conn: sqlite3.Connection, account_id: int) -> None:
+    """Delete an account. Caller must verify no transactions exist first."""
+    conn.execute("DELETE FROM accounts WHERE id=?", (account_id,))
+    conn.commit()
+
+
 # ═══════════════════════════════════════════════════════
 #  VENDORS
 # ═══════════════════════════════════════════════════════

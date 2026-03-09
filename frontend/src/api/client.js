@@ -26,6 +26,10 @@ export const archiveAccount = (id) =>
   request(`/api/accounts/${id}/archive`, { method: 'POST' });
 export const restoreAccount = (id) =>
   request(`/api/accounts/${id}/restore`, { method: 'POST' });
+export const deleteAccount = (id) =>
+  request(`/api/accounts/${id}`, { method: 'DELETE' });
+export const getAccountTransactionCount = (id) =>
+  request(`/api/accounts/${id}/transaction-count`);
 
 // Transactions
 export const getTransactions = (params = {}) => {

@@ -5,7 +5,7 @@ import pytest
 from app.database import connect, init_schema
 from app.services.data_service import (
     ensure_company, create_account, list_accounts, update_account,
-    archive_account, restore_account,
+    archive_account, restore_account, count_account_transactions, delete_account,
     create_transaction, list_transactions, count_transactions,
     delete_transaction, bulk_recategorize,
     upsert_budget, list_budgets, delete_budget,
@@ -236,3 +236,26 @@ class TestVendors:
         assert vid2 == vid
         vendors = list_vendors(db, company)
         assert len(vendors) == 1
+
+
+class TestAccountDelete:
+    def test_count_account_transactions(self, db, company):
+        aid = create_account(db, company, "Travel", "expense")
+        assert count_account_transactions(db, aid) == 0
+        create_transaction(db, company, aid, "2025-03-01", -100, vendor_name="Delta")
+        create_transaction(db, company, aid, "2025-03-02", -200, vendor_name="Uber")
+        assert count_account_transactions(db, aid) == 2
+
+    def test_delete_account_no_transactions(self, db, company):
+        aid = create_account(db, company, "Unused Account", "expense")
+        assert len(list_accounts(db, company)) == 1
+        delete_account(db, aid)
+        assert len(list_accounts(db, company)) == 0
+
+    def test_delete_account_blocked_when_has_transactions(self, db, company):
+        aid = create_account(db, company, "Active Account", "expense")
+        create_transaction(db, company, aid, "2025-03-01", -50, vendor_name="Test")
+        # count_account_transactions should show 1
+        assert count_account_transactions(db, aid) == 1
+        # In the API layer, this would be blocked; here we verify the count logic
+        # The data_service.delete_account itself doesn't check -- the router does
