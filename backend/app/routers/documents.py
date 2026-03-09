@@ -1,5 +1,6 @@
 """
 Documents & PDF Inbox API endpoints.
+Smart pipeline: upload -> extract -> detect bank -> detect duplicates -> categorize -> review
 """
 from __future__ import annotations
 
@@ -14,7 +15,7 @@ from app.models import DocumentOut, DocTransactionOut, DocTransactionAction, Bul
 from app.main_state import get_conn, get_company_id, get_upload_dir
 from app.services import data_service as ds
 from app.services.categorization import suggest_account
-from app.services.pdf_parser import parse_pdf, get_page_count
+from app.services.pdf_parser import parse_statement, get_page_count
 
 router = APIRouter(prefix="/api/documents", tags=["documents"])
 
@@ -27,7 +28,7 @@ def list_documents():
 
 @router.post("/upload", response_model=List[DocumentOut])
 async def upload_documents(files: List[UploadFile] = File(...)):
-    """Upload one or more PDF files for processing."""
+    """Upload one or more PDF files. Full smart pipeline runs automatically."""
     conn = get_conn()
     cid = get_company_id()
     upload_dir = get_upload_dir()
@@ -37,7 +38,7 @@ async def upload_documents(files: List[UploadFile] = File(...)):
         if not file.filename:
             continue
 
-        # Save file to upload directory
+        # Save file
         safe_name = file.filename.replace(" ", "_")
         dest = upload_dir / safe_name
         counter = 1
@@ -53,17 +54,59 @@ async def upload_documents(files: List[UploadFile] = File(...)):
         # Create document record
         doc_id = ds.create_document(conn, cid, file.filename, str(dest), len(content))
 
-        # Parse the PDF
         try:
             ds.update_document(conn, doc_id, status="processing")
-            parsed = parse_pdf(str(dest))
+
+            # ═══ STEP 1: Parse the PDF ═══
+            info = parse_statement(str(dest))
             pages = get_page_count(str(dest))
             ds.update_document(conn, doc_id, page_count=pages)
 
-            # Create document transactions with categorization suggestions
-            for entry in parsed:
-                acct_id, confidence = suggest_account(conn, cid, entry.description, entry.vendor_name)
-                ds.create_doc_transaction(
+            # ═══ STEP 2: Detect bank account ═══
+            bank_account_id = None
+            if info.bank_name and info.account_last_four:
+                # Find or create bank account mapping
+                bank_account_id = ds.upsert_bank_account(
+                    conn, cid,
+                    bank_name=info.bank_name,
+                    last_four=info.account_last_four,
+                    full_number=info.account_full_number,
+                )
+                ds.update_document(conn, doc_id,
+                    bank_name=info.bank_name,
+                    account_last_four=info.account_last_four,
+                    bank_account_id=bank_account_id,
+                )
+            elif info.bank_name:
+                ds.update_document(conn, doc_id, bank_name=info.bank_name)
+            elif info.account_last_four:
+                ds.update_document(conn, doc_id, account_last_four=info.account_last_four)
+
+            # ═══ STEP 3: Process each transaction ═══
+            for entry in info.transactions:
+                # 3a. Check for duplicates
+                is_dup, dup_txn_id = ds.check_doc_transaction_duplicate(
+                    conn, cid,
+                    txn_date=entry.txn_date,
+                    amount=entry.amount,
+                    description=entry.description,
+                )
+
+                # 3b. Smart categorization
+                acct_id, confidence = suggest_account(
+                    conn, cid, entry.description, entry.vendor_name
+                )
+
+                # 3c. If we know the bank account's ledger account and nothing else matched
+                if not acct_id and bank_account_id:
+                    ba = ds.get_bank_account(conn, bank_account_id)
+                    if ba and ba.get("ledger_account_id"):
+                        acct_id = ba["ledger_account_id"]
+                        confidence = max(confidence, 0.4)
+
+                # 3d. Create the document transaction
+                status = "duplicate" if is_dup else "review"
+                dt_id = ds.create_doc_transaction(
                     conn, doc_id,
                     txn_date=entry.txn_date,
                     description=entry.description,
@@ -73,8 +116,21 @@ async def upload_documents(files: List[UploadFile] = File(...)):
                     confidence=confidence,
                 )
 
-            status = "review" if parsed else "completed"
+                # Mark duplicate info
+                if is_dup:
+                    ds.update_doc_transaction(conn, dt_id,
+                        is_duplicate=1,
+                        duplicate_of_txn_id=dup_txn_id,
+                        status="duplicate",
+                    )
+
+                # Link to bank account
+                if bank_account_id:
+                    ds.update_doc_transaction(conn, dt_id, bank_account_id=bank_account_id)
+
+            status = "review" if info.transactions else "completed"
             ds.update_document(conn, doc_id, status=status, processed_at=ds._now())
+
         except Exception as e:
             ds.update_document(conn, doc_id, status="error", error_msg=str(e))
 
@@ -95,7 +151,7 @@ def list_doc_transactions(doc_id: Optional[int] = None, status: Optional[str] = 
 
 @router.post("/transactions/{dt_id}/action")
 def action_doc_transaction(dt_id: int, body: DocTransactionAction):
-    """Approve or reject a document transaction."""
+    """Approve or reject a document transaction. Learning happens on approve."""
     conn = get_conn()
     cid = get_company_id()
     dt = ds.get_doc_transaction(conn, dt_id)
@@ -103,7 +159,7 @@ def action_doc_transaction(dt_id: int, body: DocTransactionAction):
         raise HTTPException(404, "Document transaction not found")
 
     if body.action == "approve":
-        account_id = body.account_id or dt["user_account_id"] or dt["suggested_account_id"]
+        account_id = body.account_id or dt.get("user_account_id") or dt.get("suggested_account_id")
         if not account_id:
             raise HTTPException(400, "No account specified for approval")
 
@@ -119,6 +175,11 @@ def action_doc_transaction(dt_id: int, body: DocTransactionAction):
             source_doc_id=dt["document_id"],
         )
         ds.update_doc_transaction(conn, dt_id, status="posted", user_account_id=account_id)
+
+        # ═══ LEARNING: update vendor-account map so next time it auto-categorizes ═══
+        if dt.get("vendor_name"):
+            ds._update_vendor_account_map(conn, cid, dt["vendor_name"], account_id)
+
     elif body.action == "reject":
         ds.update_doc_transaction(conn, dt_id, status="rejected")
 
@@ -127,18 +188,18 @@ def action_doc_transaction(dt_id: int, body: DocTransactionAction):
 
 @router.post("/transactions/bulk-action")
 def bulk_action(body: BulkDocTransactionAction):
-    """Bulk approve or reject document transactions."""
+    """Bulk approve or reject."""
     conn = get_conn()
     cid = get_company_id()
     processed = 0
 
     for dt_id in body.ids:
         dt = ds.get_doc_transaction(conn, dt_id)
-        if not dt or dt["status"] != "review":
+        if not dt or dt["status"] not in ("review", "duplicate"):
             continue
 
         if body.action == "approve":
-            account_id = body.account_id or dt["user_account_id"] or dt["suggested_account_id"]
+            account_id = body.account_id or dt.get("user_account_id") or dt.get("suggested_account_id")
             if not account_id:
                 continue
             ds.create_transaction(
@@ -152,6 +213,9 @@ def bulk_action(body: BulkDocTransactionAction):
                 source_doc_id=dt["document_id"],
             )
             ds.update_doc_transaction(conn, dt_id, status="posted", user_account_id=account_id)
+            # Learning
+            if dt.get("vendor_name"):
+                ds._update_vendor_account_map(conn, cid, dt["vendor_name"], account_id)
         elif body.action == "reject":
             ds.update_doc_transaction(conn, dt_id, status="rejected")
         processed += 1
@@ -159,12 +223,30 @@ def bulk_action(body: BulkDocTransactionAction):
     return {"processed": processed}
 
 
+# ═══ Bank account management ═══
+
+@router.get("/bank-accounts")
+def list_bank_accounts():
+    return ds.list_bank_accounts(get_conn(), get_company_id())
+
+
+@router.put("/bank-accounts/{ba_id}")
+def update_bank_account(ba_id: int, body: dict):
+    """Update bank account mapping (e.g., set ledger_account_id)."""
+    ds.update_bank_account(get_conn(), ba_id, **body)
+    return {"ok": True}
+
+
+# ═══ Output helpers ═══
+
 def _doc_out(r: dict) -> DocumentOut:
     return DocumentOut(
         id=r["id"], filename=r["filename"], file_path=r["file_path"],
         file_size=r.get("file_size"), page_count=r.get("page_count"),
         status=r["status"], error_msg=r.get("error_msg"),
         imported_at=r["imported_at"], processed_at=r.get("processed_at"),
+        bank_name=r.get("bank_name"),
+        account_last_four=r.get("account_last_four"),
     )
 
 
@@ -179,4 +261,7 @@ def _dt_out(r: dict) -> DocTransactionOut:
         status=r["status"],
         user_account_id=r.get("user_account_id"),
         user_account_name=r.get("user_account_name"),
+        is_duplicate=bool(r.get("is_duplicate", 0)),
+        duplicate_of_txn_id=r.get("duplicate_of_txn_id"),
+        bank_account_id=r.get("bank_account_id"),
     )

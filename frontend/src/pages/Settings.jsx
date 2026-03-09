@@ -1,23 +1,31 @@
 import { useEffect, useState } from 'react';
-import { getCompany, updateCompany, getRules, createRule, deleteRule, getAccounts, createBackup, getBackups } from '../api/client';
-import { Save, Trash2, Plus, Shield, Database, BookOpen, Check } from 'lucide-react';
+import {
+  getCompany, updateCompany, getRules, createRule, deleteRule,
+  getAccounts, createBackup, getBackups, getBankAccounts, updateBankAccount,
+} from '../api/client';
+import { Save, Trash2, Plus, Shield, Database, BookOpen, Check, Building2, CreditCard, Link } from 'lucide-react';
+import GroupedAccountSelect from '../components/GroupedAccountSelect';
 
 export default function SettingsPage() {
   const [company, setCompany] = useState(null);
   const [rules, setRules] = useState([]);
   const [accounts, setAccounts] = useState([]);
   const [backups, setBackups] = useState([]);
+  const [bankAccounts, setBankAccounts] = useState([]);
   const [saved, setSaved] = useState(false);
   const [ruleForm, setRuleForm] = useState({ pattern: '', match_type: 'contains', account_id: '', priority: 10 });
   const [activeTab, setActiveTab] = useState(0);
 
   const load = async () => {
     try {
-      const [c, r, a, b] = await Promise.all([getCompany(), getRules(), getAccounts(), getBackups()]);
+      const [c, r, a, b, ba] = await Promise.all([
+        getCompany(), getRules(), getAccounts(), getBackups(), getBankAccounts().catch(() => []),
+      ]);
       setCompany(c);
       setRules(r);
       setAccounts(a);
       setBackups(b);
+      setBankAccounts(ba);
     } catch (e) { console.error(e); }
   };
 
@@ -47,7 +55,12 @@ export default function SettingsPage() {
     load();
   };
 
-  const tabs = ['Company Info', 'Categorization Rules', 'Backup & Security'];
+  const handleLinkBankAccount = async (baId, ledgerAccountId) => {
+    await updateBankAccount(baId, { ledger_account_id: parseInt(ledgerAccountId) });
+    load();
+  };
+
+  const tabs = ['Company Info', 'Categorization Rules', 'Bank Accounts', 'Backup & Security'];
 
   if (!company) return <div className="text-gray-400">Loading...</div>;
 
@@ -59,16 +72,17 @@ export default function SettingsPage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 border-b border-gray-200">
+      <div className="flex gap-1 border-b border-gray-200 overflow-x-auto">
         {tabs.map((tab, i) => (
           <button key={tab} onClick={() => setActiveTab(i)}
-            className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${
+            className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap ${
               activeTab === i ? 'border-primary-600 text-primary-700' : 'border-transparent text-gray-500 hover:text-gray-700'
             }`}
           >
             {i === 0 && <BookOpen className="w-4 h-4" />}
             {i === 1 && <Shield className="w-4 h-4" />}
-            {i === 2 && <Database className="w-4 h-4" />}
+            {i === 2 && <Building2 className="w-4 h-4" />}
+            {i === 3 && <Database className="w-4 h-4" />}
             {tab}
           </button>
         ))}
@@ -116,6 +130,7 @@ export default function SettingsPage() {
             <h3 className="text-lg font-semibold mb-4">Add Categorization Rule</h3>
             <p className="text-sm text-gray-500 mb-4">
               Rules automatically categorize transactions based on keywords. When a transaction matches a pattern, it gets assigned to the specified account.
+              The system also learns from your approvals in the Inbox -- every time you approve a transaction, its vendor-to-account mapping is remembered.
             </p>
             <form onSubmit={handleAddRule} className="grid grid-cols-1 md:grid-cols-5 gap-4">
               <div>
@@ -132,10 +147,13 @@ export default function SettingsPage() {
               </div>
               <div>
                 <label className="label">Account *</label>
-                <select value={ruleForm.account_id} onChange={e => setRuleForm({...ruleForm, account_id: e.target.value})} required className="input-field">
-                  <option value="">Select...</option>
-                  {accounts.map(a => <option key={a.id} value={a.id}>{a.name} ({a.type})</option>)}
-                </select>
+                <GroupedAccountSelect
+                  accounts={accounts}
+                  value={ruleForm.account_id}
+                  onChange={e => setRuleForm({...ruleForm, account_id: e.target.value})}
+                  placeholder="Select account..."
+                  required
+                />
               </div>
               <div>
                 <label className="label">Priority</label>
@@ -179,8 +197,76 @@ export default function SettingsPage() {
         </div>
       )}
 
-      {/* Backup & Security */}
+      {/* Bank Accounts */}
       {activeTab === 2 && (
+        <div className="space-y-6">
+          <div className="card">
+            <h3 className="text-lg font-semibold mb-2 flex items-center gap-2">
+              <Building2 className="w-5 h-5 text-primary-600" />
+              Linked Bank Accounts
+            </h3>
+            <p className="text-sm text-gray-500 mb-4">
+              When you upload a bank statement PDF, the system automatically detects the bank name and account number (last 4 digits).
+              Link each detected bank account to your Chart of Accounts so future uploads auto-map correctly.
+            </p>
+            {bankAccounts.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-gray-50 border-b border-gray-200">
+                      <th className="py-3 px-4 text-left text-gray-500 font-medium">Bank</th>
+                      <th className="py-3 px-4 text-left text-gray-500 font-medium">Account</th>
+                      <th className="py-3 px-4 text-left text-gray-500 font-medium">Nickname</th>
+                      <th className="py-3 px-4 text-left text-gray-500 font-medium w-64">Linked Ledger Account</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {bankAccounts.map(ba => (
+                      <tr key={ba.id} className="border-b border-gray-100 hover:bg-gray-50">
+                        <td className="py-3 px-4">
+                          <span className="flex items-center gap-2">
+                            <Building2 className="w-4 h-4 text-blue-500" />
+                            <span className="font-medium">{ba.bank_name}</span>
+                          </span>
+                        </td>
+                        <td className="py-3 px-4">
+                          <span className="flex items-center gap-1">
+                            <CreditCard className="w-4 h-4 text-gray-400" />
+                            ****{ba.last_four}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4 text-gray-500">{ba.nickname || '-'}</td>
+                        <td className="py-3 px-4">
+                          <div className="flex items-center gap-2">
+                            <Link className="w-4 h-4 text-gray-400" />
+                            <GroupedAccountSelect
+                              accounts={accounts.filter(a => a.type === 'asset')}
+                              value={ba.ledger_account_id || ''}
+                              onChange={e => handleLinkBankAccount(ba.id, e.target.value)}
+                              placeholder="Link to ledger account..."
+                              className="input-field text-sm py-1"
+                            />
+                          </div>
+                          {ba.ledger_account_name && (
+                            <span className="text-xs text-emerald-600 ml-6">Currently: {ba.ledger_account_name}</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="p-8 text-center text-gray-400 bg-gray-50 rounded-lg">
+                No bank accounts detected yet. Upload a bank statement PDF in the Inbox to auto-detect bank accounts.
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Backup & Security */}
+      {activeTab === 3 && (
         <div className="space-y-6">
           <div className="card max-w-2xl">
             <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
@@ -226,8 +312,8 @@ export default function SettingsPage() {
               <div className="flex items-start gap-3 p-3 bg-emerald-50 rounded-lg">
                 <Check className="w-5 h-5 text-emerald-600 mt-0.5" />
                 <div>
-                  <p className="font-medium text-emerald-800">No Cloud Sync</p>
-                  <p className="text-emerald-600">There is no cloud synchronization. Your financial data remains private.</p>
+                  <p className="font-medium text-emerald-800">Smart Learning</p>
+                  <p className="text-emerald-600">The system learns from your categorization decisions and gets smarter with each statement you process.</p>
                 </div>
               </div>
               <div className="flex items-start gap-3 p-3 bg-emerald-50 rounded-lg">

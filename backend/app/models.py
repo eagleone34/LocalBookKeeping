@@ -136,6 +136,8 @@ class DocumentOut(BaseModel):
     error_msg: Optional[str]
     imported_at: str
     processed_at: Optional[str]
+    bank_name: Optional[str] = None
+    account_last_four: Optional[str] = None
 
 
 class DocTransactionOut(BaseModel):
@@ -151,6 +153,9 @@ class DocTransactionOut(BaseModel):
     status: str
     user_account_id: Optional[int]
     user_account_name: Optional[str] = None
+    is_duplicate: bool = False
+    duplicate_of_txn_id: Optional[int] = None
+    bank_account_id: Optional[int] = None
 
 
 class DocTransactionAction(BaseModel):
