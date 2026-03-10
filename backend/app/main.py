@@ -12,7 +12,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.database import connect, init_schema
-from app.main_state import init_state
+from app.main_state import init_state, set_company_id
 from app.services.data_service import ensure_company
 from app.services.seed_data import seed_demo_data
 
@@ -44,6 +44,15 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.middleware("http")
+async def company_context_middleware(request: Request, call_next):
+    company_id_str = request.headers.get("X-Company-Id")
+    if company_id_str and company_id_str.isdigit():
+        set_company_id(int(company_id_str))
+    
+    response = await call_next(request)
+    return response
 
 # ── Register routers ──
 app.include_router(accounts.router)

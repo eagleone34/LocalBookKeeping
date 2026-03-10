@@ -8,6 +8,7 @@ from typing import List
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse
+from pydantic import BaseModel
 
 from app.models import CompanyOut, CompanyUpdate, RuleCreate, RuleOut, VendorOut
 from app.main_state import get_conn, get_company_id, get_data_dir
@@ -21,6 +22,35 @@ def get_company():
     row = ds.get_company(get_conn(), get_company_id())
     if not row:
         raise HTTPException(404, "Company not found")
+    return CompanyOut(**row)
+
+
+@router.get("/companies", response_model=List[CompanyOut])
+def list_companies():
+    rows = get_conn().execute("SELECT * FROM company ORDER BY id").fetchall()
+    return [CompanyOut(**r) for r in rows]
+
+
+class CompanyCreate(BaseModel):
+    name: str
+    currency: str = "USD"
+
+
+@router.post("/companies", response_model=CompanyOut)
+def create_company(body: CompanyCreate):
+    conn = get_conn()
+    now = ds._now()
+    cur = conn.execute(
+        "INSERT INTO company (name, currency, fiscal_year_start, created_at, updated_at) VALUES (?,?,1,?,?)",
+        (body.name, body.currency, now, now),
+    )
+    conn.commit()
+    new_cid = int(cur.lastrowid)
+
+    from app.services.seed_data import seed_default_accounts
+    seed_default_accounts(conn, new_cid)
+
+    row = ds.get_company(conn, new_cid)
     return CompanyOut(**row)
 
 

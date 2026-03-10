@@ -88,6 +88,7 @@ BANK_PATTERNS = [
     (re.compile(r"bmo\s*(harris)?", re.I), "BMO"),
     (re.compile(r"usaa", re.I), "USAA"),
     (re.compile(r"navy\s*federal", re.I), "Navy Federal"),
+    (re.compile(r"ROYALBANKOFCANADA|royal\s*bank\s*of\s*canada", re.I), "Royal Bank of Canada"),
 ]
 
 # Account number patterns - look for last 4 digits
@@ -99,6 +100,7 @@ ACCOUNT_NUM_PATTERNS = [
     re.compile(r"(?:card|member)\s*(?:number|#|no\.?)?[:\s]*(?:\d[\d\s*-]+)?(\d{4})\s*$", re.I | re.M),
     re.compile(r"x{2,}\d*(\d{4})", re.I),
     re.compile(r"\.\.\.\s*(\d{4})", re.I),
+    re.compile(r"account\s*(?:#|number|no\.?)?[:\s]*[\d\s]+-([\d-]+)\b", re.I),
 ]
 
 FULL_ACCOUNT_PATTERNS = [
@@ -116,6 +118,7 @@ DATE_PATTERNS = [
     re.compile(r"\b([A-Z][a-z]{2}\s+\d{1,2},?\s+\d{4})\b"),
     re.compile(r"\b(\d{1,2}\s+[A-Z][a-z]{2}\s+\d{4})\b"),
     re.compile(r"\b([A-Z][a-z]{2}\.\?\s+\d{1,2},?\s+\d{4})\b"),
+    re.compile(r"\b(\d{1,2}\s*(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*)\b", re.I),
 ]
 
 # Amount patterns
@@ -146,6 +149,7 @@ SKIP_PATTERNS = [
     re.compile(r"annual\s+percentage", re.I),
     re.compile(r"customer\s+service", re.I),
     re.compile(r"(subtotal|balance\s*forward)", re.I),
+    re.compile(r"^\s*account\s+fees?:?\s*(?:$|\$)", re.I),
     re.compile(r"^\s*$"),
 ]
 
@@ -175,8 +179,17 @@ def parse_statement(file_path: str) -> StatementInfo:
     txns = _parse_tables(tables)
 
     # If tables didn't yield much, parse line by line
+    opening_balance = None
     if len(txns) < 2:
+        # Try to find opening balance for sign inference
+        for line in all_text.splitlines()[:50]:
+            if any(w in line.lower() for w in ["opening balance", "previous balance", "beginning balance", "balance forward"]):
+                opening_balance = _extract_amount_from_text(line)
+                if opening_balance is not None:
+                    break
+                    
         txns = _parse_lines(all_text.splitlines())
+        txns = _fix_transaction_signs(txns, opening_balance)
 
     # De-duplicate within the same statement (same date+amount+desc)
     txns = _dedup_extracted(txns)
@@ -205,6 +218,42 @@ def get_page_count(file_path: str) -> int:
 #  TEXT EXTRACTION
 # -------------------------------------------------------
 
+def _extract_text_from_words(page) -> str:
+    """Group words by Y coordinate to form properly spaced lines."""
+    try:
+        words = page.extract_words(x_tolerance=2, y_tolerance=3)
+        if not words:
+            return ""
+        
+        words.sort(key=lambda w: (w['top'], w['x0']))
+        
+        lines = []
+        current_line = []
+        last_top = None
+        
+        for w in words:
+            if last_top is None:
+                last_top = w['top']
+                current_line.append(w)
+                continue
+                
+            if abs(w['top'] - last_top) <= 3:
+                current_line.append(w)
+            else:
+                current_line.sort(key=lambda x: x['x0'])
+                lines.append(" ".join(x['text'] for x in current_line))
+                current_line = [w]
+                last_top = w['top']
+                
+        if current_line:
+            current_line.sort(key=lambda x: x['x0'])
+            lines.append(" ".join(x['text'] for x in current_line))
+            
+        return "\n".join(lines)
+    except Exception:
+        return ""
+
+
 def _extract_all(path: Path) -> Tuple[str, list, List[str]]:
     """Extract full text, tables, and per-page text from PDF."""
     if not pdfplumber:
@@ -217,8 +266,10 @@ def _extract_all(path: Path) -> Tuple[str, list, List[str]]:
     try:
         with pdfplumber.open(str(path)) as pdf:
             for page in pdf.pages:
-                # Extract text
-                text = page.extract_text() or ""
+                # Extract text using word-level parsing
+                text = _extract_text_from_words(page)
+                if not text:
+                    text = page.extract_text() or ""
                 all_lines.append(text)
                 page_texts.append(text)
 
@@ -296,12 +347,14 @@ def _detect_account_last_four(text: str) -> str:
     for pattern in ACCOUNT_NUM_PATTERNS:
         m = pattern.search(header)
         if m:
-            return m.group(1)
+            val = m.group(1).replace("-", "").replace(" ", "")
+            return val[-4:] if len(val) >= 4 else val
     # Try full text
     for pattern in ACCOUNT_NUM_PATTERNS:
         m = pattern.search(text)
         if m:
-            return m.group(1)
+            val = m.group(1).replace("-", "").replace(" ", "")
+            return val[-4:] if len(val) >= 4 else val
     return ""
 
 
@@ -540,6 +593,8 @@ def _parse_lines(lines: List[str]) -> List[ParsedTransaction]:
     """Parse transactions from raw text lines."""
     results = []
     i = 0
+    current_date = None
+    
     while i < len(lines):
         line = lines[i].strip()
         if not line or len(line) < 8:
@@ -550,26 +605,49 @@ def _parse_lines(lines: List[str]) -> List[ParsedTransaction]:
             i += 1
             continue
 
-        # Try to parse this line (and maybe the next line for multi-line descriptions)
         date_str = _extract_date_from_line(line)
-        if not date_str:
+        if date_str:
+            current_date = date_str
+            
+        # If we have no date context yet, we can't parse a transaction
+        if not current_date:
             i += 1
             continue
 
-        # Collect the full description (may span multiple lines)
+        amount = _extract_amount_from_text(line)
         full_text = line
         lookahead = 1
-        while i + lookahead < len(lines) and lookahead <= 3:
-            next_line = lines[i + lookahead].strip()
-            if not next_line or _extract_date_from_line(next_line):
-                break
-            if _should_skip(next_line):
-                break
-            full_text += " " + next_line
-            lookahead += 1
-
-        amount = _extract_amount_from_text(full_text)
+        
         if amount is None:
+            # We don't have an amount. Look ahead to find it and build the description.
+            while i + lookahead < len(lines) and lookahead <= 3:
+                next_line = lines[i + lookahead].strip()
+                if not next_line or _extract_date_from_line(next_line):
+                    break
+                if _should_skip(next_line):
+                    break
+                full_text += " " + next_line
+                lookahead += 1
+                
+                amount = _extract_amount_from_text(full_text)
+                if amount is not None:
+                    break
+        else:
+            # We already have an amount. Only look ahead for description continuations 
+            # if the next lines DO NOT have amounts.
+            while i + lookahead < len(lines) and lookahead <= 3:
+                next_line = lines[i + lookahead].strip()
+                if not next_line or _extract_date_from_line(next_line):
+                    break
+                if _should_skip(next_line):
+                    break
+                if _extract_amount_from_text(next_line) is not None:
+                    break
+                full_text += " " + next_line
+                lookahead += 1
+
+        final_amount, final_balance = _extract_amount_and_balance(full_text)
+        if final_amount is None:
             i += 1
             continue
 
@@ -581,22 +659,58 @@ def _parse_lines(lines: List[str]) -> List[ParsedTransaction]:
             desc = p.sub("", desc)
         desc = re.sub(r"\s+", " ", desc).strip()
 
-        if len(desc) < 2:
-            i += lookahead
-            continue
-
-        vendor = _guess_vendor(desc)
-
-        results.append(ParsedTransaction(
-            txn_date=date_str,
-            description=desc[:200],
-            amount=round(amount, 2),
-            vendor_name=vendor,
-            raw_line=full_text[:300],
-        ))
+        if len(desc) >= 2:
+            vendor = _guess_vendor(desc)
+            results.append(ParsedTransaction(
+                txn_date=current_date,
+                description=desc[:200],
+                amount=round(final_amount, 2),
+                vendor_name=vendor,
+                raw_line=full_text[:300],
+                balance=final_balance,
+            ))
+            
         i += lookahead
 
     return results
+
+
+def _fix_transaction_signs(txns: List[ParsedTransaction], opening_balance: Optional[float] = None) -> List[ParsedTransaction]:
+    """If transactions lack negative signs (common in line parsing), infer them using balances."""
+    if not txns:
+        return txns
+        
+    has_negatives = any(t.amount < 0 for t in txns)
+    if has_negatives:
+        return txns
+        
+    for i in range(len(txns)):
+        t = txns[i]
+        
+        inferred = False
+        prev_balance = None
+        
+        if i > 0:
+            prev_balance = txns[i-1].balance
+        else:
+            prev_balance = opening_balance
+            
+        if prev_balance is not None and t.balance is not None:
+            diff = t.balance - prev_balance
+            if abs(abs(diff) - abs(t.amount)) < 0.05:
+                t.amount = round(diff, 2)
+                inferred = True
+                
+        # If we couldn't infer from balances, use heuristic
+        if not inferred:
+            desc_for_heuristic = t.description.lower().replace("credit card", "cc")
+            if "deposit" in desc_for_heuristic or "credit" in desc_for_heuristic or "interest" in desc_for_heuristic or "refund" in desc_for_heuristic:
+                t.amount = abs(t.amount)
+            else:
+                t.amount = -abs(t.amount)
+                
+    return txns
+
 
 
 # -------------------------------------------------------
@@ -631,12 +745,19 @@ def _normalize_date(text: str) -> Optional[str]:
         "%m/%d/%Y", "%m/%d/%y", "%Y-%m-%d", "%m-%d-%Y", "%m-%d-%y",
         "%b %d, %Y", "%b %d %Y", "%d %b %Y",
         "%B %d, %Y", "%B %d %Y",
+        "%d%b", "%d %b", "%d %B", "%b %d", "%B %d"
     ]
     for fmt in formats:
         try:
             dt = datetime.strptime(text, fmt)
             if dt.year < 100:
                 dt = dt.replace(year=dt.year + 2000)
+            if dt.year == 1900:
+                now_year = datetime.now().year
+                if dt.month > datetime.now().month + 1:
+                    dt = dt.replace(year=now_year - 1)
+                else:
+                    dt = dt.replace(year=now_year)
             # Sanity check: year should be recent
             if 2000 <= dt.year <= 2035:
                 return dt.strftime("%Y-%m-%d")
@@ -684,13 +805,8 @@ def _parse_amount(text: str) -> Optional[float]:
         return None
 
 
-def _extract_amount_from_text(text: str) -> Optional[float]:
-    """Find the best dollar amount in text (usually the transaction amount).
-    
-    Bank statements typically show: Date Description Amount Balance
-    So when there are 2 amounts, we want the first one (transaction amount),
-    not the second (running balance, which is usually larger).
-    """
+def _extract_amount_and_balance(text: str) -> Tuple[Optional[float], Optional[float]]:
+    """Extract the transaction amount and the running balance from text."""
     amounts = []
     for pattern in AMOUNT_PATTERNS:
         for m in pattern.finditer(text):
@@ -699,7 +815,7 @@ def _extract_amount_from_text(text: str) -> Optional[float]:
                 amounts.append((val, m.start()))
 
     if not amounts:
-        return None
+        return None, None
 
     # De-duplicate by position (regex overlap)
     amounts.sort(key=lambda x: x[1])
@@ -711,21 +827,19 @@ def _extract_amount_from_text(text: str) -> Optional[float]:
         last_pos = pos
 
     if len(deduped) == 1:
-        return deduped[0]
+        return deduped[0], None
 
     if len(deduped) >= 2:
         # Usually: transaction amount, then balance
-        # Transaction amount is typically the first dollar-sign amount
-        # If first is smaller (absolute) than second, it's likely the txn amount
-        # If they're close in value, prefer the first
-        first, second = deduped[0], deduped[1]
-        if abs(first) <= abs(second):
-            return first
-        # If first is larger, it might be a balance from previous line
-        # In that case prefer the second (but this is less common)
-        return first  # default: trust position
+        return deduped[0], deduped[-1]
     
-    return deduped[0]
+    return deduped[0], None
+
+
+def _extract_amount_from_text(text: str) -> Optional[float]:
+    """Find the best dollar amount in text (usually the transaction amount)."""
+    amount, _ = _extract_amount_and_balance(text)
+    return amount
 
 
 def _looks_like_amount(text: str) -> bool:

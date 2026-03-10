@@ -1,8 +1,9 @@
 import { NavLink, Outlet } from 'react-router-dom';
 import {
   LayoutDashboard, BookOpen, ArrowLeftRight, PiggyBank,
-  BarChart3, FileText, Settings, Inbox
+  BarChart3, FileText, Settings, Inbox, Building2, Plus
 } from 'lucide-react';
+import { useCompany } from '../context/CompanyContext';
 
 const navItems = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
@@ -15,16 +16,57 @@ const navItems = [
 ];
 
 export default function Layout() {
+  const { companies, currentCompany, switchCompany, createCompany, loading } = useCompany();
+
+  const handleCompanyChange = async (e) => {
+    const val = e.target.value;
+    if (val === 'CREATE_NEW') {
+      const name = window.prompt("Enter new workspace name:");
+      if (name && name.trim()) {
+        try {
+          await createCompany(name.trim());
+        } catch (err) {
+          alert('Failed to create workspace.');
+        }
+      }
+    } else {
+      const selected = companies.find(c => c.id === parseInt(val, 10));
+      if (selected) {
+        switchCompany(selected);
+      }
+    }
+  };
+
   return (
     <div className="flex h-screen bg-gray-50">
       {/* Sidebar */}
       <aside className="w-64 bg-white border-r border-gray-200 flex flex-col">
-        <div className="p-6 border-b border-gray-200">
-          <h1 className="text-xl font-bold text-primary-700 flex items-center gap-2">
+        <div className="p-4 border-b border-gray-200">
+          <h1 className="text-xl font-bold text-primary-700 flex items-center gap-2 mb-4 px-2">
             <BookOpen className="w-6 h-6" />
             LedgerLocal
           </h1>
-          <p className="text-xs text-gray-500 mt-1">Secure Local Bookkeeping</p>
+
+          {!loading && companies.length > 0 && currentCompany && (
+            <div className="relative dropdown-container">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <Building2 className="h-4 w-4 text-gray-500" />
+              </div>
+              <select
+                className="w-full bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-primary-500 focus:border-primary-500 block p-2.5 pl-9 font-medium"
+                value={currentCompany.id}
+                onChange={handleCompanyChange}
+              >
+                {companies.map(c => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+                <option disabled>──────────</option>
+                <option value="CREATE_NEW">+ Create new workspace</option>
+              </select>
+            </div>
+          )}
         </div>
         <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
           {navItems.map(({ to, icon: Icon, label }) => (

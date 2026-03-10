@@ -1,9 +1,14 @@
-const BASE = import.meta.env.DEV ? 'http://localhost:8000' : '';
+const BASE = '';
 
 async function request(path, options = {}) {
+  const headers = { 'Content-Type': 'application/json', ...options.headers };
+  const companyId = localStorage.getItem('company_id');
+  if (companyId) {
+    headers['X-Company-Id'] = companyId;
+  }
   const res = await fetch(`${BASE}${path}`, {
-    headers: { 'Content-Type': 'application/json', ...options.headers },
     ...options,
+    headers,
   });
   if (!res.ok) {
     const text = await res.text();
@@ -89,7 +94,12 @@ export const getDocuments = () => request('/api/documents');
 export const uploadDocuments = async (files) => {
   const form = new FormData();
   files.forEach(f => form.append('files', f));
-  const res = await fetch(`${BASE}/api/documents/upload`, { method: 'POST', body: form });
+  const headers = {};
+  const companyId = localStorage.getItem('company_id');
+  if (companyId) {
+    headers['X-Company-Id'] = companyId;
+  }
+  const res = await fetch(`${BASE}/api/documents/upload`, { method: 'POST', body: form, headers });
   if (!res.ok) throw new Error(`Upload failed: ${res.status}`);
   return res.json();
 };
@@ -106,6 +116,9 @@ export const bulkDocAction = (data) =>
 
 // Settings
 export const getCompany = () => request('/api/company');
+export const getCompanies = () => request('/api/companies');
+export const createCompanyRecord = (data) =>
+  request('/api/companies', { method: 'POST', body: JSON.stringify(data) });
 export const updateCompany = (data) =>
   request('/api/company', { method: 'PUT', body: JSON.stringify(data) });
 export const getVendors = () => request('/api/vendors');

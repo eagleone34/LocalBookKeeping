@@ -15,12 +15,8 @@ from app.services.data_service import (
 )
 
 
-def seed_demo_data(conn: sqlite3.Connection, company_id: int) -> None:
-    """Seed comprehensive demo data if the database is empty."""
-    existing = conn.execute("SELECT COUNT(*) as cnt FROM accounts WHERE company_id=?", (company_id,)).fetchone()
-    if existing["cnt"] > 0:
-        return
-
+def seed_default_accounts(conn: sqlite3.Connection, company_id: int) -> dict:
+    """Create default chart of accounts and rules for a new company."""
     # ── Create Accounts ──
     income_accounts = [
         ("Sales Revenue", "income", None, "1000"),
@@ -53,6 +49,45 @@ def seed_demo_data(conn: sqlite3.Connection, company_id: int) -> None:
     for name, atype, parent, code in income_accounts + expense_accounts + asset_accounts + liability_accounts:
         aid = create_account(conn, company_id, name, atype, parent, code)
         account_map[name] = aid
+
+    # ── Create Default Categorization Rules ──
+    rules = [
+        ("uber", "contains", "Travel"),
+        ("lyft", "contains", "Travel"),
+        ("airline", "contains", "Travel"),
+        ("marriott", "contains", "Travel"),
+        ("staples", "contains", "Office Supplies"),
+        ("amazon", "contains", "Office Supplies"),
+        ("doordash", "contains", "Meals & Entertainment"),
+        ("starbucks", "contains", "Meals & Entertainment"),
+        ("panera", "contains", "Meals & Entertainment"),
+        ("google ads", "contains", "Marketing"),
+        ("facebook ads", "contains", "Marketing"),
+        ("microsoft", "contains", "Software & Subscriptions"),
+        ("slack", "contains", "Software & Subscriptions"),
+        ("adobe", "contains", "Software & Subscriptions"),
+        ("hydro", "contains", "Utilities"),
+        ("electric", "contains", "Utilities"),
+        ("internet", "contains", "Utilities"),
+        ("insurance", "contains", "Insurance"),
+        ("rent", "contains", "Rent"),
+    ]
+
+    for pattern, match_type, account_name in rules:
+        account_id = account_map.get(account_name)
+        if account_id:
+            create_rule(conn, company_id, pattern, match_type, account_id)
+
+    return account_map
+
+
+def seed_demo_data(conn: sqlite3.Connection, company_id: int) -> None:
+    """Seed comprehensive demo data if the database is empty."""
+    existing = conn.execute("SELECT COUNT(*) as cnt FROM accounts WHERE company_id=?", (company_id,)).fetchone()
+    if existing["cnt"] > 0:
+        return
+
+    account_map = seed_default_accounts(conn, company_id)
 
     # ── Create Transactions (6 months of realistic data) ──
     vendors_by_category = {
@@ -135,30 +170,3 @@ def seed_demo_data(conn: sqlite3.Connection, company_id: int) -> None:
             if account_id:
                 upsert_budget(conn, company_id, account_id, month_str, amt)
 
-    # ── Create Categorization Rules ──
-    rules = [
-        ("uber", "contains", "Travel"),
-        ("lyft", "contains", "Travel"),
-        ("airline", "contains", "Travel"),
-        ("marriott", "contains", "Travel"),
-        ("staples", "contains", "Office Supplies"),
-        ("amazon", "contains", "Office Supplies"),
-        ("doordash", "contains", "Meals & Entertainment"),
-        ("starbucks", "contains", "Meals & Entertainment"),
-        ("panera", "contains", "Meals & Entertainment"),
-        ("google ads", "contains", "Marketing"),
-        ("facebook ads", "contains", "Marketing"),
-        ("microsoft", "contains", "Software & Subscriptions"),
-        ("slack", "contains", "Software & Subscriptions"),
-        ("adobe", "contains", "Software & Subscriptions"),
-        ("hydro", "contains", "Utilities"),
-        ("electric", "contains", "Utilities"),
-        ("internet", "contains", "Utilities"),
-        ("insurance", "contains", "Insurance"),
-        ("rent", "contains", "Rent"),
-    ]
-
-    for pattern, match_type, account_name in rules:
-        account_id = account_map.get(account_name)
-        if account_id:
-            create_rule(conn, company_id, pattern, match_type, account_id)

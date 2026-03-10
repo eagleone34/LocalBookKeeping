@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import {
   getDocuments, getDocTransactions, uploadDocuments,
   actionDocTransaction, bulkDocAction, getAccounts,
@@ -6,6 +6,7 @@ import {
 import {
   Upload, FileText, CheckCircle2, XCircle, AlertCircle,
   Loader2, Check, X, Copy, Building2, CreditCard, ChevronDown, ChevronRight,
+  FolderOpen
 } from 'lucide-react';
 import GroupedAccountSelect from '../components/GroupedAccountSelect';
 
@@ -27,10 +28,11 @@ export default function Inbox() {
   const [accounts, setAccounts] = useState([]);
   const [uploading, setUploading] = useState(false);
   const [dragOver, setDragOver] = useState(false);
+  
+  // selected transaction IDs
   const [selected, setSelected] = useState(new Set());
   const [filter, setFilter] = useState('review');
   const [overrides, setOverrides] = useState({}); // {dtId: accountId}
-  const [expandedDocs, setExpandedDocs] = useState(new Set());
 
   const load = async () => {
     try {
@@ -42,6 +44,7 @@ export default function Inbox() {
       setDocuments(docs);
       setDocTxns(txns);
       setAccounts(accts);
+      setSelected(new Set());
     } catch (e) { console.error(e); }
   };
 
@@ -54,7 +57,10 @@ export default function Inbox() {
     try {
       await uploadDocuments(pdfs);
       await load();
-    } catch (e) { console.error(e); }
+    } catch (e) {
+      console.error(e);
+      alert('Failed to upload file(s).');
+    }
     setUploading(false);
   };
 
@@ -65,16 +71,45 @@ export default function Inbox() {
   }, []);
 
   const handleAction = async (id, action, accountId) => {
-    const override = overrides[id];
-    await actionDocTransaction(id, { action, account_id: override || accountId || undefined });
-    load();
+    const finalAccountId = overrides[id] || accountId;
+    if (action === 'approve' && !finalAccountId) {
+      alert("Cannot approve transaction without a selected account category. Please categorize it first.");
+      return;
+    }
+
+    try {
+      await actionDocTransaction(id, { action, account_id: finalAccountId || undefined });
+      load();
+    } catch (err) {
+      console.error(err);
+      alert(err.message || 'Failed to process transaction.');
+    }
   };
 
-  const handleBulkAction = async (action) => {
-    if (selected.size === 0) return;
-    await bulkDocAction({ ids: [...selected], action });
-    setSelected(new Set());
-    load();
+  const handleBulkAction = async (docId, action) => {
+    // get all selected txns that belong to this doc
+    const idsToProcess = docTxns
+      .filter(t => t.document_id === docId && selected.has(t.id))
+      .map(t => t.id);
+      
+    if (idsToProcess.length === 0) return;
+
+    if (action === 'approve') {
+      // Validate categories exist for approvals
+      const missingAccounts = docTxns.filter(t => idsToProcess.includes(t.id) && !(overrides[t.id] || t.suggested_account_id));
+      if (missingAccounts.length > 0) {
+        alert("Cannot approve. One or more selected transactions are missing an account category.");
+        return;
+      }
+    }
+
+    try {
+      await bulkDocAction({ ids: idsToProcess, action });
+      load();
+    } catch (err) {
+      console.error(err);
+      alert('Bulk action failed.');
+    }
   };
 
   const toggleSelect = (id) => {
@@ -83,16 +118,19 @@ export default function Inbox() {
     setSelected(next);
   };
 
-  const toggleAll = () => {
-    const reviewTxns = docTxns.filter(t => t.status === 'review');
-    if (selected.size === reviewTxns.length) setSelected(new Set());
-    else setSelected(new Set(reviewTxns.map(t => t.id)));
-  };
+  const toggleAllInDoc = (docId) => {
+    const docReviewTxns = docTxns.filter(t => t.document_id === docId && t.status === 'review');
+    const allSelected = docReviewTxns.every(t => selected.has(t.id));
 
-  const toggleDoc = (docId) => {
-    const next = new Set(expandedDocs);
-    next.has(docId) ? next.delete(docId) : next.add(docId);
-    setExpandedDocs(next);
+    const next = new Set(selected);
+    if (allSelected) {
+      // deselect all in doc
+      docReviewTxns.forEach(t => next.delete(t.id));
+    } else {
+      // select all in doc
+      docReviewTxns.forEach(t => next.add(t.id));
+    }
+    setSelected(next);
   };
 
   const statusIcon = (status) => {
@@ -105,6 +143,16 @@ export default function Inbox() {
       default: return null;
     }
   };
+
+  // Group Txns by Document
+  const groupedTxns = useMemo(() => {
+    const groups = {};
+    docTxns.forEach(t => {
+      if (!groups[t.document_id]) groups[t.document_id] = [];
+      groups[t.document_id].push(t);
+    });
+    return groups;
+  }, [docTxns]);
 
   // Count stats
   const reviewCount = docTxns.filter(t => t.status === 'review').length;
@@ -143,34 +191,18 @@ export default function Inbox() {
         )}
       </div>
 
-      {/* Documents with bank info */}
-      {documents.length > 0 && (
+      {/* Processing Status for non-completed docs */}
+      {documents.filter(d => ['pending', 'processing', 'error'].includes(d.status)).length > 0 && (
         <div className="card">
-          <h3 className="text-lg font-semibold mb-3">Uploaded Statements</h3>
+          <h3 className="text-lg font-semibold mb-3">Processing Queue</h3>
           <div className="space-y-2">
-            {documents.map(doc => (
+            {documents.filter(d => ['pending', 'processing', 'error'].includes(d.status)).map(doc => (
               <div key={doc.id} className="flex items-center gap-3 px-3 py-2 bg-gray-50 rounded-lg text-sm">
                 <FileText className="w-4 h-4 text-primary-500 flex-shrink-0" />
                 <span className="font-medium">{doc.filename}</span>
-                {doc.bank_name && (
-                  <span className="flex items-center gap-1 badge bg-blue-100 text-blue-700">
-                    <Building2 className="w-3 h-3" />
-                    {doc.bank_name}
-                  </span>
-                )}
-                {doc.account_last_four && (
-                  <span className="flex items-center gap-1 badge bg-purple-100 text-purple-700">
-                    <CreditCard className="w-3 h-3" />
-                    ****{doc.account_last_four}
-                  </span>
-                )}
-                {doc.page_count && (
-                  <span className="text-gray-400">{doc.page_count} pages</span>
-                )}
                 <span className={`badge ${
-                  doc.status === 'completed' || doc.status === 'review' ? 'bg-emerald-100 text-emerald-700' :
                   doc.status === 'error' ? 'bg-red-100 text-red-700' :
-                  doc.status === 'processing' ? 'bg-blue-100 text-blue-700' :
+                  doc.status === 'processing' ? 'bg-blue-100 text-blue-700 animate-pulse' :
                   'bg-gray-100 text-gray-600'
                 }`}>{doc.status}</span>
               </div>
@@ -189,149 +221,196 @@ export default function Inbox() {
         </div>
       )}
 
-      {/* Filter & Bulk Actions */}
-      <div className="flex items-center justify-between">
-        <div className="flex gap-2">
-          {[
-            { key: 'review', label: 'Pending Review' },
-            { key: 'duplicate', label: 'Duplicates' },
-            { key: 'posted', label: 'Posted' },
-            { key: 'rejected', label: 'Rejected' },
-            { key: '', label: 'All' },
-          ].map(f => (
-            <button key={f.key} onClick={() => setFilter(f.key)}
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                filter === f.key ? 'bg-primary-100 text-primary-700' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-              }`}
-            >
-              {f.label}
-            </button>
-          ))}
-        </div>
-        {selected.size > 0 && (
-          <div className="flex gap-2">
-            <span className="text-sm text-gray-500">{selected.size} selected</span>
-            <button onClick={() => handleBulkAction('approve')} className="px-3 py-1.5 rounded-lg text-sm font-medium bg-emerald-100 text-emerald-700 hover:bg-emerald-200">
-              <Check className="w-3 h-3 mr-1 inline" /> Approve All
-            </button>
-            <button onClick={() => handleBulkAction('reject')} className="px-3 py-1.5 rounded-lg text-sm font-medium bg-red-100 text-red-700 hover:bg-red-200">
-              <X className="w-3 h-3 mr-1 inline" /> Reject All
-            </button>
-          </div>
-        )}
+      {/* Filter Tabs */}
+      <div className="flex gap-2">
+        {[
+          { key: 'review', label: 'Pending Review' },
+          { key: 'duplicate', label: 'Duplicates' },
+          { key: 'posted', label: 'Posted' },
+          { key: 'rejected', label: 'Rejected' },
+          { key: '', label: 'All' },
+        ].map(f => (
+          <button key={f.key} onClick={() => setFilter(f.key)}
+            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+              filter === f.key ? 'bg-primary-100 text-primary-700' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+            }`}
+          >
+            {f.label}
+          </button>
+        ))}
       </div>
 
-      {/* Transaction Table */}
-      <div className="card overflow-hidden p-0">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="bg-gray-50 border-b border-gray-200">
-                {(filter === 'review' || filter === '') && (
-                  <th className="py-3 px-3 text-left w-10">
-                    <input type="checkbox" checked={selected.size > 0 && selected.size === docTxns.filter(t=>t.status==='review').length} onChange={toggleAll} className="rounded text-primary-600" />
-                  </th>
-                )}
-                <th className="py-3 px-3 text-left text-gray-500 font-medium w-10">Status</th>
-                <th className="py-3 px-3 text-left text-gray-500 font-medium w-28">Date</th>
-                <th className="py-3 px-3 text-left text-gray-500 font-medium">Vendor</th>
-                <th className="py-3 px-3 text-left text-gray-500 font-medium">Description</th>
-                <th className="py-3 px-3 text-right text-gray-500 font-medium w-28">Amount</th>
-                <th className="py-3 px-3 text-left text-gray-500 font-medium w-48">Category</th>
-                <th className="py-3 px-3 text-center text-gray-500 font-medium w-16">Conf.</th>
-                <th className="py-3 px-3 text-right text-gray-500 font-medium w-24">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {docTxns.map(dt => (
-                <tr key={dt.id} className={`border-b border-gray-100 hover:bg-gray-50 ${
-                  dt.is_duplicate ? 'bg-orange-50/50' :
-                  selected.has(dt.id) ? 'bg-primary-50' : ''
-                }`}>
-                  {(filter === 'review' || filter === '') && (
-                    <td className="py-2 px-3">
-                      {dt.status === 'review' && (
-                        <input type="checkbox" checked={selected.has(dt.id)} onChange={() => toggleSelect(dt.id)} className="rounded text-primary-600" />
-                      )}
-                    </td>
-                  )}
-                  <td className="py-2 px-3">
-                    <div className="flex items-center gap-1">
-                      {statusIcon(dt.status)}
-                      {dt.is_duplicate && (
-                        <span className="text-xs text-orange-600 font-medium" title={`Duplicate of transaction #${dt.duplicate_of_txn_id}`}>DUP</span>
-                      )}
-                    </div>
-                  </td>
-                  <td className="py-2 px-3 whitespace-nowrap text-gray-700">{dt.txn_date || '-'}</td>
-                  <td className="py-2 px-3 font-medium text-gray-900">{dt.vendor_name || '-'}</td>
-                  <td className="py-2 px-3 text-gray-500 max-w-xs truncate">{dt.description || '-'}</td>
-                  <td className={`py-2 px-3 text-right font-medium whitespace-nowrap ${(dt.amount || 0) >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-                    {formatMoney(dt.amount)}
-                  </td>
-                  <td className="py-2 px-3">
-                    {dt.status === 'review' ? (
-                      <GroupedAccountSelect
-                        accounts={accounts}
-                        value={overrides[dt.id] || dt.suggested_account_id || ''}
-                        onChange={(e) => setOverrides({...overrides, [dt.id]: parseInt(e.target.value)})}
-                        placeholder="Uncategorized"
-                        className="input-field text-xs py-1"
-                      />
-                    ) : (
-                      <span className="text-sm">{dt.suggested_account_name || dt.user_account_name || 'Uncategorized'}</span>
-                    )}
-                  </td>
-                  <td className="py-2 px-3 text-center">{confidenceBadge(dt.confidence)}</td>
-                  <td className="py-2 px-3 text-right">
-                    {dt.status === 'review' && (
-                      <div className="flex justify-end gap-1">
-                        <button
-                          onClick={() => handleAction(dt.id, 'approve', dt.suggested_account_id)}
-                          className="p-1.5 rounded-lg hover:bg-emerald-50 text-emerald-600"
-                          title="Approve & post"
-                        >
-                          <CheckCircle2 className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleAction(dt.id, 'reject')}
-                          className="p-1.5 rounded-lg hover:bg-red-50 text-red-500"
-                          title="Reject"
-                        >
-                          <XCircle className="w-4 h-4" />
-                        </button>
-                      </div>
-                    )}
-                    {dt.status === 'duplicate' && (
-                      <div className="flex justify-end gap-1">
-                        <button
-                          onClick={() => handleAction(dt.id, 'approve', dt.suggested_account_id)}
-                          className="p-1 rounded-lg hover:bg-emerald-50 text-gray-400 hover:text-emerald-600 text-xs"
-                          title="Force approve anyway"
-                        >
-                          <CheckCircle2 className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          onClick={() => handleAction(dt.id, 'reject')}
-                          className="p-1 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-500 text-xs"
-                          title="Dismiss"
-                        >
-                          <XCircle className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      {/* Grouped Documents Rendering */}
+      {documents.filter(d => groupedTxns[d.id] && groupedTxns[d.id].length > 0).length === 0 ? (
+        <div className="card p-8 text-center text-gray-400 flex flex-col items-center">
+            <FolderOpen className="w-12 h-12 text-gray-300 mb-2" />
+            <p>{filter === 'review' ? 'No transactions pending review in any statement.' : 'No transactions found.'}</p>
         </div>
-        {docTxns.length === 0 && (
-          <div className="p-8 text-center text-gray-400">
-            {filter === 'review' ? 'No transactions pending review. Upload a PDF statement to get started.' : 'No transactions found.'}
-          </div>
-        )}
-      </div>
+      ) : (
+        <div className="space-y-6">
+          {documents.map(doc => {
+            const txns = groupedTxns[doc.id];
+            if (!txns || txns.length === 0) return null;
+
+            const docSelectedCount = txns.filter(t => selected.has(t.id)).length;
+            const docReviewCount = txns.filter(t => t.status === 'review').length;
+            const allSelected = docSelectedCount > 0 && docSelectedCount === docReviewCount;
+            
+            return (
+              <div key={doc.id} className="card overflow-hidden p-0 border border-gray-200">
+                
+                {/* Document Header with bulk actions */}
+                <div className="bg-gray-50 border-b border-gray-200 p-4 flex flex-wrap items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-white rounded shadow-sm border border-gray-100">
+                      <FileText className="w-5 h-5 text-primary-600" />
+                    </div>
+                    <div>
+                      <h3 className="font-medium text-gray-900">{doc.filename}</h3>
+                      <div className="flex flex-wrap items-center gap-2 mt-1 text-xs text-gray-500">
+                        {doc.bank_name && (
+                          <span className="flex items-center gap-1 font-medium text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-100">
+                            <Building2 className="w-3 h-3" />
+                            {doc.bank_name}
+                          </span>
+                        )}
+                        {doc.account_last_four && (
+                          <span className="flex items-center gap-1 font-medium text-purple-700 bg-purple-50 px-2 py-0.5 rounded border border-purple-100">
+                            <CreditCard className="w-3 h-3" />
+                            ****{doc.account_last_four}
+                          </span>
+                        )}
+                        <span>{txns.length} records</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Contextual Bulk Actions */}
+                  {docSelectedCount > 0 && (
+                    <div className="flex items-center gap-2 bg-white p-1 rounded-lg shadow-sm border border-gray-200">
+                      <span className="text-sm font-medium text-gray-600 px-3 border-r border-gray-200">
+                        {docSelectedCount} selected
+                      </span>
+                      <button onClick={() => handleBulkAction(doc.id, 'approve')} className="px-3 py-1.5 rounded-md text-sm font-medium bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-colors flex items-center gap-1">
+                        <Check className="w-3.5 h-3.5" /> Approve
+                      </button>
+                      <button onClick={() => handleBulkAction(doc.id, 'reject')} className="px-3 py-1.5 rounded-md text-sm font-medium bg-red-50 text-red-700 hover:bg-red-100 transition-colors flex items-center gap-1">
+                        <X className="w-3.5 h-3.5" /> Reject
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* Document Transactions Table */}
+                <div className="overflow-x-auto bg-white">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="bg-white border-b border-gray-100">
+                        {(filter === 'review' || filter === '') && (
+                          <th className="py-2.5 px-3 text-left w-10">
+                            <input type="checkbox" checked={allSelected} onChange={() => toggleAllInDoc(doc.id)} className="rounded text-primary-600 focus:ring-primary-500" />
+                          </th>
+                        )}
+                        <th className="py-2.5 px-3 text-left text-gray-500 font-medium w-10">Status</th>
+                        <th className="py-2.5 px-3 text-left text-gray-500 font-medium w-28">Date</th>
+                        <th className="py-2.5 px-3 text-left text-gray-500 font-medium">Vendor</th>
+                        <th className="py-2.5 px-3 text-left text-gray-500 font-medium">Description</th>
+                        <th className="py-2.5 px-3 text-right text-gray-500 font-medium w-28">Amount</th>
+                        <th className="py-2.5 px-3 text-left text-gray-500 font-medium w-48">Category</th>
+                        <th className="py-2.5 px-3 text-center text-gray-500 font-medium w-16">Conf.</th>
+                        <th className="py-2.5 px-3 text-right text-gray-500 font-medium w-24">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {txns.map(dt => (
+                        <tr key={dt.id} className={`border-b border-gray-50 transition-colors hover:bg-gray-50/50 ${
+                          dt.is_duplicate ? 'bg-orange-50/30' :
+                          selected.has(dt.id) ? 'bg-primary-50/50' : ''
+                        }`}>
+                          {(filter === 'review' || filter === '') && (
+                            <td className="py-2 px-3">
+                              {dt.status === 'review' && (
+                                <input type="checkbox" checked={selected.has(dt.id)} onChange={() => toggleSelect(dt.id)} className="rounded text-primary-600 focus:ring-primary-500" />
+                              )}
+                            </td>
+                          )}
+                          <td className="py-2 px-3">
+                            <div className="flex items-center gap-1">
+                              {statusIcon(dt.status)}
+                              {dt.is_duplicate && (
+                                <span className="text-xs text-orange-600 font-medium bg-orange-100 px-1 rounded" title={`Duplicate of transaction #${dt.duplicate_of_txn_id}`}>DUP</span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="py-2 px-3 whitespace-nowrap text-gray-600">{dt.txn_date || '-'}</td>
+                          <td className="py-2 px-3 font-medium text-gray-800">{dt.vendor_name || '-'}</td>
+                          <td className="py-2 px-3 text-gray-500 max-w-xs truncate" title={dt.description}>{dt.description || '-'}</td>
+                          <td className={`py-2 px-3 text-right font-semibold whitespace-nowrap ${(dt.amount || 0) >= 0 ? 'text-emerald-600' : 'text-gray-900'}`}>
+                            {formatMoney(dt.amount)}
+                          </td>
+                          <td className="py-2 px-3">
+                            {dt.status === 'review' ? (
+                              <GroupedAccountSelect
+                                accounts={accounts}
+                                value={overrides[dt.id] || dt.suggested_account_id || ''}
+                                onChange={(e) => setOverrides({...overrides, [dt.id]: parseInt(e.target.value)})}
+                                placeholder="Uncategorized"
+                                className="input-field text-xs py-1"
+                              />
+                            ) : (
+                              <span className="text-sm font-medium text-gray-600">{dt.suggested_account_name || dt.user_account_name || 'Uncategorized'}</span>
+                            )}
+                          </td>
+                          <td className="py-2 px-3 text-center">{confidenceBadge(dt.confidence)}</td>
+                          <td className="py-2 px-3 text-right">
+                            {dt.status === 'review' && (
+                              <div className="flex justify-end gap-1">
+                                <button
+                                  onClick={() => handleAction(dt.id, 'approve', dt.suggested_account_id)}
+                                  className="p-1.5 rounded-md hover:bg-emerald-100 text-emerald-600 transition-colors"
+                                  title="Approve & post"
+                                >
+                                  <CheckCircle2 className="w-4 h-4" />
+                                </button>
+                                <button
+                                  onClick={() => handleAction(dt.id, 'reject')}
+                                  className="p-1.5 rounded-md hover:bg-red-100 text-red-500 transition-colors"
+                                  title="Reject"
+                                >
+                                  <XCircle className="w-4 h-4" />
+                                </button>
+                              </div>
+                            )}
+                            {dt.status === 'duplicate' && (
+                              <div className="flex justify-end gap-1">
+                                <button
+                                  onClick={() => handleAction(dt.id, 'approve', dt.suggested_account_id)}
+                                  className="p-1.5 rounded-md hover:bg-emerald-100 text-gray-400 hover:text-emerald-600 transition-colors"
+                                  title="Force approve anyway"
+                                >
+                                  <CheckCircle2 className="w-4 h-4" />
+                                </button>
+                                <button
+                                  onClick={() => handleAction(dt.id, 'reject')}
+                                  className="p-1.5 rounded-md hover:bg-red-100 text-gray-400 hover:text-red-500 transition-colors"
+                                  title="Dismiss"
+                                >
+                                  <XCircle className="w-4 h-4" />
+                                </button>
+                              </div>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

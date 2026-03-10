@@ -1,0 +1,50 @@
+--- FULL PARSE RESULT ---
+Bank: Royal Bank of Canada
+Account Last 4: 6948
+Transactions: 8
+Txn 1: Date=2025-12-01, Amount=-6.0, Vendor=Monthly fee, Desc=Monthly fee
+Txn 2: Date=2025-12-04, Amount=55852.0, Vendor=KBFXCAD Wed Pmt 003 <DEFTPYMT>, Desc=Bill Payment KBFXCAD Wed Pmt 003 <DEFTPYMT>
+Txn 3: Date=2025-12-08, Amount=-396.66, Vendor=e-Transfer sent Hamed contractor, Desc=e-Transfer sent Hamed contractor
+Txn 4: Date=2025-12-15, Amount=-804.82, Vendor=e-Transfer sent Omid PmE Electrician, Desc=e-Transfer sent Omid PmE Electrician
+Txn 5: Date=2025-12-15, Amount=-1184.15, Vendor=Automobile Rent SCI LEASE, Desc=Automobile Rent SCI LEASE
+Txn 6: Date=2025-12-29, Amount=-6555.14, Vendor=Misc RBC, Desc=Misc Payment RBC CREDIT CARD
+Txn 7: Date=2025-12-29, Amount=-930.77, Vendor=Misc CDLSI, Desc=Misc Payment CDLSI
+Txn 8: Date=2026-01-02, Amount=-2.0, Vendor=Misc PAY-FILE FEES, Desc=Misc Payment PAY-FILE FEES
+
+--- RAW TEXT FRAGMENT ---
+000: ROYALBANKOFCANADA Business Account Statement
+001: P.O.BOX6011STATIONA
+002: MONTREALQC H3C3B8
+003: December 1, 2025 to January 2, 2026
+004: 00922
+005: RBBDA30000_2223264E D 09231
+006: SNOWBIRD VENTURES INC.
+007: 2665 RUE DE LA SYMPHONIE Account number: 09231 101-694-8
+008: SAINT-LAZARE QC J7T 3J7
+009: How to reach us:
+010: PleasecontactyourRBCBankingrepresentativeorcall
+011: 1-800-Royal®2-0
+012: (1-800-769-2520)
+013: www.rbcroyalbank.com/business
+014: Account Summary for this Period
+015: RBCDigitalChoiceBusinessTM accountpackage
+016: RoyalBankofCanada
+017: 1WESTMOUNTSQUARE,WESTMOUNT,QC H3Z2P9
+018: Opening balance on December 1, 2025 $4,188.93
+019: Total deposits & credits (1) + 55,852.00
+020: Total cheques & debits (7) - 9,879.54
+021: Closing balance on January 2, 2026 = $50,161.39
+022: Account Activity Details
+023: Date Description Cheques&Debits($) Deposits&Credits($) Balance($)
+024: Opening balance 4,188.93
+025: 01 Dec Monthly fee 6.00 4,182.93
+026: 04 Dec Bill Payment KBFXCAD Wed Pmt 003 <DEFTPYMT> 55,852.00 60,034.93
+027: 08 Dec e-Transfer sent Hamed contractor 396.66 59,638.27
+028: 15 Dec e-Transfer sent Omid PmE Electrician 804.82 58,833.45
+029: Automobile Rent SCI LEASE 1,184.15 57,649.30
+030: 29 Dec Misc Payment RBC CREDIT CARD 6,555.14
+031: Misc Payment CDLSI 930.77 50,163.39
+032: 02 Jan Misc Payment PAY-FILE FEES 2.00 50,161.39
+033: Closing balance 50,161.39
+034: Account Fees: $6.00
+035: 1of1
