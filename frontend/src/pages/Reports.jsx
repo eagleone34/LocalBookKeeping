@@ -4,6 +4,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, LineChart, Line, Legend, AreaChart, Area
 } from 'recharts';
+import DatePresetPicker from '../components/DatePresetPicker';
 
 const COLORS = ['#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16', '#f97316', '#6366f1'];
 
@@ -65,21 +66,16 @@ export default function Reports() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Reports</h1>
           <p className="text-gray-500 mt-1">Analyze your financial data</p>
         </div>
-        <div className="flex gap-3 items-end">
-          <div>
-            <label className="label">From</label>
-            <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="input-field" />
-          </div>
-          <div>
-            <label className="label">To</label>
-            <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} className="input-field" />
-          </div>
-        </div>
+        <DatePresetPicker
+          dateFrom={dateFrom}
+          dateTo={dateTo}
+          onDateChange={(from, to) => { setDateFrom(from); setDateTo(to); }}
+        />
       </div>
 
       {/* Tabs */}

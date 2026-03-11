@@ -18,7 +18,12 @@ async function request(path, options = {}) {
 }
 
 // Dashboard
-export const getDashboard = () => request('/api/reports/dashboard');
+export const getDashboard = (dateFrom, dateTo) => {
+  const qs = new URLSearchParams();
+  if (dateFrom) qs.set('date_from', dateFrom);
+  if (dateTo) qs.set('date_to', dateTo);
+  return request(`/api/reports/dashboard?${qs}`);
+};
 
 // Accounts
 export const getAccounts = (includeInactive = false) =>
@@ -119,6 +124,8 @@ export const getCompany = () => request('/api/company');
 export const getCompanies = () => request('/api/companies');
 export const createCompanyRecord = (data) =>
   request('/api/companies', { method: 'POST', body: JSON.stringify(data) });
+export const deleteCompanyRecord = (id) =>
+  request(`/api/companies/${id}`, { method: 'DELETE' });
 export const updateCompany = (data) =>
   request('/api/company', { method: 'PUT', body: JSON.stringify(data) });
 export const getVendors = () => request('/api/vendors');

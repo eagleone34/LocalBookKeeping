@@ -5,6 +5,7 @@ import {
 } from '../api/client';
 import { Save, Trash2, Plus, Shield, Database, BookOpen, Check, Building2, CreditCard, Link } from 'lucide-react';
 import GroupedAccountSelect from '../components/GroupedAccountSelect';
+import { useCompany } from '../context/CompanyContext';
 
 export default function SettingsPage() {
   const [company, setCompany] = useState(null);
@@ -15,6 +16,7 @@ export default function SettingsPage() {
   const [saved, setSaved] = useState(false);
   const [ruleForm, setRuleForm] = useState({ pattern: '', match_type: 'contains', account_id: '', priority: 10 });
   const [activeTab, setActiveTab] = useState(0);
+  const { fetchCompanies } = useCompany();
 
   const load = async () => {
     try {
@@ -34,6 +36,7 @@ export default function SettingsPage() {
   const handleSaveCompany = async (e) => {
     e.preventDefault();
     await updateCompany({ name: company.name, currency: company.currency, fiscal_year_start: company.fiscal_year_start });
+    await fetchCompanies();
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   };

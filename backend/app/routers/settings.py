@@ -54,6 +54,52 @@ def create_company(body: CompanyCreate):
     return CompanyOut(**row)
 
 
+@router.delete("/companies/{company_id}")
+def delete_company(company_id: int):
+    """Delete a company and all its associated data (cascading)."""
+    conn = get_conn()
+
+    # Safety: don't delete the last company
+    count = conn.execute("SELECT COUNT(*) as cnt FROM company").fetchone()["cnt"]
+    if count <= 1:
+        raise HTTPException(400, "Cannot delete the last company.")
+
+    # Verify company exists
+    row = conn.execute("SELECT id FROM company WHERE id=?", (company_id,)).fetchone()
+    if not row:
+        raise HTTPException(404, "Company not found")
+
+    # Cascade delete all related data
+    # 1. Delete document_transactions (linked via documents)
+    conn.execute("""
+        DELETE FROM document_transactions WHERE document_id IN
+        (SELECT id FROM documents WHERE company_id=?)
+    """, (company_id,))
+    # 2. Documents
+    conn.execute("DELETE FROM documents WHERE company_id=?", (company_id,))
+    # 3. Transactions
+    conn.execute("DELETE FROM transactions WHERE company_id=?", (company_id,))
+    # 4. Budgets
+    conn.execute("DELETE FROM budgets WHERE company_id=?", (company_id,))
+    # 5. Categorization rules
+    conn.execute("DELETE FROM categorization_rules WHERE company_id=?", (company_id,))
+    # 6. Vendor-account map
+    conn.execute("DELETE FROM vendor_account_map WHERE company_id=?", (company_id,))
+    # 7. Bank accounts
+    conn.execute("DELETE FROM bank_accounts WHERE company_id=?", (company_id,))
+    # 8. Vendors
+    conn.execute("DELETE FROM vendors WHERE company_id=?", (company_id,))
+    # 9. Accounts
+    conn.execute("DELETE FROM accounts WHERE company_id=?", (company_id,))
+    # 10. Audit log
+    conn.execute("DELETE FROM audit_log WHERE company_id=?", (company_id,))
+    # 11. Finally, the company itself
+    conn.execute("DELETE FROM company WHERE id=?", (company_id,))
+    conn.commit()
+
+    return {"ok": True, "deleted_company_id": company_id}
+
+
 @router.put("/company", response_model=CompanyOut)
 def update_company(body: CompanyUpdate):
     kwargs = body.model_dump(exclude_none=True)

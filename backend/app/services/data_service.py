@@ -335,15 +335,20 @@ def create_doc_transaction(conn: sqlite3.Connection, doc_id: int,
 
 
 def list_doc_transactions(conn: sqlite3.Connection, doc_id: Optional[int] = None,
-                          status: Optional[str] = None) -> List[Dict]:
+                          status: Optional[str] = None,
+                          company_id: Optional[int] = None) -> List[Dict]:
     sql = """
         SELECT dt.*, a1.name AS suggested_account_name, a2.name AS user_account_name
         FROM document_transactions dt
+        JOIN documents d ON dt.document_id = d.id
         LEFT JOIN accounts a1 ON dt.suggested_account_id = a1.id
         LEFT JOIN accounts a2 ON dt.user_account_id = a2.id
         WHERE 1=1
     """
     params: list = []
+    if company_id:
+        sql += " AND d.company_id=?"
+        params.append(company_id)
     if doc_id:
         sql += " AND dt.document_id=?"
         params.append(doc_id)
@@ -361,9 +366,8 @@ def list_doc_transactions(conn: sqlite3.Connection, doc_id: Optional[int] = None
 def update_doc_transaction(conn: sqlite3.Connection, dt_id: int, **kwargs) -> None:
     sets, vals = [], []
     for k, v in kwargs.items():
-        if v is not None:
-            sets.append(f"{k}=?")
-            vals.append(v)
+        sets.append(f"{k}=?")
+        vals.append(v)
     if not sets:
         return
     vals.append(dt_id)
@@ -570,16 +574,24 @@ def balance_sheet(conn: sqlite3.Connection, company_id: int) -> List[Dict]:
     return [dict(r) for r in conn.execute(sql, (company_id,)).fetchall()]
 
 
-def summary_totals(conn: sqlite3.Connection, company_id: int) -> Dict[str, float]:
+def summary_totals(conn: sqlite3.Connection, company_id: int,
+                   date_from: Optional[str] = None, date_to: Optional[str] = None) -> Dict[str, float]:
     sql = """
         SELECT a.type, SUM(t.amount) AS total
         FROM transactions t
         JOIN accounts a ON t.account_id = a.id
         WHERE t.company_id=?
-        GROUP BY a.type
     """
+    params: list = [company_id]
+    if date_from:
+        sql += " AND t.txn_date>=?"
+        params.append(date_from)
+    if date_to:
+        sql += " AND t.txn_date<=?"
+        params.append(date_to)
+    sql += " GROUP BY a.type"
     totals = {"income": 0, "expense": 0, "asset": 0, "liability": 0}
-    for r in conn.execute(sql, (company_id,)).fetchall():
+    for r in conn.execute(sql, params).fetchall():
         totals[r["type"]] = float(r["total"])
     return totals
 

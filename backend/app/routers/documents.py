@@ -145,13 +145,13 @@ async def upload_documents(files: List[UploadFile] = File(...)):
 
 @router.get("/transactions", response_model=List[DocTransactionOut])
 def list_doc_transactions(doc_id: Optional[int] = None, status: Optional[str] = None):
-    rows = ds.list_doc_transactions(get_conn(), doc_id=doc_id, status=status)
+    rows = ds.list_doc_transactions(get_conn(), doc_id=doc_id, status=status, company_id=get_company_id())
     return [_dt_out(r) for r in rows]
 
 
 @router.post("/transactions/{dt_id}/action")
 def action_doc_transaction(dt_id: int, body: DocTransactionAction):
-    """Approve or reject a document transaction. Learning happens on approve."""
+    """Approve, reject, or revert a document transaction. Learning happens on approve."""
     conn = get_conn()
     cid = get_company_id()
     dt = ds.get_doc_transaction(conn, dt_id)
@@ -182,6 +182,30 @@ def action_doc_transaction(dt_id: int, body: DocTransactionAction):
 
     elif body.action == "reject":
         ds.update_doc_transaction(conn, dt_id, status="rejected")
+
+    elif body.action == "revert":
+        if dt["status"] == "posted":
+            # ═══ DATA INTEGRITY: find and delete the ledger transaction that was created ═══
+            # Match by source_doc_id + txn_date + amount to find the exact ledger entry
+            rows = conn.execute(
+                """SELECT id FROM transactions
+                   WHERE company_id=? AND source='pdf_import' AND source_doc_id=?
+                   AND txn_date=? AND ABS(amount - ?) < 0.01
+                   ORDER BY id DESC LIMIT 1""",
+                (cid, dt["document_id"], dt["txn_date"], dt["amount"]),
+            ).fetchall()
+            if rows:
+                ds.delete_transaction(conn, int(rows[0]["id"]))
+            # Reset status back to review and clear user_account_id
+            ds.update_doc_transaction(conn, dt_id, status="review", user_account_id=None)
+        elif dt["status"] == "rejected":
+            # Simple revert — no ledger entry was created for rejected txns
+            ds.update_doc_transaction(conn, dt_id, status="review")
+        elif dt["status"] == "duplicate":
+            # Clear duplicate flag and move to review
+            ds.update_doc_transaction(conn, dt_id, status="review", is_duplicate=0, duplicate_of_txn_id=None)
+        else:
+            raise HTTPException(400, f"Cannot revert transaction with status '{dt['status']}'")
 
     return {"ok": True}
 

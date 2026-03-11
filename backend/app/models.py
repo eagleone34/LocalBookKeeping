@@ -159,13 +159,13 @@ class DocTransactionOut(BaseModel):
 
 
 class DocTransactionAction(BaseModel):
-    action: str = Field(..., pattern="^(approve|reject)$")
+    action: str = Field(..., pattern="^(approve|reject|revert)$")
     account_id: Optional[int] = None  # override the suggested account
 
 
 class BulkDocTransactionAction(BaseModel):
     ids: List[int]
-    action: str = Field(..., pattern="^(approve|reject)$")
+    action: str = Field(..., pattern="^(approve|reject|revert)$")
     account_id: Optional[int] = None
 
 

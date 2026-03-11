@@ -6,7 +6,7 @@ import {
 import {
   Upload, FileText, CheckCircle2, XCircle, AlertCircle,
   Loader2, Check, X, Copy, Building2, CreditCard, ChevronDown, ChevronRight,
-  FolderOpen
+  FolderOpen, RotateCcw
 } from 'lucide-react';
 import GroupedAccountSelect from '../components/GroupedAccountSelect';
 
@@ -88,23 +88,35 @@ export default function Inbox() {
 
   const handleBulkAction = async (docId, action) => {
     // get all selected txns that belong to this doc
-    const idsToProcess = docTxns
-      .filter(t => t.document_id === docId && selected.has(t.id))
-      .map(t => t.id);
+    const txnsToProcess = docTxns
+      .filter(t => t.document_id === docId && selected.has(t.id));
       
-    if (idsToProcess.length === 0) return;
+    if (txnsToProcess.length === 0) return;
 
     if (action === 'approve') {
       // Validate categories exist for approvals
-      const missingAccounts = docTxns.filter(t => idsToProcess.includes(t.id) && !(overrides[t.id] || t.suggested_account_id));
+      const missingAccounts = txnsToProcess.filter(t => !(overrides[t.id] || t.suggested_account_id));
       if (missingAccounts.length > 0) {
-        alert("Cannot approve. One or more selected transactions are missing an account category.");
+        alert(`Cannot approve. ${missingAccounts.length} selected transaction(s) are missing an account category. Please categorize them first.`);
         return;
       }
     }
 
     try {
-      await bulkDocAction({ ids: idsToProcess, action });
+      // Process each transaction individually so overrides are sent correctly
+      let failed = 0;
+      for (const t of txnsToProcess) {
+        const accountId = overrides[t.id] || t.suggested_account_id;
+        try {
+          await actionDocTransaction(t.id, { action, account_id: accountId || undefined });
+        } catch (err) {
+          console.error(`Failed to ${action} transaction ${t.id}:`, err);
+          failed++;
+        }
+      }
+      if (failed > 0) {
+        alert(`${txnsToProcess.length - failed} processed successfully, ${failed} failed.`);
+      }
       load();
     } catch (err) {
       console.error(err);
@@ -396,6 +408,39 @@ export default function Inbox() {
                                   title="Dismiss"
                                 >
                                   <XCircle className="w-4 h-4" />
+                                </button>
+                                <button
+                                  onClick={() => handleAction(dt.id, 'revert')}
+                                  className="p-1.5 rounded-md hover:bg-amber-100 text-gray-400 hover:text-amber-600 transition-colors"
+                                  title="Move back to review"
+                                >
+                                  <RotateCcw className="w-4 h-4" />
+                                </button>
+                              </div>
+                            )}
+                            {dt.status === 'posted' && (
+                              <div className="flex justify-end gap-1">
+                                <button
+                                  onClick={() => {
+                                    if (window.confirm('This will remove the posted ledger entry and move this transaction back to review. Continue?')) {
+                                      handleAction(dt.id, 'revert');
+                                    }
+                                  }}
+                                  className="p-1.5 rounded-md hover:bg-amber-100 text-gray-400 hover:text-amber-600 transition-colors"
+                                  title="Undo post — removes ledger entry and returns to review"
+                                >
+                                  <RotateCcw className="w-4 h-4" />
+                                </button>
+                              </div>
+                            )}
+                            {dt.status === 'rejected' && (
+                              <div className="flex justify-end gap-1">
+                                <button
+                                  onClick={() => handleAction(dt.id, 'revert')}
+                                  className="p-1.5 rounded-md hover:bg-amber-100 text-gray-400 hover:text-amber-600 transition-colors"
+                                  title="Move back to review"
+                                >
+                                  <RotateCcw className="w-4 h-4" />
                                 </button>
                               </div>
                             )}

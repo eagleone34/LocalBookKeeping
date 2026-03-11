@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { getCompanies, createCompanyRecord } from '../api/client';
+import { getCompanies, createCompanyRecord, deleteCompanyRecord } from '../api/client';
 
 const CompanyContext = createContext();
 
@@ -56,13 +56,32 @@ export function CompanyProvider({ children }) {
     }
   };
 
+  const deleteCompany = async (companyId) => {
+    try {
+      await deleteCompanyRecord(companyId);
+      const remaining = companies.filter(c => c.id !== companyId);
+      setCompanies(remaining);
+      if (currentCompany && currentCompany.id === companyId) {
+        // Switch to the first remaining company
+        if (remaining.length > 0) {
+          switchCompany(remaining[0]);
+        }
+      }
+    } catch (err) {
+      console.error("Failed to delete company:", err);
+      throw err;
+    }
+  };
+
   return (
     <CompanyContext.Provider value={{
       companies,
       currentCompany,
       loading,
       switchCompany,
-      createCompany
+      createCompany,
+      deleteCompany,
+      fetchCompanies
     }}>
       {children}
     </CompanyContext.Provider>

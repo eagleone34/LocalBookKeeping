@@ -1,7 +1,7 @@
 import { NavLink, Outlet } from 'react-router-dom';
 import {
   LayoutDashboard, BookOpen, ArrowLeftRight, PiggyBank,
-  BarChart3, FileText, Settings, Inbox, Building2, Plus
+  BarChart3, FileText, Settings, Inbox, Building2, Plus, Trash2
 } from 'lucide-react';
 import { useCompany } from '../context/CompanyContext';
 
@@ -16,17 +16,32 @@ const navItems = [
 ];
 
 export default function Layout() {
-  const { companies, currentCompany, switchCompany, createCompany, loading } = useCompany();
+  const { companies, currentCompany, switchCompany, createCompany, deleteCompany, loading } = useCompany();
 
   const handleCompanyChange = async (e) => {
     const val = e.target.value;
     if (val === 'CREATE_NEW') {
-      const name = window.prompt("Enter new workspace name:");
+      const name = window.prompt("Enter new company name:");
       if (name && name.trim()) {
         try {
           await createCompany(name.trim());
         } catch (err) {
-          alert('Failed to create workspace.');
+          alert('Failed to create company.');
+          e.target.value = currentCompany.id;
+        }
+      } else {
+        e.target.value = currentCompany.id;
+      }
+    } else if (val === 'DELETE_CURRENT') {
+      e.target.value = currentCompany.id;
+      const confirmed = window.confirm(
+        `Are you sure you want to permanently delete "${currentCompany.name}" and ALL of its data?\n\nThis action cannot be undone.`
+      );
+      if (confirmed) {
+        try {
+          await deleteCompany(currentCompany.id);
+        } catch (err) {
+          alert(err.message || 'Failed to delete company.');
         }
       }
     } else {
@@ -63,7 +78,10 @@ export default function Layout() {
                   </option>
                 ))}
                 <option disabled>──────────</option>
-                <option value="CREATE_NEW">+ Create new workspace</option>
+                <option value="CREATE_NEW">+ Create new company</option>
+                {companies.length > 1 && (
+                  <option value="DELETE_CURRENT">✕ Delete this company</option>
+                )}
               </select>
             </div>
           )}

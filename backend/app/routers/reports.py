@@ -64,17 +64,17 @@ def balance_sheet():
 
 
 @router.get("/dashboard", response_model=DashboardSummary)
-def dashboard():
+def dashboard(date_from: Optional[str] = None, date_to: Optional[str] = None):
     conn = get_conn()
     cid = get_company_id()
 
-    totals = ds.summary_totals(conn, cid)
+    totals = ds.summary_totals(conn, cid, date_from, date_to)
     accounts = ds.list_accounts(conn, cid)
     txn_count = ds.count_transactions(conn, cid)
     pending = ds.count_pending_review(conn, cid)
-    categories = ds.expense_by_category(conn, cid)
+    categories = ds.expense_by_category(conn, cid, date_from, date_to)
     trend = ds.monthly_trend(conn, cid, 12)
-    recent_txns = ds.list_transactions(conn, cid, limit=10)
+    recent_txns = ds.list_transactions(conn, cid, limit=10, date_from=date_from, date_to=date_to)
 
     return DashboardSummary(
         total_income=totals.get("income", 0),
@@ -109,3 +109,4 @@ def dashboard():
             for r in recent_txns
         ],
     )
+
