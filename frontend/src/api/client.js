@@ -73,9 +73,13 @@ export const getPnL = (dateFrom, dateTo) => {
   if (dateTo) qs.set('date_to', dateTo);
   return request(`/api/reports/pnl?${qs}`);
 };
-export const getBudgetVsActual = (month) => {
-  const qs = month ? `?month=${month}` : '';
-  return request(`/api/reports/budget-vs-actual${qs}`);
+export const getBudgetVsActual = (monthFrom, monthTo, accountId) => {
+  const qs = new URLSearchParams();
+  if (monthFrom) qs.set('month_from', monthFrom);
+  if (monthTo)   qs.set('month_to',   monthTo);
+  if (accountId) qs.set('account_id', accountId);
+  const q = qs.toString();
+  return request(`/api/reports/budget-vs-actual${q ? '?' + q : ''}`);
 };
 export const getExpenseByCategory = (dateFrom, dateTo) => {
   const qs = new URLSearchParams();

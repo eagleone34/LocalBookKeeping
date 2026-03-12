@@ -25,10 +25,10 @@ def profit_and_loss(date_from: Optional[str] = None, date_to: Optional[str] = No
 
 
 @router.get("/budget-vs-actual", response_model=List[BudgetVsActualRow])
-def budget_vs_actual(month: Optional[str] = None):
-    rows = ds.budget_vs_actual(get_conn(), get_company_id(), month)
+def budget_vs_actual(month_from: Optional[str] = None, month_to: Optional[str] = None, account_id: Optional[int] = None):
+    rows = ds.budget_vs_actual(get_conn(), get_company_id(), month_from, month_to, account_id)
     return [BudgetVsActualRow(
-        month=r["month"], account_id=r["account_id"], account_name=r["account_name"],
+        account_id=r["account_id"], account_name=r["account_name"],
         account_type=r["account_type"], budgeted=r["budgeted"], actual=r["actual"],
         variance=r["variance"],
     ) for r in rows]

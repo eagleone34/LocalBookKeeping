@@ -195,7 +195,7 @@ class PnLRow(BaseModel):
 
 
 class BudgetVsActualRow(BaseModel):
-    month: str
+    month: Optional[str] = None
     account_id: int
     account_name: str
     account_type: str

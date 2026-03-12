@@ -16,6 +16,24 @@ APP_EXE_NAME = "LocalBooks.exe"
 LOG_FILE     = Path.home() / "Documents" / "localbooks_setup.log"
 
 
+def get_desktop_path() -> Path:
+    """Get the actual Windows Desktop path via the Shell API.
+    Handles OneDrive-synced desktops, custom locations, etc.
+    Falls back to ~/Desktop if the API call fails.
+    """
+    try:
+        import ctypes
+        buf = ctypes.create_unicode_buffer(300)
+        # SHGetFolderPathW(hwnd, CSIDL_DESKTOP=0, token, flags, path)
+        ctypes.windll.shell32.SHGetFolderPathW(0, 0, 0, 0, buf)
+        p = Path(buf.value)
+        if p.exists():
+            return p
+    except Exception:
+        pass
+    return Path.home() / "Desktop"  # fallback
+
+
 def log(msg):
     try:
         with open(LOG_FILE, "a", encoding="utf-8") as f:
@@ -89,22 +107,32 @@ def main():
         sys.exit(1)
 
     # ── Desktop shortcut ──
+    # Use VBScript via cscript.exe - more reliable than PowerShell in windowless
+    # installer contexts (no execution policy issues, available on all Windows versions).
     try:
-        shortcut = Path.home() / "Desktop" / "LocalBooks.lnk"
-        ps = (
-            f'$ws = New-Object -ComObject WScript.Shell;'
-            f'$sc = $ws.CreateShortcut("{shortcut}");'
-            f'$sc.TargetPath = "{target_exe}";'
-            f'$sc.WorkingDirectory = "{INSTALL_DIR}";'
-            f'$sc.IconLocation = "{target_exe}";'
-            f'$sc.Save()'
+        shortcut_path = get_desktop_path() / "LocalBooks.lnk"
+        vbs_path = Path.home() / "AppData" / "Local" / "Temp" / "create_lb_shortcut.vbs"
+        vbs_content = (
+            f'Set ws = CreateObject("WScript.Shell")\r\n'
+            f'Set sc = ws.CreateShortcut("{shortcut_path}")\r\n'
+            f'sc.TargetPath = "{target_exe}"\r\n'
+            f'sc.WorkingDirectory = "{INSTALL_DIR}"\r\n'
+            f'sc.IconLocation = "{target_exe}, 0"\r\n'
+            f'sc.Description = "LocalBooks - Local Bookkeeping"\r\n'
+            f'sc.Save()\r\n'
         )
-        subprocess.run(
-            ["powershell", "-NoProfile", "-NonInteractive", "-Command", ps],
-            creationflags=0x08000000,
-            timeout=10
+        vbs_path.write_text(vbs_content, encoding="utf-8")
+        cscript = r"C:\Windows\System32\cscript.exe"
+        result = subprocess.run(
+            [cscript, "//Nologo", str(vbs_path)],
+            capture_output=True, text=True, timeout=15
         )
-        log("Desktop shortcut created.")
+        vbs_path.unlink(missing_ok=True)  # clean up temp file
+        if result.returncode != 0:
+            log(f"Shortcut VBS stderr: {result.stderr.strip()}")
+            log("Shortcut creation may have failed (non-fatal).")
+        else:
+            log(f"Desktop shortcut created: {shortcut_path}")
     except Exception as e:
         log(f"Shortcut error (non-fatal): {e}")
 

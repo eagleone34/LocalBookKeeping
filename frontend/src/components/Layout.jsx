@@ -5,7 +5,7 @@ import {
 } from 'lucide-react';
 import { useCompany } from '../context/CompanyContext';
 import { useState, useEffect } from 'react';
-import api from '../api/client';
+
 
 const navItems = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
@@ -22,13 +22,14 @@ export default function Layout() {
   const [updateInfo, setUpdateInfo] = useState({ available: false, version: null });
 
   useEffect(() => {
-    api.get('/health/update')
-      .then(res => {
-        if (res.data && res.data.update_available) {
-          setUpdateInfo({ available: true, version: res.data.latest_version });
+    fetch('/api/health/update')
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (data && data.update_available) {
+          setUpdateInfo({ available: true, version: data.latest_version });
         }
       })
-      .catch(err => console.error("Failed to check for updates:", err));
+      .catch(() => {});
   }, []);
 
   const handleCompanyChange = async (e) => {

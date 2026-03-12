@@ -10,11 +10,23 @@ from __future__ import annotations
 import sys
 import os
 import shutil
+import socket
 import threading
 import webbrowser
 import time
 import traceback
 from pathlib import Path
+
+APP_URL = "http://127.0.0.1:8000"
+
+
+def _is_server_running() -> bool:
+    """Check if the LocalBooks server is already listening on port 8000."""
+    try:
+        with socket.create_connection(("127.0.0.1", 8000), timeout=1.0):
+            return True
+    except OSError:
+        return False
 
 # Silence stdout/stderr in noconsole exe so uvicorn doesn't crash
 if sys.stdout is None:
@@ -161,6 +173,14 @@ def open_browser():
 
 
 if __name__ == "__main__":
+    # ── Single-instance guard ──
+    # If the server is already running (e.g. user clicked the exe again after
+    # closing the browser tab), just open the browser and exit cleanly.
+    if _is_server_running():
+        log("Server already running – opening browser.")
+        webbrowser.open(APP_URL)
+        sys.exit(0)
+
     log("Starting server on :8000 ...")
     if getattr(sys, 'frozen', False):
         threading.Thread(target=open_browser, daemon=True).start()
@@ -169,5 +189,3 @@ if __name__ == "__main__":
     except Exception:
         show_error("LocalBooks - Server Error", traceback.format_exc())
         sys.exit(1)
-    else:
-        uvicorn.run("app.main:app", host="127.0.0.1", port=8000, reload=True)

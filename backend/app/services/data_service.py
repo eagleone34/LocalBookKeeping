@@ -511,25 +511,34 @@ def profit_and_loss(conn: sqlite3.Connection, company_id: int,
 
 
 def budget_vs_actual(conn: sqlite3.Connection, company_id: int,
-                     month: Optional[str] = None) -> List[Dict]:
+                     month_from: Optional[str] = None,
+                     month_to: Optional[str] = None,
+                     account_id: Optional[int] = None) -> List[Dict]:
+    """One row per account, budgeted/actual/variance summed across month_from..month_to."""
     sql = """
-        SELECT b.month, b.account_id, a.name AS account_name, a.type AS account_type,
-               b.amount AS budgeted,
-               COALESCE(SUM(t.amount), 0) AS actual,
-               b.amount - COALESCE(SUM(t.amount), 0) AS variance
+        SELECT b.account_id, a.name AS account_name, a.type AS account_type,
+               SUM(b.amount)                          AS budgeted,
+               ABS(COALESCE(SUM(t.amount), 0))        AS actual,
+               SUM(b.amount) - ABS(COALESCE(SUM(t.amount), 0)) AS variance
         FROM budgets b
         JOIN accounts a ON b.account_id = a.id
         LEFT JOIN transactions t
-            ON t.account_id = a.id
+            ON  t.account_id            = a.id
             AND strftime('%Y-%m', t.txn_date) = b.month
-            AND t.company_id = b.company_id
+            AND t.company_id            = b.company_id
         WHERE b.company_id=?
     """
     params: list = [company_id]
-    if month:
-        sql += " AND b.month=?"
-        params.append(month)
-    sql += " GROUP BY b.month, b.account_id, a.name, a.type, b.amount ORDER BY b.month DESC, a.name"
+    if month_from:
+        sql += " AND b.month >= ?"
+        params.append(month_from)
+    if month_to:
+        sql += " AND b.month <= ?"
+        params.append(month_to)
+    if account_id:
+        sql += " AND b.account_id = ?"
+        params.append(account_id)
+    sql += " GROUP BY b.account_id, a.name, a.type ORDER BY a.name"
     return [dict(r) for r in conn.execute(sql, params).fetchall()]
 
 
@@ -600,15 +609,47 @@ def monthly_trend(conn: sqlite3.Connection, company_id: int, months: int = 12) -
 
 
 def balance_sheet(conn: sqlite3.Connection, company_id: int) -> List[Dict]:
-    sql = """
+    """
+    Return a balance sheet with two data sources merged:
+    1. Actual asset/liability account balances (from transactions against those accounts)
+    2. Retained Earnings – the net income accumulated by the business, shown as an asset
+       (represents the cash/equity the business has generated through operations)
+    """
+    rows = []
+
+    # ── Real asset/liability account transactions ──
+    txn_rows = conn.execute("""
         SELECT a.type, a.name AS account_name, SUM(t.amount) AS balance
         FROM transactions t
         JOIN accounts a ON t.account_id = a.id
         WHERE t.company_id=? AND a.type IN ('asset','liability')
         GROUP BY a.type, a.name
         ORDER BY a.type, a.name
-    """
-    return [dict(r) for r in conn.execute(sql, (company_id,)).fetchall()]
+    """, (company_id,)).fetchall()
+    rows.extend([dict(r) for r in txn_rows])
+
+    # ── Retained Earnings from income/expense operations ──
+    # Net income = total income + total expenses (expenses are stored as negatives)
+    net = conn.execute("""
+        SELECT
+            COALESCE(SUM(CASE WHEN a.type='income'  THEN t.amount ELSE 0 END), 0) AS total_income,
+            COALESCE(SUM(CASE WHEN a.type='expense' THEN t.amount ELSE 0 END), 0) AS total_expense
+        FROM transactions t
+        JOIN accounts a ON t.account_id = a.id
+        WHERE t.company_id=?
+    """, (company_id,)).fetchone()
+
+    if net:
+        retained = float(net["total_income"]) + float(net["total_expense"])  # expenses are negative
+        if retained != 0:
+            rows.append({
+                "type": "asset",
+                "account_name": "Retained Earnings (Net Income)",
+                "balance": round(retained, 2),
+            })
+
+    return rows
+
 
 
 def summary_totals(conn: sqlite3.Connection, company_id: int,
