@@ -1,9 +1,11 @@
 import { NavLink, Outlet } from 'react-router-dom';
 import {
   LayoutDashboard, BookOpen, ArrowLeftRight, PiggyBank,
-  BarChart3, FileText, Settings, Inbox, Building2, Plus, Trash2
+  BarChart3, FileText, Settings, Inbox, Building2, Plus, Trash2, AlertCircle
 } from 'lucide-react';
 import { useCompany } from '../context/CompanyContext';
+import { useState, useEffect } from 'react';
+import api from '../api/client';
 
 const navItems = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
@@ -17,6 +19,17 @@ const navItems = [
 
 export default function Layout() {
   const { companies, currentCompany, switchCompany, createCompany, deleteCompany, loading } = useCompany();
+  const [updateInfo, setUpdateInfo] = useState({ available: false, version: null });
+
+  useEffect(() => {
+    api.get('/health/update')
+      .then(res => {
+        if (res.data && res.data.update_available) {
+          setUpdateInfo({ available: true, version: res.data.latest_version });
+        }
+      })
+      .catch(err => console.error("Failed to check for updates:", err));
+  }, []);
 
   const handleCompanyChange = async (e) => {
     const val = e.target.value;
@@ -59,7 +72,7 @@ export default function Layout() {
         <div className="p-4 border-b border-gray-200">
           <h1 className="text-xl font-bold text-primary-700 flex items-center gap-2 mb-4 px-2">
             <BookOpen className="w-6 h-6" />
-            LedgerLocal
+            LocalBooks
           </h1>
 
           {!loading && companies.length > 0 && currentCompany && (
@@ -113,8 +126,17 @@ export default function Layout() {
       </aside>
 
       {/* Main content */}
-      <main className="flex-1 overflow-auto">
-        <div className="p-8 max-w-7xl mx-auto">
+      <main className="flex-1 overflow-auto flex flex-col">
+        {updateInfo.available && (
+          <div className="bg-blue-50 p-4 border-b border-blue-100 flex items-center gap-3">
+            <AlertCircle className="w-5 h-5 text-blue-500 flex-shrink-0" />
+            <div className="text-sm text-blue-700">
+              <span className="font-semibold">Update Available!</span> Version {updateInfo.version} is now available. 
+              Please download the latest version from <a href="https://github.com/eagleone34/LocalBookKeeping/releases/latest" target="_blank" rel="noopener noreferrer" className="font-medium underline hover:text-blue-800">GitHub</a>.
+            </div>
+          </div>
+        )}
+        <div className="p-8 max-w-7xl mx-auto w-full">
           <Outlet />
         </div>
       </main>

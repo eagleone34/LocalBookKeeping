@@ -118,6 +118,10 @@ export const actionDocTransaction = (id, data) =>
   request(`/api/documents/transactions/${id}/action`, { method: 'POST', body: JSON.stringify(data) });
 export const bulkDocAction = (data) =>
   request('/api/documents/transactions/bulk-action', { method: 'POST', body: JSON.stringify(data) });
+export const deleteDocument = (id) =>
+  request(`/api/documents/${id}`, { method: 'DELETE' });
+export const deleteDocTransaction = (id) =>
+  request(`/api/documents/transactions/${id}`, { method: 'DELETE' });
 
 // Settings
 export const getCompany = () => request('/api/company');

@@ -2,11 +2,12 @@ import { useEffect, useState, useCallback, useMemo } from 'react';
 import {
   getDocuments, getDocTransactions, uploadDocuments,
   actionDocTransaction, bulkDocAction, getAccounts,
+  deleteDocument, deleteDocTransaction,
 } from '../api/client';
 import {
   Upload, FileText, CheckCircle2, XCircle, AlertCircle,
   Loader2, Check, X, Copy, Building2, CreditCard, ChevronDown, ChevronRight,
-  FolderOpen, RotateCcw
+  FolderOpen, RotateCcw, Trash2
 } from 'lucide-react';
 import GroupedAccountSelect from '../components/GroupedAccountSelect';
 
@@ -33,6 +34,7 @@ export default function Inbox() {
   const [selected, setSelected] = useState(new Set());
   const [filter, setFilter] = useState('review');
   const [overrides, setOverrides] = useState({}); // {dtId: accountId}
+  const [confirmingDelete, setConfirmingDelete] = useState(null); // { type: 'txn' | 'doc', id: any }
 
   const load = async () => {
     try {
@@ -121,6 +123,28 @@ export default function Inbox() {
     } catch (err) {
       console.error(err);
       alert('Bulk action failed.');
+    }
+  };
+
+  const handleDeleteTransaction = async (id) => {
+    try {
+      await deleteDocTransaction(id);
+      setConfirmingDelete(null);
+      load();
+    } catch (err) {
+      console.error(err);
+      alert('Failed to delete transaction.');
+    }
+  };
+
+  const handleDeleteDocument = async (docId) => {
+    try {
+      await deleteDocument(docId);
+      setConfirmingDelete(null);
+      load();
+    } catch (err) {
+      console.error(err);
+      alert('Failed to delete statement.');
     }
   };
 
@@ -297,20 +321,53 @@ export default function Inbox() {
                     </div>
                   </div>
 
-                  {/* Contextual Bulk Actions */}
-                  {docSelectedCount > 0 && (
-                    <div className="flex items-center gap-2 bg-white p-1 rounded-lg shadow-sm border border-gray-200">
-                      <span className="text-sm font-medium text-gray-600 px-3 border-r border-gray-200">
-                        {docSelectedCount} selected
-                      </span>
-                      <button onClick={() => handleBulkAction(doc.id, 'approve')} className="px-3 py-1.5 rounded-md text-sm font-medium bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-colors flex items-center gap-1">
-                        <Check className="w-3.5 h-3.5" /> Approve
-                      </button>
-                      <button onClick={() => handleBulkAction(doc.id, 'reject')} className="px-3 py-1.5 rounded-md text-sm font-medium bg-red-50 text-red-700 hover:bg-red-100 transition-colors flex items-center gap-1">
-                        <X className="w-3.5 h-3.5" /> Reject
-                      </button>
+                  <div className="flex items-center gap-3">
+                    {/* Contextual Bulk Actions */}
+                    {docSelectedCount > 0 && (
+                      <div className="flex items-center gap-2 bg-white p-1 rounded-lg shadow-sm border border-gray-200">
+                        <span className="text-sm font-medium text-gray-600 px-3 border-r border-gray-200">
+                          {docSelectedCount} selected
+                        </span>
+                        <button onClick={() => handleBulkAction(doc.id, 'approve')} className="px-3 py-1.5 rounded-md text-sm font-medium bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-colors flex items-center gap-1">
+                          <Check className="w-3.5 h-3.5" /> Approve
+                        </button>
+                        <button onClick={() => handleBulkAction(doc.id, 'reject')} className="px-3 py-1.5 rounded-md text-sm font-medium bg-red-50 text-red-700 hover:bg-red-100 transition-colors flex items-center gap-1">
+                          <X className="w-3.5 h-3.5" /> Reject
+                        </button>
+                      </div>
+                    )}
+
+                    <div className="flex items-center gap-2">
+                      {confirmingDelete?.type === 'doc' && confirmingDelete?.id === doc.id ? (
+                        <div className="flex items-center gap-2 bg-red-50 px-2 py-1 rounded-md border border-red-100 animate-in fade-in slide-in-from-right-2">
+                          <span className="text-xs font-bold text-red-700">Delete Statement?</span>
+                          <button 
+                            onClick={() => handleDeleteDocument(doc.id)}
+                            className="p-1 rounded hover:bg-red-200 text-red-700 transition-colors"
+                            title="Confirm Delete"
+                          >
+                            <Check className="w-4 h-4" />
+                          </button>
+                          <button 
+                            onClick={() => setConfirmingDelete(null)}
+                            className="p-1 rounded hover:bg-gray-200 text-gray-500 transition-colors"
+                            title="Cancel"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ) : (
+                        <button 
+                          onClick={() => setConfirmingDelete({ type: 'doc', id: doc.id })}
+                          className="p-2 rounded-md hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors flex items-center gap-1 text-sm font-medium"
+                          title="Delete entire statement and all its transactions"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                          <span className="hidden sm:inline">Delete Statement</span>
+                        </button>
+                      )}
                     </div>
-                  )}
+                  </div>
                 </div>
 
                 {/* Document Transactions Table */}
@@ -376,23 +433,40 @@ export default function Inbox() {
                           <td className="py-2 px-3 text-center">{confidenceBadge(dt.confidence)}</td>
                           <td className="py-2 px-3 text-right">
                             {dt.status === 'review' && (
-                              <div className="flex justify-end gap-1">
-                                <button
-                                  onClick={() => handleAction(dt.id, 'approve', dt.suggested_account_id)}
-                                  className="p-1.5 rounded-md hover:bg-emerald-100 text-emerald-600 transition-colors"
-                                  title="Approve & post"
-                                >
-                                  <CheckCircle2 className="w-4 h-4" />
-                                </button>
-                                <button
-                                  onClick={() => handleAction(dt.id, 'reject')}
-                                  className="p-1.5 rounded-md hover:bg-red-100 text-red-500 transition-colors"
-                                  title="Reject"
-                                >
-                                  <XCircle className="w-4 h-4" />
-                                </button>
-                              </div>
-                            )}
+                               <div className="flex justify-end gap-1">
+                                 {confirmingDelete?.type === 'txn' && confirmingDelete?.id === dt.id ? (
+                                   <div className="flex items-center gap-1 bg-red-50 px-1 rounded border border-red-100 animate-in fade-in zoom-in-95">
+                                     <span className="text-[10px] font-bold text-red-700 px-1">Sure?</span>
+                                     <button onClick={() => handleDeleteTransaction(dt.id)} className="p-1 text-red-600 hover:bg-red-100 rounded" title="Confirm Delete"><Check className="w-3 h-3" /></button>
+                                     <button onClick={() => setConfirmingDelete(null)} className="p-1 text-gray-400 hover:bg-gray-100 rounded" title="Cancel"><X className="w-3 h-3" /></button>
+                                   </div>
+                                 ) : (
+                                   <>
+                                     <button
+                                       onClick={() => handleAction(dt.id, 'approve', dt.suggested_account_id)}
+                                       className="p-1.5 rounded-md hover:bg-emerald-100 text-emerald-600 transition-colors"
+                                       title="Approve & post"
+                                     >
+                                       <CheckCircle2 className="w-4 h-4" />
+                                     </button>
+                                     <button
+                                       onClick={() => handleAction(dt.id, 'reject')}
+                                       className="p-1.5 rounded-md hover:bg-red-100 text-red-500 transition-colors"
+                                       title="Reject"
+                                     >
+                                       <XCircle className="w-4 h-4" />
+                                     </button>
+                                     <button
+                                       onClick={() => setConfirmingDelete({ type: 'txn', id: dt.id })}
+                                       className="p-1.5 rounded-md hover:bg-gray-200 text-gray-400 hover:text-gray-600 transition-colors"
+                                       title="Delete from inbox"
+                                     >
+                                       <Trash2 className="w-4 h-4" />
+                                     </button>
+                                   </>
+                                 )}
+                               </div>
+                             )}
                             {dt.status === 'duplicate' && (
                               <div className="flex justify-end gap-1">
                                 <button
@@ -419,20 +493,24 @@ export default function Inbox() {
                               </div>
                             )}
                             {dt.status === 'posted' && (
-                              <div className="flex justify-end gap-1">
-                                <button
-                                  onClick={() => {
-                                    if (window.confirm('This will remove the posted ledger entry and move this transaction back to review. Continue?')) {
-                                      handleAction(dt.id, 'revert');
-                                    }
-                                  }}
-                                  className="p-1.5 rounded-md hover:bg-amber-100 text-gray-400 hover:text-amber-600 transition-colors"
-                                  title="Undo post — removes ledger entry and returns to review"
-                                >
-                                  <RotateCcw className="w-4 h-4" />
-                                </button>
-                              </div>
-                            )}
+                               <div className="flex justify-end gap-1">
+                                 {confirmingDelete?.type === 'revert' && confirmingDelete?.id === dt.id ? (
+                                   <div className="flex items-center gap-1 bg-amber-50 px-1 rounded border border-amber-100 animate-in fade-in zoom-in-95">
+                                     <span className="text-[10px] font-bold text-amber-700 px-1">Undo Post?</span>
+                                     <button onClick={() => { handleAction(dt.id, 'revert'); setConfirmingDelete(null); }} className="p-1 text-amber-600 hover:bg-amber-100 rounded" title="Confirm Undo"><Check className="w-3 h-3" /></button>
+                                     <button onClick={() => setConfirmingDelete(null)} className="p-1 text-gray-400 hover:bg-gray-100 rounded" title="Cancel"><X className="w-3 h-3" /></button>
+                                   </div>
+                                 ) : (
+                                   <button
+                                     onClick={() => setConfirmingDelete({ type: 'revert', id: dt.id })}
+                                     className="p-1.5 rounded-md hover:bg-amber-100 text-gray-400 hover:text-amber-600 transition-colors"
+                                     title="Undo post — removes ledger entry and returns to review"
+                                   >
+                                     <RotateCcw className="w-4 h-4" />
+                                   </button>
+                                 )}
+                               </div>
+                             )}
                             {dt.status === 'rejected' && (
                               <div className="flex justify-end gap-1">
                                 <button

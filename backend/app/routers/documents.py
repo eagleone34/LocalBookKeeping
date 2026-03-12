@@ -26,6 +26,13 @@ def list_documents():
     return [_doc_out(r) for r in rows]
 
 
+@router.delete("/{doc_id}")
+def delete_document(doc_id: int):
+    """Delete a document and all related staging/ledger data."""
+    ds.delete_document(get_conn(), doc_id)
+    return {"ok": True}
+
+
 @router.post("/upload", response_model=List[DocumentOut])
 async def upload_documents(files: List[UploadFile] = File(...)):
     """Upload one or more PDF files. Full smart pipeline runs automatically."""
@@ -149,6 +156,13 @@ def list_doc_transactions(doc_id: Optional[int] = None, status: Optional[str] = 
     return [_dt_out(r) for r in rows]
 
 
+@router.delete("/transactions/{dt_id}")
+def delete_doc_transaction(dt_id: int):
+    """Delete a single staging transaction."""
+    ds.delete_doc_transaction(get_conn(), dt_id)
+    return {"ok": True}
+
+
 @router.post("/transactions/{dt_id}/action")
 def action_doc_transaction(dt_id: int, body: DocTransactionAction):
     """Approve, reject, or revert a document transaction. Learning happens on approve."""
@@ -163,7 +177,8 @@ def action_doc_transaction(dt_id: int, body: DocTransactionAction):
         if not account_id:
             raise HTTPException(400, "No account specified for approval")
 
-        # Post to main ledger
+        # ═══ DUAL POSTING: Category side + Bank side ═══
+        # 1. Category side (P&L)
         ds.create_transaction(
             conn, cid,
             account_id=account_id,
@@ -174,6 +189,22 @@ def action_doc_transaction(dt_id: int, body: DocTransactionAction):
             source="pdf_import",
             source_doc_id=dt["document_id"],
         )
+        
+        # 2. Bank side (Balance Sheet)
+        if dt.get("bank_account_id"):
+            bank_ledger_id = ds.ensure_bank_ledger_account(conn, dt["bank_account_id"])
+            if bank_ledger_id:
+                ds.create_transaction(
+                    conn, cid,
+                    account_id=bank_ledger_id,
+                    txn_date=dt["txn_date"] or "2025-01-01",
+                    amount=dt["amount"] or 0,
+                    description=f"Deposit/Withdrawal: {dt['description'] or ''}",
+                    vendor_name=dt["vendor_name"] or "",
+                    source="pdf_import",
+                    source_doc_id=dt["document_id"],
+                )
+
         ds.update_doc_transaction(conn, dt_id, status="posted", user_account_id=account_id)
 
         # ═══ LEARNING: update vendor-account map so next time it auto-categorizes ═══
@@ -185,17 +216,15 @@ def action_doc_transaction(dt_id: int, body: DocTransactionAction):
 
     elif body.action == "revert":
         if dt["status"] == "posted":
-            # ═══ DATA INTEGRITY: find and delete the ledger transaction that was created ═══
-            # Match by source_doc_id + txn_date + amount to find the exact ledger entry
-            rows = conn.execute(
-                """SELECT id FROM transactions
+            # ═══ DATA INTEGRITY: delete BOTH entries (Category + Bank Asset) ═══
+            # Match by source_doc_id + txn_date + amount + source='pdf_import'
+            conn.execute(
+                """DELETE FROM transactions
                    WHERE company_id=? AND source='pdf_import' AND source_doc_id=?
-                   AND txn_date=? AND ABS(amount - ?) < 0.01
-                   ORDER BY id DESC LIMIT 1""",
+                   AND txn_date=? AND ABS(amount - ?) < 0.01""",
                 (cid, dt["document_id"], dt["txn_date"], dt["amount"]),
-            ).fetchall()
-            if rows:
-                ds.delete_transaction(conn, int(rows[0]["id"]))
+            )
+            conn.commit()
             # Reset status back to review and clear user_account_id
             ds.update_doc_transaction(conn, dt_id, status="review", user_account_id=None)
         elif dt["status"] == "rejected":
@@ -226,6 +255,9 @@ def bulk_action(body: BulkDocTransactionAction):
             account_id = body.account_id or dt.get("user_account_id") or dt.get("suggested_account_id")
             if not account_id:
                 continue
+            
+            # ═══ DUAL POSTING ═══
+            # 1. Category side
             ds.create_transaction(
                 conn, cid,
                 account_id=account_id,
@@ -236,6 +268,21 @@ def bulk_action(body: BulkDocTransactionAction):
                 source="pdf_import",
                 source_doc_id=dt["document_id"],
             )
+            # 2. Bank side
+            if dt.get("bank_account_id"):
+                bank_ledger_id = ds.ensure_bank_ledger_account(conn, dt["bank_account_id"])
+                if bank_ledger_id:
+                    ds.create_transaction(
+                        conn, cid,
+                        account_id=bank_ledger_id,
+                        txn_date=dt["txn_date"] or "2025-01-01",
+                        amount=dt["amount"] or 0,
+                        description=f"Deposit/Withdrawal: {dt['description'] or ''}",
+                        vendor_name=dt["vendor_name"] or "",
+                        source="pdf_import",
+                        source_doc_id=dt["document_id"],
+                    )
+
             ds.update_doc_transaction(conn, dt_id, status="posted", user_account_id=account_id)
             # Learning
             if dt.get("vendor_name"):

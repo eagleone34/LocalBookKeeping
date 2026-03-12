@@ -36,12 +36,12 @@ def seed_default_accounts(conn: sqlite3.Connection, company_id: int) -> dict:
         ("Miscellaneous", "expense", None, "5900"),
     ]
     asset_accounts = [
-        ("Business Checking", "asset", None, "1000"),
-        ("Savings Account", "asset", None, "1100"),
+        ("Chase Business Checking", "asset", None, "1000"),
+        ("RBC Savings", "asset", None, "1100"),
         ("Accounts Receivable", "asset", None, "1200"),
     ]
     liability_accounts = [
-        ("Credit Card", "liability", None, "2000"),
+        ("Chase Corporate Card", "liability", None, "2000"),
         ("Line of Credit", "liability", None, "2100"),
     ]
 

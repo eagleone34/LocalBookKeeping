@@ -319,6 +319,43 @@ def list_documents(conn: sqlite3.Connection, company_id: int) -> List[Dict]:
         (company_id,)).fetchall()]
 
 
+def delete_document(conn: sqlite3.Connection, doc_id: int) -> None:
+    """
+    Delete a document and all its associated data:
+    1. Associated staging transactions (document_transactions)
+    2. Associated posted transactions (ledger)
+    3. The actual file on disk
+    4. The document record itself
+    """
+    doc = conn.execute("SELECT file_path FROM documents WHERE id=?", (doc_id,)).fetchone()
+    if not doc:
+        return
+
+    # Delete staging transactions
+    conn.execute("DELETE FROM document_transactions WHERE document_id=?", (doc_id,))
+    
+    # Delete posted transactions in the ledger
+    conn.execute("DELETE FROM transactions WHERE source_doc_id=?", (doc_id,))
+    
+    # Delete the physical file
+    file_path = doc["file_path"]
+    if file_path and os.path.exists(file_path):
+        try:
+            os.remove(file_path)
+        except Exception as e:
+            print(f"Error deleting file {file_path}: {e}")
+            
+    # Delete the document record
+    conn.execute("DELETE FROM documents WHERE id=?", (doc_id,))
+    conn.commit()
+
+
+def delete_doc_transaction(conn: sqlite3.Connection, dt_id: int) -> None:
+    """Delete a single staging transaction from the inbox."""
+    conn.execute("DELETE FROM document_transactions WHERE id=?", (dt_id,))
+    conn.commit()
+
+
 def create_doc_transaction(conn: sqlite3.Connection, doc_id: int,
                            txn_date: str, description: str, amount: float,
                            vendor_name: str, suggested_account_id: Optional[int],
@@ -653,6 +690,38 @@ def list_bank_accounts(conn: sqlite3.Connection, company_id: int) -> List[Dict]:
         "SELECT ba.*, a.name AS ledger_account_name FROM bank_accounts ba LEFT JOIN accounts a ON ba.ledger_account_id = a.id WHERE ba.company_id=? ORDER BY ba.bank_name, ba.last_four",
         (company_id,),
     ).fetchall()]
+
+
+def ensure_bank_ledger_account(conn: sqlite3.Connection, bank_account_id: int) -> int:
+    """Ensure a bank account has a linked ledger account (Asset/Liability). Returns ledger_account_id."""
+    ba = get_bank_account(conn, bank_account_id)
+    if not ba:
+        return 0
+    if ba.get("ledger_account_id"):
+        return int(ba["ledger_account_id"])
+
+    # Create a new Asset account for this bank account
+    company_id = ba["company_id"]
+    name = f"{ba['bank_name']} - {ba['last_four']}"
+    # Default to 'asset' for bank accounts. If it's a credit card, might be 'liability' 
+    # but 'asset' is a safe default for now as most imports are checking/savings.
+    # In a full app, we'd guess based on bank name or user input.
+    acct_type = "asset"
+    
+    # Check if an account with this name already exists for the company
+    existing = conn.execute(
+        "SELECT id FROM accounts WHERE company_id=? AND name=? AND type=?",
+        (company_id, name, acct_type)
+    ).fetchone()
+    
+    if existing:
+        ledger_id = int(existing["id"])
+    else:
+        ledger_id = create_account(conn, company_id, name, acct_type)
+    
+    # Link it back to the bank account
+    update_bank_account(conn, bank_account_id, ledger_account_id=ledger_id)
+    return ledger_id
 
 
 def update_bank_account(conn: sqlite3.Connection, bank_account_id: int, **kwargs) -> None:
