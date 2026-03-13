@@ -10,6 +10,21 @@ function formatMoney(val) {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0 }).format(val);
 }
 
+// Custom Y-axis tick: truncates display at 20 chars but shows full name on hover via SVG <title>
+const CustomYTick = ({ x, y, payload }) => {
+  const full = payload.value;
+  const MAX = 20;
+  const short = full.length > MAX ? full.slice(0, MAX) + '\u2026' : full;
+  return (
+    <g transform={`translate(${x},${y})`}>
+      <text x={0} y={0} dy={4} textAnchor="end" fontSize={12} fill="#6b7280" cursor="default">
+        <title>{full}</title>
+        {short}
+      </text>
+    </g>
+  );
+};
+
 // ── Period helpers ────────────────────────────────────────
 function toMonth(d) { return d.toISOString().slice(0, 7); }  // "YYYY-MM"
 
@@ -124,12 +139,12 @@ export default function Budgets() {
 
   // Chart data
   const budgetActualData = bva.map(row => ({
-    name: row.account_name.length > 14 ? row.account_name.slice(0, 14) + '…' : row.account_name,
+    name: row.account_name,
     Budget: row.budgeted,
     Actual: row.actual,
   }));
   const varianceData = bva.map(row => ({
-    name: row.account_name.length > 14 ? row.account_name.slice(0, 14) + '…' : row.account_name,
+    name: row.account_name,
     Variance: row.variance,
     over: row.variance < 0,
   }));
@@ -260,7 +275,7 @@ export default function Budgets() {
               <BarChart data={budgetActualData} layout="vertical" margin={{ left: 20, right: 20 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                 <XAxis type="number" tickFormatter={v => `$${(v/1000).toFixed(0)}k`} />
-                <YAxis type="category" dataKey="name" width={130} tick={{ fontSize: 12 }} />
+                <YAxis type="category" dataKey="name" width={160} tick={<CustomYTick />} />
                 <Tooltip formatter={(v, name) => [formatMoney(v), name]} />
                 <Legend />
                 <Bar dataKey="Budget" fill="#93c5fd" radius={[0,4,4,0]} name="Budget" />
@@ -270,7 +285,7 @@ export default function Budgets() {
               <BarChart data={varianceData} layout="vertical" margin={{ left: 20, right: 40 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                 <XAxis type="number" tickFormatter={v => `$${(v/1000).toFixed(0)}k`} />
-                <YAxis type="category" dataKey="name" width={130} tick={{ fontSize: 12 }} />
+                <YAxis type="category" dataKey="name" width={160} tick={<CustomYTick />} />
                 <Tooltip formatter={v => [formatMoney(Math.abs(v)), v >= 0 ? 'Under Budget' : 'Over Budget']} />
                 <ReferenceLine x={0} stroke="#6b7280" strokeWidth={1.5} />
                 <Bar dataKey="Variance" radius={[0,4,4,0]}>
