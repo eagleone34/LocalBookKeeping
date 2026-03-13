@@ -13,7 +13,7 @@ const navItems = [
   { to: '/transactions', icon: ArrowLeftRight, label: 'Transactions' },
   { to: '/budgets', icon: PiggyBank, label: 'Budgets' },
   { to: '/reports', icon: BarChart3, label: 'Reports' },
-  { to: '/inbox', icon: Inbox, label: 'Statement Inbox' },
+  { to: '/inbox', icon: Inbox, label: 'Statements' },
   { to: '/settings', icon: Settings, label: 'Settings' },
 ];
 

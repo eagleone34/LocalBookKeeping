@@ -70,6 +70,26 @@ def main():
         sys.exit(0)
     log("EULA accepted.")
 
+    # ── Kill running instances ──
+    try:
+        subprocess.run(["taskkill", "/IM", APP_EXE_NAME, "/F"], capture_output=True)
+        log("Attempted to kill running LocalBooks.exe instances.")
+        time.sleep(1) # wait for process to die
+    except Exception as e:
+        log(f"taskkill error: {e}")
+
+    # ── Backup Database ──
+    db_backup_path = None
+    existing_db = INSTALL_DIR / "company_data" / "ledgerlocal.db"
+    
+    if existing_db.exists():
+        db_backup_path = Path.home() / "Documents" / "ledgerlocal_backup.db"
+        try:
+            shutil.copy2(existing_db, db_backup_path)
+            log(f"Backed up existing database to {db_backup_path}")
+        except Exception as e:
+            log(f"Warning: Failed to backup database: {e}")
+
     # ── Remove any existing installation ──
     if INSTALL_DIR.exists():
         try:
@@ -100,6 +120,18 @@ def main():
     except Exception as e:
         msgbox("Setup Error", f"Extraction failed:\n{e}", 0x10)
         sys.exit(1)
+
+    # ── Restore Database ──
+    if db_backup_path and db_backup_path.exists():
+        new_db_path = INSTALL_DIR / "company_data" / "ledgerlocal.db"
+        try:
+            new_db_path.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(db_backup_path, new_db_path)
+            log(f"Restored existing database to {new_db_path}")
+            db_backup_path.unlink() # Cleanup backup
+        except Exception as e:
+            log(f"Warning: Failed to restore database: {e}")
+            msgbox("Setup Warning", f"Failed to restore your old database.\nIt was backed up to: {db_backup_path}", 0x30)
 
     target_exe = INSTALL_DIR / APP_EXE_NAME
     if not target_exe.exists():

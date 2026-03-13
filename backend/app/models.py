@@ -139,6 +139,18 @@ class DocumentOut(BaseModel):
     bank_name: Optional[str] = None
     account_last_four: Optional[str] = None
 
+class MappedTransactionIn(BaseModel):
+    txn_date: str
+    description: str
+    amount: float
+    vendor_name: Optional[str] = ""
+
+class BulkImportRequest(BaseModel):
+    filename: str
+    bank_name: Optional[str] = None
+    account_last_four: Optional[str] = None
+    transactions: List[MappedTransactionIn]
+
 
 class DocTransactionOut(BaseModel):
     id: int

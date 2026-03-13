@@ -7,9 +7,10 @@ import {
 import {
   Upload, FileText, CheckCircle2, XCircle, AlertCircle,
   Loader2, Check, X, Copy, Building2, CreditCard, ChevronDown, ChevronRight,
-  FolderOpen, RotateCcw, Trash2
+  FolderOpen, RotateCcw, Trash2, FileSpreadsheet
 } from 'lucide-react';
 import GroupedAccountSelect from '../components/GroupedAccountSelect';
+import ImportWizard from '../components/ImportWizard';
 
 function formatMoney(val) {
   if (val === null || val === undefined) return '-';
@@ -35,6 +36,7 @@ export default function Inbox() {
   const [filter, setFilter] = useState('review');
   const [overrides, setOverrides] = useState({}); // {dtId: accountId}
   const [confirmingDelete, setConfirmingDelete] = useState(null); // { type: 'txn' | 'doc', id: any }
+  const [showImportWizard, setShowImportWizard] = useState(false);
 
   const load = async () => {
     try {
@@ -198,34 +200,58 @@ export default function Inbox() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Statement Inbox</h1>
-        <p className="text-gray-500 mt-1">Drop PDF bank/credit card statements — transactions extracted and categorized automatically</p>
+        <h1 className="text-2xl font-bold text-gray-900">Statements</h1>
+        <p className="text-gray-500 mt-1">Drop PDF statements or import spreadsheet files to auto-extract and categorize transactions</p>
       </div>
 
-      {/* Drop Zone */}
-      <div
-        onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
-        onDragLeave={() => setDragOver(false)}
-        onDrop={onDrop}
-        className={`card border-2 border-dashed text-center py-10 cursor-pointer transition-colors ${
-          dragOver ? 'border-primary-400 bg-primary-50' : 'border-gray-300 hover:border-primary-400'
-        }`}
-        onClick={() => document.getElementById('file-input').click()}
-      >
-        <input id="file-input" type="file" multiple accept=".pdf" className="hidden" onChange={e => handleFiles(e.target.files)} />
-        {uploading ? (
-          <div className="flex flex-col items-center gap-3">
-            <Loader2 className="w-10 h-10 text-primary-500 animate-spin" />
-            <p className="text-gray-600 font-medium">Processing statements... extracting transactions...</p>
-          </div>
-        ) : (
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
+        {/* Drop Zone */}
+        <div
+          onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+          onDragLeave={() => setDragOver(false)}
+          onDrop={onDrop}
+          className={`card border-2 border-dashed text-center py-10 cursor-pointer transition-colors h-full flex flex-col justify-center ${
+            dragOver ? 'border-primary-400 bg-primary-50' : 'border-gray-300 hover:border-primary-400'
+          }`}
+          onClick={() => document.getElementById('file-input').click()}
+        >
+          <input id="file-input" type="file" multiple accept=".pdf" className="hidden" onChange={e => handleFiles(e.target.files)} />
+          {uploading ? (
+            <div className="flex flex-col items-center gap-3">
+              <Loader2 className="w-10 h-10 text-primary-500 animate-spin" />
+              <p className="text-gray-600 font-medium">Processing statements...</p>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center gap-2">
+              <Upload className="w-10 h-10 text-gray-400" />
+              <p className="text-gray-600 font-medium text-lg">Import PDF Statements</p>
+              <p className="text-gray-400 text-sm max-w-[250px] mx-auto">Drag & drop PDF bank statements here. Auto-categorized and checked for duplicates.</p>
+            </div>
+          )}
+        </div>
+
+        {/* CSV / Excel generic manual import */}
+        <div 
+          onClick={() => setShowImportWizard(true)} 
+          className="card border-2 border-dashed border-gray-300 hover:border-emerald-400 text-center py-10 cursor-pointer transition-colors hover:bg-emerald-50 h-full flex flex-col justify-center"
+        >
           <div className="flex flex-col items-center gap-2">
-            <Upload className="w-10 h-10 text-gray-400" />
-            <p className="text-gray-600 font-medium">Drag & drop PDF bank statements here</p>
-            <p className="text-gray-400 text-sm">Transactions will be auto-extracted, categorized, and checked for duplicates</p>
+            <FileSpreadsheet className="w-10 h-10 text-emerald-500 mb-1" />
+            <p className="text-gray-600 font-medium text-lg">Import Spreadsheet</p>
+            <p className="text-gray-400 text-sm max-w-[250px] mx-auto">Upload a .csv, .xls, or .xlsx file to map columns and import bulk transactions.</p>
           </div>
-        )}
+        </div>
       </div>
+
+      {showImportWizard && (
+        <ImportWizard 
+          onClose={() => setShowImportWizard(false)}
+          onSuccess={() => {
+            setShowImportWizard(false);
+            load();
+          }}
+        />
+      )}
 
       {/* Processing Status for non-completed docs */}
       {documents.filter(d => ['pending', 'processing', 'error'].includes(d.status)).length > 0 && (

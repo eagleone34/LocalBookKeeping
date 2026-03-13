@@ -11,7 +11,7 @@ from typing import List, Optional
 
 from fastapi import APIRouter, File, HTTPException, UploadFile
 
-from app.models import DocumentOut, DocTransactionOut, DocTransactionAction, BulkDocTransactionAction
+from app.models import DocumentOut, DocTransactionOut, DocTransactionAction, BulkDocTransactionAction, BulkImportRequest, MappedTransactionIn
 from app.main_state import get_conn, get_company_id, get_upload_dir
 from app.services import data_service as ds
 from app.services.categorization import suggest_account
@@ -148,6 +148,86 @@ async def upload_documents(files: List[UploadFile] = File(...)):
                 break
 
     return results
+
+
+@router.post("/import-csv", response_model=List[DocumentOut])
+def import_csv(body: BulkImportRequest):
+    """Import pre-mapped CSV/Excel data directly into staging."""
+    conn = get_conn()
+    cid = get_company_id()
+    
+    # 1. Create a logical document to group these
+    doc_id = ds.create_document(conn, cid, body.filename, "csv_import", len(body.transactions))
+    
+    try:
+        # Determine bank account if provided
+        bank_account_id = None
+        if body.bank_name and body.account_last_four:
+            bank_account_id = ds.upsert_bank_account(
+                conn, cid,
+                bank_name=body.bank_name,
+                last_four=body.account_last_four,
+                full_number=""
+            )
+            ds.update_document(conn, doc_id,
+                               bank_name=body.bank_name,
+                               account_last_four=body.account_last_four,
+                               bank_account_id=bank_account_id)
+        
+        # 2. Process each mapped transaction
+        for entry in body.transactions:
+            # 2a. Duplicate check
+            is_dup, dup_txn_id = ds.check_doc_transaction_duplicate(
+                conn, cid,
+                txn_date=entry.txn_date,
+                amount=entry.amount,
+                description=entry.description,
+            )
+            
+            # 2b. Smart categorization
+            acct_id, confidence = suggest_account(
+                conn, cid, entry.description, entry.vendor_name
+            )
+            
+            # 2c. Auto-suggest bank ledger account if nothing matched
+            if not acct_id and bank_account_id:
+                ba = ds.get_bank_account(conn, bank_account_id)
+                if ba and ba.get("ledger_account_id"):
+                    acct_id = ba["ledger_account_id"]
+                    confidence = max(confidence, 0.4)
+            
+            # 2d. Create staging record
+            dt_id = ds.create_doc_transaction(
+                conn, doc_id,
+                txn_date=entry.txn_date,
+                description=entry.description,
+                amount=entry.amount,
+                vendor_name=entry.vendor_name,
+                suggested_account_id=acct_id,
+                confidence=confidence,
+            )
+            
+            if is_dup:
+                ds.update_doc_transaction(conn, dt_id,
+                                          is_duplicate=1,
+                                          duplicate_of_txn_id=dup_txn_id,
+                                          status="duplicate")
+            if bank_account_id:
+                ds.update_doc_transaction(conn, dt_id, bank_account_id=bank_account_id)
+        
+        status = "review" if body.transactions else "completed"
+        ds.update_document(conn, doc_id, status=status, processed_at=ds._now())
+        
+    except Exception as e:
+        ds.update_document(conn, doc_id, status="error", error_msg=str(e))
+        raise HTTPException(500, str(e))
+        
+    # Return info
+    row = ds.list_documents(conn, cid)
+    for r in row:
+        if r["id"] == doc_id:
+            return [_doc_out(r)]
+    return []
 
 
 @router.get("/transactions", response_model=List[DocTransactionOut])
