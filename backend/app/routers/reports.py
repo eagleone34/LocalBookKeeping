@@ -19,8 +19,8 @@ router = APIRouter(prefix="/api/reports", tags=["reports"])
 
 
 @router.get("/pnl", response_model=List[PnLRow])
-def profit_and_loss(date_from: Optional[str] = None, date_to: Optional[str] = None):
-    rows = ds.profit_and_loss(get_conn(), get_company_id(), date_from, date_to)
+def profit_and_loss(date_from: Optional[str] = None, date_to: Optional[str] = None, bank_account_id: Optional[int] = None):
+    rows = ds.profit_and_loss(get_conn(), get_company_id(), date_from, date_to, bank_account_id)
     return [PnLRow(type=r["type"], month=r["month"], total=r["total"]) for r in rows]
 
 
@@ -35,8 +35,8 @@ def budget_vs_actual(month_from: Optional[str] = None, month_to: Optional[str] =
 
 
 @router.get("/expense-by-category", response_model=List[CategoryBreakdownRow])
-def expense_by_category(date_from: Optional[str] = None, date_to: Optional[str] = None):
-    rows = ds.expense_by_category(get_conn(), get_company_id(), date_from, date_to)
+def expense_by_category(date_from: Optional[str] = None, date_to: Optional[str] = None, bank_account_id: Optional[int] = None):
+    rows = ds.expense_by_category(get_conn(), get_company_id(), date_from, date_to, bank_account_id)
     return [CategoryBreakdownRow(
         account_id=r["account_id"], account_name=r["account_name"],
         total=r["total"], percentage=r["percentage"],
@@ -44,16 +44,16 @@ def expense_by_category(date_from: Optional[str] = None, date_to: Optional[str] 
 
 
 @router.get("/expense-by-vendor", response_model=List[VendorBreakdownRow])
-def expense_by_vendor(date_from: Optional[str] = None, date_to: Optional[str] = None):
-    rows = ds.expense_by_vendor(get_conn(), get_company_id(), date_from, date_to)
+def expense_by_vendor(date_from: Optional[str] = None, date_to: Optional[str] = None, bank_account_id: Optional[int] = None):
+    rows = ds.expense_by_vendor(get_conn(), get_company_id(), date_from, date_to, bank_account_id)
     return [VendorBreakdownRow(
         vendor_name=r["vendor_name"], total=r["total"], percentage=r["percentage"],
     ) for r in rows]
 
 
 @router.get("/monthly-trend", response_model=List[MonthlyTrendRow])
-def monthly_trend(months: int = 12):
-    rows = ds.monthly_trend(get_conn(), get_company_id(), months)
+def monthly_trend(months: int = 12, bank_account_id: Optional[int] = None):
+    rows = ds.monthly_trend(get_conn(), get_company_id(), months, bank_account_id)
     return [MonthlyTrendRow(month=r["month"], income=r["income"], expenses=r["expenses"], net=r["net"]) for r in rows]
 
 

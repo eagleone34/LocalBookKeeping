@@ -112,7 +112,7 @@ except Exception:
 try:
     conn = connect(str(DB_PATH))
     init_schema(conn)
-    company_id = ensure_company(conn, "My Company", "USD")
+    company_id = ensure_company(conn, "Demo Company", "USD")
     seed_demo_data(conn, company_id)
     init_state(conn, company_id, DATA_DIR)
     log("DB init OK")
@@ -149,6 +149,14 @@ app.include_router(settings.router)
 def health():
     return {"status": "ok", "version": "1.0.0"}
 
+_last_heartbeat = time.time()
+
+@app.get("/api/heartbeat")
+def heartbeat():
+    global _last_heartbeat
+    _last_heartbeat = time.time()
+    return {"ok": True}
+
 @app.get("/api/health/update")
 def check_update():
     v = check_for_updates()
@@ -172,6 +180,25 @@ def open_browser():
     webbrowser.open("http://127.0.0.1:8000")
 
 
+def _auto_shutdown_monitor():
+    last_check = time.time()
+    while True:
+        time.sleep(5)
+        now = time.time()
+        
+        # If the loop took abnormally long to return (e.g., PC was asleep), 
+        # we skip this shutdown check cycle to give the frontend a chance to hit the heartbeat api.
+        if now - last_check > 10.0:
+            last_check = now
+            continue
+            
+        if now - _last_heartbeat > 30.0:
+            log("No heartbeat received for 30 seconds. Shutting down LocalBooks background process.")
+            os._exit(0)
+            
+        last_check = now
+
+
 if __name__ == "__main__":
     # ── Single-instance guard ──
     # If the server is already running (e.g. user clicked the exe again after
@@ -184,6 +211,7 @@ if __name__ == "__main__":
     log("Starting server on :8000 ...")
     if getattr(sys, 'frozen', False):
         threading.Thread(target=open_browser, daemon=True).start()
+        threading.Thread(target=_auto_shutdown_monitor, daemon=True).start()
     try:
         uvicorn.run(app, host="127.0.0.1", port=8000, log_level="error", access_log=False)
     except Exception:

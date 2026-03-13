@@ -59,6 +59,7 @@ CREATE TABLE IF NOT EXISTS transactions (
     is_posted   INTEGER NOT NULL DEFAULT 1,
     source      TEXT NOT NULL DEFAULT 'manual',
     source_doc_id INTEGER REFERENCES documents(id),
+    bank_account_id INTEGER REFERENCES bank_accounts(id),
     created_at  TEXT NOT NULL,
     updated_at  TEXT NOT NULL
 );
@@ -190,6 +191,7 @@ def init_schema(conn: sqlite3.Connection) -> None:
 def _migrate(conn: sqlite3.Connection) -> None:
     """Add columns that may be missing in older databases."""
     migrations = [
+        ("transactions", "bank_account_id", "ALTER TABLE transactions ADD COLUMN bank_account_id INTEGER REFERENCES bank_accounts(id)"),
         ("document_transactions", "is_duplicate", "ALTER TABLE document_transactions ADD COLUMN is_duplicate INTEGER NOT NULL DEFAULT 0"),
         ("document_transactions", "duplicate_of_txn_id", "ALTER TABLE document_transactions ADD COLUMN duplicate_of_txn_id INTEGER"),
         ("document_transactions", "bank_account_id", "ALTER TABLE document_transactions ADD COLUMN bank_account_id INTEGER REFERENCES bank_accounts(id)"),

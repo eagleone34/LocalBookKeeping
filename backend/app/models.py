@@ -71,6 +71,7 @@ class TransactionCreate(BaseModel):
     memo: Optional[str] = None
     amount: float
     source: str = "manual"
+    bank_account_id: Optional[int] = None
 
 
 class TransactionUpdate(BaseModel):
@@ -80,6 +81,7 @@ class TransactionUpdate(BaseModel):
     description: Optional[str] = None
     memo: Optional[str] = None
     amount: Optional[float] = None
+    bank_account_id: Optional[int] = None
 
 
 class TransactionOut(BaseModel):
@@ -95,7 +97,9 @@ class TransactionOut(BaseModel):
     amount: float
     is_posted: bool
     source: str
-    source_doc_id: Optional[int]
+    source_doc_id: Optional[int] = None
+    bank_account_id: Optional[int] = None
+    bank_account_name: Optional[str] = None
     created_at: str
     updated_at: str
 
@@ -147,6 +151,7 @@ class MappedTransactionIn(BaseModel):
 
 class BulkImportRequest(BaseModel):
     filename: str
+    ledger_account_id: Optional[int] = None
     bank_name: Optional[str] = None
     account_last_four: Optional[str] = None
     transactions: List[MappedTransactionIn]

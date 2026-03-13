@@ -80,10 +80,10 @@ def main():
 
     # ── Backup Database ──
     db_backup_path = None
-    existing_db = INSTALL_DIR / "company_data" / "ledgerlocal.db"
+    existing_db = INSTALL_DIR / "company_data" / "localbooks.db"
     
     if existing_db.exists():
-        db_backup_path = Path.home() / "Documents" / "ledgerlocal_backup.db"
+        db_backup_path = Path.home() / "Documents" / "localbooks_backup.db"
         try:
             shutil.copy2(existing_db, db_backup_path)
             log(f"Backed up existing database to {db_backup_path}")
@@ -123,7 +123,7 @@ def main():
 
     # ── Restore Database ──
     if db_backup_path and db_backup_path.exists():
-        new_db_path = INSTALL_DIR / "company_data" / "ledgerlocal.db"
+        new_db_path = INSTALL_DIR / "company_data" / "localbooks.db"
         try:
             new_db_path.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(db_backup_path, new_db_path)

@@ -67,10 +67,11 @@ export const deleteBudget = (id) =>
   request(`/api/budgets/${id}`, { method: 'DELETE' });
 
 // Reports
-export const getPnL = (dateFrom, dateTo) => {
+export const getPnL = (dateFrom, dateTo, bankAccountId) => {
   const qs = new URLSearchParams();
   if (dateFrom) qs.set('date_from', dateFrom);
   if (dateTo) qs.set('date_to', dateTo);
+  if (bankAccountId) qs.set('bank_account_id', bankAccountId);
   return request(`/api/reports/pnl?${qs}`);
 };
 export const getBudgetVsActual = (monthFrom, monthTo, accountId) => {
@@ -81,20 +82,26 @@ export const getBudgetVsActual = (monthFrom, monthTo, accountId) => {
   const q = qs.toString();
   return request(`/api/reports/budget-vs-actual${q ? '?' + q : ''}`);
 };
-export const getExpenseByCategory = (dateFrom, dateTo) => {
+export const getExpenseByCategory = (dateFrom, dateTo, bankAccountId) => {
   const qs = new URLSearchParams();
   if (dateFrom) qs.set('date_from', dateFrom);
   if (dateTo) qs.set('date_to', dateTo);
+  if (bankAccountId) qs.set('bank_account_id', bankAccountId);
   return request(`/api/reports/expense-by-category?${qs}`);
 };
-export const getExpenseByVendor = (dateFrom, dateTo) => {
+export const getExpenseByVendor = (dateFrom, dateTo, bankAccountId) => {
   const qs = new URLSearchParams();
   if (dateFrom) qs.set('date_from', dateFrom);
   if (dateTo) qs.set('date_to', dateTo);
+  if (bankAccountId) qs.set('bank_account_id', bankAccountId);
   return request(`/api/reports/expense-by-vendor?${qs}`);
 };
-export const getMonthlyTrend = (months = 12) =>
-  request(`/api/reports/monthly-trend?months=${months}`);
+export const getMonthlyTrend = (months = 12, bankAccountId) => {
+  const qs = new URLSearchParams();
+  qs.set('months', months);
+  if (bankAccountId) qs.set('bank_account_id', bankAccountId);
+  return request(`/api/reports/monthly-trend?${qs}`);
+};
 export const getBalanceSheet = () =>
   request('/api/reports/balance-sheet');
 

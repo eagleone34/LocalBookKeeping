@@ -162,7 +162,10 @@ def import_csv(body: BulkImportRequest):
     try:
         # Determine bank account if provided
         bank_account_id = None
-        if body.bank_name and body.account_last_four:
+        if getattr(body, "ledger_account_id", None):
+            bank_account_id = ds.get_or_create_bank_for_ledger(conn, cid, body.ledger_account_id)
+            ds.update_document(conn, doc_id, bank_account_id=bank_account_id)
+        elif getattr(body, "bank_name", None) and getattr(body, "account_last_four", None):
             bank_account_id = ds.upsert_bank_account(
                 conn, cid,
                 bank_name=body.bank_name,
@@ -257,8 +260,7 @@ def action_doc_transaction(dt_id: int, body: DocTransactionAction):
         if not account_id:
             raise HTTPException(400, "No account specified for approval")
 
-        # ═══ DUAL POSTING: Category side + Bank side ═══
-        # 1. Category side (P&L)
+        # Single Entry: Category + Bank Account
         ds.create_transaction(
             conn, cid,
             account_id=account_id,
@@ -268,22 +270,8 @@ def action_doc_transaction(dt_id: int, body: DocTransactionAction):
             vendor_name=dt["vendor_name"] or "",
             source="pdf_import",
             source_doc_id=dt["document_id"],
+            bank_account_id=dt.get("bank_account_id"),
         )
-        
-        # 2. Bank side (Balance Sheet)
-        if dt.get("bank_account_id"):
-            bank_ledger_id = ds.ensure_bank_ledger_account(conn, dt["bank_account_id"])
-            if bank_ledger_id:
-                ds.create_transaction(
-                    conn, cid,
-                    account_id=bank_ledger_id,
-                    txn_date=dt["txn_date"] or "2025-01-01",
-                    amount=dt["amount"] or 0,
-                    description=f"Deposit/Withdrawal: {dt['description'] or ''}",
-                    vendor_name=dt["vendor_name"] or "",
-                    source="pdf_import",
-                    source_doc_id=dt["document_id"],
-                )
 
         ds.update_doc_transaction(conn, dt_id, status="posted", user_account_id=account_id)
 
@@ -336,8 +324,7 @@ def bulk_action(body: BulkDocTransactionAction):
             if not account_id:
                 continue
             
-            # ═══ DUAL POSTING ═══
-            # 1. Category side
+            # Single Entry: Category + Bank Account
             ds.create_transaction(
                 conn, cid,
                 account_id=account_id,
@@ -347,21 +334,8 @@ def bulk_action(body: BulkDocTransactionAction):
                 vendor_name=dt["vendor_name"] or "",
                 source="pdf_import",
                 source_doc_id=dt["document_id"],
+                bank_account_id=dt.get("bank_account_id"),
             )
-            # 2. Bank side
-            if dt.get("bank_account_id"):
-                bank_ledger_id = ds.ensure_bank_ledger_account(conn, dt["bank_account_id"])
-                if bank_ledger_id:
-                    ds.create_transaction(
-                        conn, cid,
-                        account_id=bank_ledger_id,
-                        txn_date=dt["txn_date"] or "2025-01-01",
-                        amount=dt["amount"] or 0,
-                        description=f"Deposit/Withdrawal: {dt['description'] or ''}",
-                        vendor_name=dt["vendor_name"] or "",
-                        source="pdf_import",
-                        source_doc_id=dt["document_id"],
-                    )
 
             ds.update_doc_transaction(conn, dt_id, status="posted", user_account_id=account_id)
             # Learning

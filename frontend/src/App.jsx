@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import Layout from './components/Layout';
 import Dashboard from './pages/Dashboard';
@@ -9,6 +10,14 @@ import Inbox from './pages/Inbox';
 import SettingsPage from './pages/Settings';
 
 export default function App() {
+  useEffect(() => {
+    // Ping the backend every 5 seconds so it knows the app is still open
+    const id = setInterval(() => {
+      fetch('/api/heartbeat').catch(() => {});
+    }, 5000);
+    return () => clearInterval(id);
+  }, []);
+
   return (
     <BrowserRouter>
       <Routes>

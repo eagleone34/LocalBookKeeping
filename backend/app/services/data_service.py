@@ -154,10 +154,11 @@ def list_transactions(conn: sqlite3.Connection, company_id: int,
                       limit: int = 500, offset: int = 0) -> List[Dict]:
     sql = """
         SELECT t.*, a.name AS account_name, a.type AS account_type,
-               v.name AS vendor_name
+               v.name AS vendor_name, ba.bank_name AS bank_account_name
         FROM transactions t
         JOIN accounts a ON t.account_id = a.id
         LEFT JOIN vendors v ON t.vendor_id = v.id
+        LEFT JOIN bank_accounts ba ON t.bank_account_id = ba.id
         WHERE t.company_id = ?
     """
     params: list = [company_id]
@@ -191,14 +192,15 @@ def create_transaction(conn: sqlite3.Connection, company_id: int,
                        account_id: int, txn_date: str, amount: float,
                        description: str = "", memo: str = "",
                        vendor_name: str = "", source: str = "manual",
-                       source_doc_id: Optional[int] = None) -> int:
+                       source_doc_id: Optional[int] = None,
+                       bank_account_id: Optional[int] = None) -> int:
     vendor_id = upsert_vendor(conn, company_id, vendor_name) if vendor_name else None
     now = _now()
     cur = conn.execute(
         """INSERT INTO transactions
-           (company_id, account_id, vendor_id, txn_date, description, memo, amount, is_posted, source, source_doc_id, created_at, updated_at)
-           VALUES (?,?,?,?,?,?,?,1,?,?,?,?)""",
-        (company_id, account_id, vendor_id, txn_date, description, memo, amount, source, source_doc_id, now, now),
+           (company_id, account_id, vendor_id, txn_date, description, memo, amount, is_posted, source, source_doc_id, bank_account_id, created_at, updated_at)
+           VALUES (?,?,?,?,?,?,?,1,?,?,?,?,?)""",
+        (company_id, account_id, vendor_id, txn_date, description, memo, amount, source, source_doc_id, bank_account_id, now, now),
     )
     conn.commit()
     # Update vendor-account mapping for smart categorization
@@ -492,7 +494,8 @@ def get_vendor_account_suggestion(conn: sqlite3.Connection, company_id: int,
 # ═══════════════════════════════════════════════════════
 
 def profit_and_loss(conn: sqlite3.Connection, company_id: int,
-                    date_from: Optional[str] = None, date_to: Optional[str] = None) -> List[Dict]:
+                    date_from: Optional[str] = None, date_to: Optional[str] = None,
+                    bank_account_id: Optional[int] = None) -> List[Dict]:
     sql = """
         SELECT a.type, strftime('%Y-%m', t.txn_date) AS month, SUM(t.amount) AS total
         FROM transactions t
@@ -506,6 +509,9 @@ def profit_and_loss(conn: sqlite3.Connection, company_id: int,
     if date_to:
         sql += " AND t.txn_date<=?"
         params.append(date_to)
+    if bank_account_id:
+        sql += " AND t.bank_account_id=?"
+        params.append(bank_account_id)
     sql += " GROUP BY a.type, month ORDER BY month, a.type"
     return [dict(r) for r in conn.execute(sql, params).fetchall()]
 
@@ -516,19 +522,22 @@ def budget_vs_actual(conn: sqlite3.Connection, company_id: int,
                      account_id: Optional[int] = None) -> List[Dict]:
     """One row per account, budgeted/actual/variance summed across month_from..month_to."""
     sql = """
+        WITH monthly_actuals AS (
+            SELECT account_id, strftime('%Y-%m', txn_date) AS month, SUM(ABS(amount)) as actual_amount
+            FROM transactions
+            WHERE company_id=?
+            GROUP BY account_id, month
+        )
         SELECT b.account_id, a.name AS account_name, a.type AS account_type,
-               SUM(b.amount)                          AS budgeted,
-               ABS(COALESCE(SUM(t.amount), 0))        AS actual,
-               SUM(b.amount) - ABS(COALESCE(SUM(t.amount), 0)) AS variance
+               SUM(b.amount) AS budgeted,
+               COALESCE(SUM(t.actual_amount), 0) AS actual,
+               SUM(b.amount) - COALESCE(SUM(t.actual_amount), 0) AS variance
         FROM budgets b
         JOIN accounts a ON b.account_id = a.id
-        LEFT JOIN transactions t
-            ON  t.account_id            = a.id
-            AND strftime('%Y-%m', t.txn_date) = b.month
-            AND t.company_id            = b.company_id
+        LEFT JOIN monthly_actuals t ON t.account_id = b.account_id AND t.month = b.month
         WHERE b.company_id=?
     """
-    params: list = [company_id]
+    params: list = [company_id, company_id]
     if month_from:
         sql += " AND b.month >= ?"
         params.append(month_from)
@@ -543,7 +552,8 @@ def budget_vs_actual(conn: sqlite3.Connection, company_id: int,
 
 
 def expense_by_category(conn: sqlite3.Connection, company_id: int,
-                        date_from: Optional[str] = None, date_to: Optional[str] = None) -> List[Dict]:
+                        date_from: Optional[str] = None, date_to: Optional[str] = None,
+                        bank_account_id: Optional[int] = None) -> List[Dict]:
     sql = """
         SELECT a.id AS account_id, a.name AS account_name, SUM(ABS(t.amount)) AS total
         FROM transactions t
@@ -557,6 +567,9 @@ def expense_by_category(conn: sqlite3.Connection, company_id: int,
     if date_to:
         sql += " AND t.txn_date<=?"
         params.append(date_to)
+    if bank_account_id:
+        sql += " AND t.bank_account_id=?"
+        params.append(bank_account_id)
     sql += " GROUP BY a.id, a.name ORDER BY total DESC"
     rows = [dict(r) for r in conn.execute(sql, params).fetchall()]
     grand = sum(r["total"] for r in rows) or 1
@@ -566,7 +579,8 @@ def expense_by_category(conn: sqlite3.Connection, company_id: int,
 
 
 def expense_by_vendor(conn: sqlite3.Connection, company_id: int,
-                      date_from: Optional[str] = None, date_to: Optional[str] = None) -> List[Dict]:
+                      date_from: Optional[str] = None, date_to: Optional[str] = None,
+                      bank_account_id: Optional[int] = None) -> List[Dict]:
     sql = """
         SELECT COALESCE(v.name, 'Unknown') AS vendor_name, SUM(ABS(t.amount)) AS total
         FROM transactions t
@@ -581,6 +595,9 @@ def expense_by_vendor(conn: sqlite3.Connection, company_id: int,
     if date_to:
         sql += " AND t.txn_date<=?"
         params.append(date_to)
+    if bank_account_id:
+        sql += " AND t.bank_account_id=?"
+        params.append(bank_account_id)
     sql += " GROUP BY vendor_name ORDER BY total DESC"
     rows = [dict(r) for r in conn.execute(sql, params).fetchall()]
     grand = sum(r["total"] for r in rows) or 1
@@ -589,7 +606,7 @@ def expense_by_vendor(conn: sqlite3.Connection, company_id: int,
     return rows
 
 
-def monthly_trend(conn: sqlite3.Connection, company_id: int, months: int = 12) -> List[Dict]:
+def monthly_trend(conn: sqlite3.Connection, company_id: int, months: int = 12, bank_account_id: Optional[int] = None) -> List[Dict]:
     sql = """
         SELECT strftime('%Y-%m', t.txn_date) AS month,
                SUM(CASE WHEN a.type='income' THEN t.amount ELSE 0 END) AS income,
@@ -597,11 +614,18 @@ def monthly_trend(conn: sqlite3.Connection, company_id: int, months: int = 12) -
         FROM transactions t
         JOIN accounts a ON t.account_id = a.id
         WHERE t.company_id=? AND a.type IN ('income','expense')
+    """
+    params: list = [company_id]
+    if bank_account_id:
+        sql += " AND t.bank_account_id=?"
+        params.append(bank_account_id)
+    sql += """
         GROUP BY month
         ORDER BY month DESC
         LIMIT ?
     """
-    rows = [dict(r) for r in conn.execute(sql, (company_id, months)).fetchall()]
+    params.append(months)
+    rows = [dict(r) for r in conn.execute(sql, params).fetchall()]
     for r in rows:
         r["net"] = r["income"] - r["expenses"]
     rows.reverse()
@@ -763,6 +787,25 @@ def ensure_bank_ledger_account(conn: sqlite3.Connection, bank_account_id: int) -
     # Link it back to the bank account
     update_bank_account(conn, bank_account_id, ledger_account_id=ledger_id)
     return ledger_id
+
+
+def get_or_create_bank_for_ledger(conn: sqlite3.Connection, company_id: int, ledger_account_id: int) -> int:
+    """Find a bank account linked to this ledger account, or create a dummy one just for mapping."""
+    row = conn.execute("SELECT id FROM bank_accounts WHERE company_id=? AND ledger_account_id=?", (company_id, ledger_account_id)).fetchone()
+    if row:
+        return int(row["id"])
+    
+    acct = conn.execute("SELECT name FROM accounts WHERE id=?", (ledger_account_id,)).fetchone()
+    bank_name = acct["name"] if acct else f"Account {ledger_account_id}"
+    
+    now = _now()
+    cur = conn.execute(
+        """INSERT INTO bank_accounts (company_id, bank_name, last_four, full_number, nickname, ledger_account_id, created_at, updated_at)
+           VALUES (?,?,?,?,?,?,?,?)""",
+        (company_id, bank_name, "", "", "", ledger_account_id, now, now),
+    )
+    conn.commit()
+    return int(cur.lastrowid)
 
 
 def update_bank_account(conn: sqlite3.Connection, bank_account_id: int, **kwargs) -> None:

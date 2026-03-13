@@ -11,7 +11,7 @@ from datetime import datetime, timedelta
 
 from app.services.data_service import (
     create_account, create_rule, create_transaction, upsert_budget,
-    list_accounts, ensure_company,
+    list_accounts, ensure_company, upsert_bank_account
 )
 
 
@@ -36,8 +36,8 @@ def seed_default_accounts(conn: sqlite3.Connection, company_id: int) -> dict:
         ("Miscellaneous", "expense", None, "5900"),
     ]
     asset_accounts = [
-        ("Chase Business Checking", "asset", None, "1000"),
-        ("RBC Savings", "asset", None, "1100"),
+        ("Checking Account", "asset", None, "1000"),
+        ("Cash on Hand", "asset", None, "1100"),
         ("Accounts Receivable", "asset", None, "1200"),
     ]
     liability_accounts = [
@@ -88,6 +88,10 @@ def seed_demo_data(conn: sqlite3.Connection, company_id: int) -> None:
         return
 
     account_map = seed_default_accounts(conn, company_id)
+
+    # ── Create Demo Bank Accounts ──
+    chase_id = upsert_bank_account(conn, company_id, bank_name="National Bank of Canada", last_four="1234", full_number="")
+    rbc_id = upsert_bank_account(conn, company_id, bank_name="Cash on Hand", last_four="5678", full_number="")
 
     # ── Create Transactions (6 months of realistic data) ──
     vendors_by_category = {
@@ -141,11 +145,15 @@ def seed_demo_data(conn: sqlite3.Connection, company_id: int) -> None:
                         f"{vendor_name}",
                     ]
 
+                    # Assign a bank account (80% Chase, 20% RBC)
+                    assigned_bank_id = chase_id if random.random() > 0.2 else rbc_id
+
                     create_transaction(
                         conn, company_id, account_id, txn_date, actual_amount,
                         description=random.choice(desc_options),
                         vendor_name=vendor_name,
                         source="manual",
+                        bank_account_id=assigned_bank_id,
                     )
 
     # ── Create Budgets (for each expense account, each month) ──

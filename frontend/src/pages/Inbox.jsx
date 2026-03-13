@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback, useMemo } from 'react';
 import {
   getDocuments, getDocTransactions, uploadDocuments,
   actionDocTransaction, bulkDocAction, getAccounts,
-  deleteDocument, deleteDocTransaction,
+  deleteDocument, deleteDocTransaction, getBankAccounts,
 } from '../api/client';
 import {
   Upload, FileText, CheckCircle2, XCircle, AlertCircle,
@@ -28,6 +28,7 @@ export default function Inbox() {
   const [documents, setDocuments] = useState([]);
   const [docTxns, setDocTxns] = useState([]);
   const [accounts, setAccounts] = useState([]);
+  const [bankAccounts, setBankAccounts] = useState([]);
   const [uploading, setUploading] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   
@@ -40,14 +41,16 @@ export default function Inbox() {
 
   const load = async () => {
     try {
-      const [docs, txns, accts] = await Promise.all([
+      const [docs, txns, accts, ba] = await Promise.all([
         getDocuments(),
         getDocTransactions(undefined, filter || undefined),
         getAccounts(),
+        getBankAccounts(),
       ]);
       setDocuments(docs);
       setDocTxns(txns);
       setAccounts(accts);
+      setBankAccounts(ba);
       setSelected(new Set());
     } catch (e) { console.error(e); }
   };
@@ -246,6 +249,7 @@ export default function Inbox() {
       {showImportWizard && (
         <ImportWizard 
           onClose={() => setShowImportWizard(false)}
+          accounts={accounts}
           onSuccess={() => {
             setShowImportWizard(false);
             load();

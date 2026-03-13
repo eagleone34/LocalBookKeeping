@@ -259,6 +259,7 @@ export default function Transactions() {
                 <th className="py-3 px-3 text-left text-gray-500 font-medium w-28">Date</th>
                 <th className="py-3 px-3 text-left text-gray-500 font-medium">Vendor</th>
                 <th className="py-3 px-3 text-left text-gray-500 font-medium">Description</th>
+                <th className="py-3 px-3 text-left text-gray-500 font-medium w-32">Account</th>
                 <th className="py-3 px-3 text-left text-gray-500 font-medium w-44">Category</th>
                 <th className="py-3 px-3 text-right text-gray-500 font-medium w-28">Amount</th>
                 <th className="py-3 px-3 text-right text-gray-500 font-medium w-24">Actions</th>
@@ -299,6 +300,9 @@ export default function Transactions() {
                         placeholder="Description"
                       />
                     </td>
+                    <td className="py-2 px-3 text-gray-500 text-xs">
+                      {txn.bank_account_name || '-'}
+                    </td>
                     <td className="py-2 px-3">
                       <GroupedAccountSelect
                         accounts={accounts}
@@ -338,6 +342,9 @@ export default function Transactions() {
                     <td className="py-3 px-3 whitespace-nowrap text-gray-700">{txn.txn_date}</td>
                     <td className="py-3 px-3 font-medium text-gray-900">{txn.vendor_name || '-'}</td>
                     <td className="py-3 px-3 text-gray-500 max-w-xs truncate">{txn.description || '-'}</td>
+                    <td className="py-3 px-3 whitespace-nowrap text-gray-500 text-sm">
+                      {txn.bank_account_name || '-'}
+                    </td>
                     <td className="py-3 px-3">
                       <span className={`badge-${txn.account_type}`}>{txn.account_name}</span>
                     </td>

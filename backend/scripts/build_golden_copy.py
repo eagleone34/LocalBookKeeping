@@ -30,10 +30,10 @@ def build_golden_copy():
 
     # Ensure company exists
     print("Creating company...")
-    company_id = ensure_company(conn, "My Company", "USD")
+    company_id = ensure_company(conn, "Demo Company", "USD")
 
     # Seed demo data
-    print("Seeding Chase and RBC demo data...")
+    print("Seeding Demo Accounts & Transactions data...")
     seed_demo_data(conn, company_id)
 
     # Init state

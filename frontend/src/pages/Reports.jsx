@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { getPnL, getExpenseByCategory, getExpenseByVendor, getMonthlyTrend, getBalanceSheet } from '../api/client';
+import { getPnL, getExpenseByCategory, getExpenseByVendor, getMonthlyTrend, getBalanceSheet, getBankAccounts } from '../api/client';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, LineChart, Line, Legend, AreaChart, Area
@@ -8,9 +8,33 @@ import DatePresetPicker from '../components/DatePresetPicker';
 
 const COLORS = ['#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16', '#f97316', '#6366f1'];
 
+function getColor(name) {
+  if (!name) return COLORS[0];
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return COLORS[Math.abs(hash) % COLORS.length];
+}
+
 function formatMoney(val) {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0 }).format(val);
 }
+
+// Custom Y-axis tick: truncates display at 20 chars but shows full name on hover via SVG <title>
+const CustomYTick = ({ x, y, payload }) => {
+  const full = payload.value;
+  const MAX = 20;
+  const short = full.length > MAX ? full.slice(0, MAX) + '\u2026' : full;
+  return (
+    <g transform={`translate(${x},${y})`}>
+      <text x={0} y={0} dy={4} textAnchor="end" fontSize={12} fill="#6b7280" cursor="default">
+        <title>{full}</title>
+        {short}
+      </text>
+    </g>
+  );
+};
 
 const tabs = ['Profit & Loss', 'Expense by Category', 'Expense by Vendor', 'Monthly Trends', 'Balance Sheet'];
 
@@ -21,27 +45,31 @@ export default function Reports() {
   const [vendors, setVendors] = useState([]);
   const [trends, setTrends] = useState([]);
   const [balanceSheet, setBalanceSheet] = useState([]);
+  const [bankAccounts, setBankAccounts] = useState([]);
+  const [selectedBankAccountId, setSelectedBankAccountId] = useState('');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
 
   const load = async () => {
     try {
-      const [p, c, v, t, b] = await Promise.all([
-        getPnL(dateFrom, dateTo),
-        getExpenseByCategory(dateFrom, dateTo),
-        getExpenseByVendor(dateFrom, dateTo),
-        getMonthlyTrend(12),
+      const [p, c, v, t, b, ba] = await Promise.all([
+        getPnL(dateFrom, dateTo, selectedBankAccountId || null),
+        getExpenseByCategory(dateFrom, dateTo, selectedBankAccountId || null),
+        getExpenseByVendor(dateFrom, dateTo, selectedBankAccountId || null),
+        getMonthlyTrend(12, selectedBankAccountId || null),
         getBalanceSheet(),
+        getBankAccounts(),
       ]);
       setPnl(p);
       setCategories(c);
       setVendors(v);
       setTrends(t);
       setBalanceSheet(b);
+      setBankAccounts(ba);
     } catch (e) { console.error(e); }
   };
 
-  useEffect(() => { load(); }, [dateFrom, dateTo]);
+  useEffect(() => { load(); }, [dateFrom, dateTo, selectedBankAccountId]);
 
   // Process P&L data for chart
   const pnlByMonth = {};
@@ -66,16 +94,30 @@ export default function Reports() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4">
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Reports</h1>
           <p className="text-gray-500 mt-1">Analyze your financial data</p>
         </div>
-        <DatePresetPicker
-          dateFrom={dateFrom}
-          dateTo={dateTo}
-          onDateChange={(from, to) => { setDateFrom(from); setDateTo(to); }}
-        />
+        <div className="flex flex-col sm:flex-row gap-4">
+          <select
+            value={selectedBankAccountId}
+            onChange={(e) => setSelectedBankAccountId(e.target.value)}
+            className="input-field max-w-xs"
+          >
+            <option value="">All accounts</option>
+            {bankAccounts.map(ba => (
+              <option key={ba.id} value={ba.id}>
+                {ba.bank_name} {ba.last_four ? `(*${ba.last_four})` : ''} - {formatMoney(ba.current_balance)}
+              </option>
+            ))}
+          </select>
+          <DatePresetPicker
+            dateFrom={dateFrom}
+            dateTo={dateTo}
+            onDateChange={(from, to) => { setDateFrom(from); setDateTo(to); }}
+          />
+        </div>
       </div>
 
       {/* Tabs */}
@@ -157,7 +199,7 @@ export default function Reports() {
                 <Pie data={categories} dataKey="total" nameKey="account_name" cx="50%" cy="50%" outerRadius={120}
                   label={({ account_name, percentage }) => `${account_name} (${percentage}%)`}
                 >
-                  {categories.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                  {categories.map((r, i) => <Cell key={i} fill={getColor(r.account_name)} />)}
                 </Pie>
                 <Tooltip formatter={v => formatMoney(v)} />
               </PieChart>
@@ -177,14 +219,14 @@ export default function Reports() {
                 {categories.map((r, i) => (
                   <tr key={r.account_id} className="border-b border-gray-100">
                     <td className="py-3 px-4 font-medium flex items-center gap-2">
-                      <div className="w-3 h-3 rounded-full" style={{ backgroundColor: COLORS[i % COLORS.length] }} />
+                      <div className="w-3 h-3 rounded-full" style={{ backgroundColor: getColor(r.account_name) }} />
                       {r.account_name}
                     </td>
                     <td className="py-3 px-4 text-right">{formatMoney(r.total)}</td>
                     <td className="py-3 px-4 text-right text-gray-500">{r.percentage}%</td>
                     <td className="py-3 px-4">
                       <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
-                        <div className="h-full rounded-full" style={{ width: `${r.percentage}%`, backgroundColor: COLORS[i % COLORS.length] }} />
+                        <div className="h-full rounded-full" style={{ width: `${r.percentage}%`, backgroundColor: getColor(r.account_name) }} />
                       </div>
                     </td>
                   </tr>
@@ -204,10 +246,10 @@ export default function Reports() {
               <BarChart data={vendors.slice(0, 10)} layout="vertical" margin={{ left: 10 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                 <XAxis type="number" tickFormatter={v => `$${(v/1000).toFixed(0)}k`} />
-                <YAxis type="category" dataKey="vendor_name" width={140} tick={{ fontSize: 12 }} />
+                <YAxis type="category" dataKey="vendor_name" width={160} tick={<CustomYTick />} />
                 <Tooltip formatter={v => formatMoney(v)} />
                 <Bar dataKey="total" fill="#3b82f6" radius={[0,4,4,0]}>
-                  {vendors.slice(0, 10).map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                  {vendors.slice(0, 10).map((r, i) => <Cell key={i} fill={getColor(r.vendor_name)} />)}
                 </Bar>
               </BarChart>
             </ResponsiveContainer>

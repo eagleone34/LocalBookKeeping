@@ -57,17 +57,23 @@ function parseAmount(val) {
   return isNaN(amt) ? 0 : amt;
 }
 
-export default function ImportWizard({ onClose, onSuccess }) {
+export default function ImportWizard({ onClose, onSuccess, accounts = [] }) {
   const [step, setStep] = useState(1); // 1: Upload, 2: Map, 3: Preview
   const [file, setFile] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const assetLiabilityAccounts = accounts.filter(a => a.type === 'asset' || a.type === 'liability');
   
+  // Multi-sheet and Account selection
+  const [workbook, setWorkbook] = useState(null);
+  const [sheets, setSheets] = useState([]);
+  const [selectedSheet, setSelectedSheet] = useState('');
+  const [selectedAccountId, setSelectedAccountId] = useState('');
+
   const [headers, setHeaders] = useState([]);
   const [rows, setRows] = useState([]);
   
-  // Mapping logic: { date: 'colName', description: 'colName', ... }
+  // Mapping logic: { date: 'colName', description: 'colName', amountStr: 'colName', amountIn: 'colName', amountOut: 'colName', ... }
   const [mapping, setMapping] = useState({});
+  const [amountType, setAmountType] = useState('single'); // 'single' or 'split'
 
   const fileInputRef = useRef();
 
@@ -79,6 +85,8 @@ export default function ImportWizard({ onClose, onSuccess }) {
   const processFile = async (f) => {
     setError('');
     setLoading(true);
+    setWorkbook(null);
+    setSheets([]);
     try {
       if (f.name.endsWith('.csv')) {
         Papa.parse(f, {
@@ -107,22 +115,13 @@ export default function ImportWizard({ onClose, onSuccess }) {
         reader.onload = (evt) => {
           try {
             const data = evt.target.result;
-            const workbook = XLSX.read(data, { type: 'binary', cellDates: true });
-            const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-            const json = XLSX.utils.sheet_to_json(firstSheet, { raw: false, dateNF: 'yyyy-mm-dd' });
-            
-            if (json.length === 0) {
-              setError("Spreadsheet appears to be empty.");
-              setLoading(false);
-              return;
-            }
-            
-            const cols = Object.keys(json[0]);
-            setHeaders(cols);
-            setRows(json);
+            const wb = XLSX.read(data, { type: 'binary', cellDates: true });
+            setWorkbook(wb);
+            setSheets(wb.SheetNames);
             setFile(f);
-            autoMap(cols);
-            setStep(2);
+            
+            // Auto-load first sheet
+            loadSheetData(wb, wb.SheetNames[0]);
             setLoading(false);
           } catch (e) {
             setError("Failed to parse Excel file: " + e.message);
@@ -140,6 +139,30 @@ export default function ImportWizard({ onClose, onSuccess }) {
     }
   };
 
+  const loadSheetData = (wb, sheetName) => {
+    setSelectedSheet(sheetName);
+    const sheet = wb.Sheets[sheetName];
+    const json = XLSX.utils.sheet_to_json(sheet, { raw: false, dateNF: 'yyyy-mm-dd' });
+    if (json.length === 0) {
+      setHeaders([]);
+      setRows([]);
+      setMapping({});
+      return;
+    }
+    const cols = Object.keys(json[0]);
+    setHeaders(cols);
+    setRows(json);
+    autoMap(cols);
+    setStep(2);
+  };
+
+  const handleSheetChange = (e) => {
+    const sName = e.target.value;
+    if (workbook && sName) {
+      loadSheetData(workbook, sName);
+    }
+  };
+
   const autoMap = (availableHeaders) => {
     const m = {};
     const lower = availableHeaders.map(h => h.toLowerCase().trim());
@@ -152,14 +175,24 @@ export default function ImportWizard({ onClose, onSuccess }) {
     idx = lower.findIndex(h => h.includes('description') || h.includes('memo') || h.includes('payee') || h.includes('name'));
     if (idx !== -1) m.description = availableHeaders[idx];
     
-    // Amount
-    idx = lower.findIndex(h => h.includes('amount') || h.includes('value'));
-    if (idx !== -1) {
-      m.amount = availableHeaders[idx];
-    } else {
-      // Sometimes it's debit/credit. For simplicity we prioritize anything obvious.
-      const deb = availableHeaders.find(h => h.toLowerCase().includes('debit') || h.toLowerCase().includes('out'));
-      if (deb) m.amount = deb;
+    // Amount - determine if single column or split
+    let singleAmtIdx = lower.findIndex(h => h === 'amount' || h === 'value');
+    
+    // Try to find Debit/Credit
+    let outIdx = lower.findIndex(h => h.includes('debit') || h === 'withdrawal' || h === 'out' || h === 'paid out');
+    let inIdx = lower.findIndex(h => h.includes('credit') || h === 'deposit' || h === 'in' || h === 'paid in');
+    
+    if (outIdx !== -1 && inIdx !== -1) {
+      setAmountType('split');
+      m.amountOut = availableHeaders[outIdx];
+      m.amountIn = availableHeaders[inIdx];
+    } else if (singleAmtIdx !== -1) {
+      setAmountType('single');
+      m.amountStr = availableHeaders[singleAmtIdx];
+    } else if (outIdx !== -1) {
+      // Fallback
+      setAmountType('single');
+      m.amountStr = availableHeaders[outIdx];
     }
     
     // Vendor/Payee (optional)
@@ -172,7 +205,23 @@ export default function ImportWizard({ onClose, onSuccess }) {
   };
 
   const isMappingValid = () => {
-    return REQUIRED_FIELDS.filter(f => f.required).every(f => mapping[f.id]);
+    if (!mapping.date || !mapping.description) return false;
+    if (amountType === 'single') {
+      return !!mapping.amountStr;
+    } else {
+      return !!(mapping.amountIn || mapping.amountOut);
+    }
+  };
+
+  const getAmountFromMapped = (row) => {
+    if (amountType === 'single') {
+      return parseAmount(row[mapping.amountStr]);
+    }
+    const valIn = parseAmount(row[mapping.amountIn]);
+    const valOut = Math.abs(parseAmount(row[mapping.amountOut])); // guarantee positive before flip
+    if (valIn) return Math.abs(valIn);
+    if (valOut) return -valOut;
+    return 0;
   };
 
   const mappedData = useMemo(() => {
@@ -181,7 +230,7 @@ export default function ImportWizard({ onClose, onSuccess }) {
     return rows.map((row) => {
       const dateRaw = row[mapping.date];
       const descRaw = row[mapping.description] || "";
-      const amtRaw = row[mapping.amount] || 0;
+      const amt = getAmountFromMapped(row);
       const vendorRaw = mapping.vendor ? row[mapping.vendor] : "";
       
       const parsedDate = tryParseDate(dateRaw);
@@ -191,20 +240,21 @@ export default function ImportWizard({ onClose, onSuccess }) {
         txn_date: parsedDate || new Date().toISOString().slice(0,10),
         _date_valid: parsedDate !== null,
         description: String(descRaw),
-        amount: parseAmount(amtRaw),
+        amount: amt,
         vendor_name: String(vendorRaw),
       };
-    }).filter(r => r.description.trim() !== '' && r.amount !== 0); // basic filter
-  }, [rows, mapping, step]);
+    }).filter(r => r.description.trim() !== '' && r.amount !== 0);
+  }, [rows, mapping, step, amountType]);
 
 
   const handleImport = async () => {
     try {
       setLoading(true);
       setError('');
-      
+
       const payload = {
-        filename: file.name,
+        filename: file.name + (selectedSheet ? ` [${selectedSheet}]` : ''),
+        ledger_account_id: selectedAccountId ? parseInt(selectedAccountId, 10) : null,
         transactions: mappedData.map(d => ({
           txn_date: d.txn_date,
           description: d.description,
@@ -284,25 +334,111 @@ export default function ImportWizard({ onClose, onSuccess }) {
 
           {step === 2 && (
             <div className="space-y-6">
-              <p className="text-gray-600">Please map the core fields required for LocalBooks to the columns found in <strong>{file?.name}</strong>.</p>
+              <p className="text-gray-600">Please configure your import settings for <strong>{file?.name}</strong>.</p>
               
+              {/* Top Settings Row: Sheet & Account */}
+              <div className="bg-gray-50 border border-gray-200 rounded-lg p-5 flex flex-col md:flex-row gap-6">
+                
+                {sheets.length > 1 && (
+                  <div className="w-full md:w-1/2 flex flex-col gap-1.5">
+                    <label className="text-sm font-semibold text-gray-700">Excel Sheet <span className="text-red-500">*</span></label>
+                    <select 
+                      className="input-field bg-white shadow-sm"
+                      value={selectedSheet}
+                      onChange={handleSheetChange}
+                    >
+                      {sheets.map(s => <option key={s} value={s}>{s}</option>)}
+                    </select>
+                  </div>
+                )}
+                
+                <div className={`w-full ${sheets.length > 1 ? 'md:w-1/2' : 'max-w-md'} flex flex-col gap-1.5`}>
+                  <label className="text-sm font-semibold text-gray-700">Assign to Account <span className="text-gray-400 font-normal">(Optional)</span></label>
+                  <select 
+                    className="input-field bg-white shadow-sm"
+                    value={selectedAccountId}
+                    onChange={e => setSelectedAccountId(e.target.value)}
+                    disabled={assetLiabilityAccounts.length === 0}
+                  >
+                    <option value="">-- Let system auto-categorize --</option>
+                    {assetLiabilityAccounts.length === 0 ? (
+                      <option disabled>No Asset/Liability accounts found</option>
+                    ) : (
+                      assetLiabilityAccounts.map(a => (
+                        <option key={a.id} value={a.id}>
+                          {a.name} ({a.type === 'asset' ? 'Asset' : 'Liability'})
+                        </option>
+                      ))
+                    )}
+                  </select>
+                </div>
+
+              </div>
+
+              {/* Column Mapping Row */}
               <div className="bg-gray-50 border border-gray-200 rounded-lg p-5">
+                <h4 className="text-sm font-semibold text-gray-800 mb-4">Column Mapping</h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {REQUIRED_FIELDS.map(f => (
                     <div key={f.id} className="flex flex-col gap-1.5">
                       <label className="text-sm font-semibold text-gray-700">
                         {f.label} {f.required && <span className="text-red-500">*</span>}
                       </label>
-                      <select 
-                        className="input-field bg-white shadow-sm"
-                        value={mapping[f.id] || ''}
-                        onChange={e => setMapping({...mapping, [f.id]: e.target.value})}
-                      >
-                        <option value="">-- Select column --</option>
-                        {headers.map(h => (
-                          <option key={h} value={h}>{h}</option>
-                        ))}
-                      </select>
+                      {f.id === 'amount' ? (
+                        <div className="flex flex-col gap-2">
+                          <div className="flex items-center gap-4 mb-1">
+                            <label className="flex items-center gap-1.5 text-sm cursor-pointer">
+                              <input type="radio" checked={amountType==='single'} onChange={() => setAmountType('single')} className="text-primary-600 focus:ring-primary-500" />
+                              Single Column (+/-)
+                            </label>
+                            <label className="flex items-center gap-1.5 text-sm cursor-pointer">
+                              <input type="radio" checked={amountType==='split'} onChange={() => setAmountType('split')} className="text-primary-600 focus:ring-primary-500" />
+                              Two Columns (In/Out)
+                            </label>
+                          </div>
+                          
+                          {amountType === 'single' ? (
+                            <select 
+                              className="input-field bg-white shadow-sm"
+                              value={mapping.amountStr || ''}
+                              onChange={e => setMapping({...mapping, amountStr: e.target.value})}
+                            >
+                              <option value="">-- Select amount column --</option>
+                              {headers.map(h => <option key={h} value={h}>{h}</option>)}
+                            </select>
+                          ) : (
+                            <div className="flex gap-2">
+                              <select 
+                                className="input-field bg-white shadow-sm flex-1"
+                                value={mapping.amountIn || ''}
+                                onChange={e => setMapping({...mapping, amountIn: e.target.value})}
+                              >
+                                <option value="">-- Deposit / In --</option>
+                                {headers.map(h => <option key={h} value={h}>{h}</option>)}
+                              </select>
+                              <select 
+                                className="input-field bg-white shadow-sm flex-1"
+                                value={mapping.amountOut || ''}
+                                onChange={e => setMapping({...mapping, amountOut: e.target.value})}
+                              >
+                                <option value="">-- Withdrawal / Out --</option>
+                                {headers.map(h => <option key={h} value={h}>{h}</option>)}
+                              </select>
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <select 
+                          className="input-field bg-white shadow-sm"
+                          value={mapping[f.id] || ''}
+                          onChange={e => setMapping({...mapping, [f.id]: e.target.value})}
+                        >
+                          <option value="">-- Select column --</option>
+                          {headers.map(h => (
+                            <option key={h} value={h}>{h}</option>
+                          ))}
+                        </select>
+                      )}
                       {f.id === 'date' && (
                         <p className="text-xs text-gray-500">We automatically detect dates like MM/DD/YYYY, YYYY-MM-DD, etc.</p>
                       )}
@@ -328,7 +464,9 @@ export default function ImportWizard({ onClose, onSuccess }) {
                         <tr key={i} className="border-b last:border-0 hover:bg-gray-50">
                           <td className="px-4 py-3">{mapping.date ? r[mapping.date] : '-'}</td>
                           <td className="px-4 py-3">{mapping.description ? r[mapping.description] : '-'}</td>
-                          <td className="px-4 py-3 text-right">{mapping.amount ? String(r[mapping.amount]) : '-'}</td>
+                          <td className="px-4 py-3 text-right">
+                            {amountType === 'single' ? String(r[mapping.amountStr] || '-') : `In: ${r[mapping.amountIn] || '-'} | Out: ${r[mapping.amountOut] || '-'}`}
+                          </td>
                         </tr>
                       ))}
                     </tbody>
