@@ -120,7 +120,9 @@ async def upload_documents(files: List[UploadFile] = File(...)):
                     amount=entry.amount,
                     vendor_name=entry.vendor_name,
                     suggested_account_id=acct_id,
+                    category_id=acct_id,  # Also set category_id for new schema
                     confidence=confidence,
+                    bank_account_id=bank_account_id,
                 )
 
                 # Mark duplicate info
@@ -160,9 +162,14 @@ def import_csv(body: BulkImportRequest):
     doc_id = ds.create_document(conn, cid, body.filename, "csv_import", len(body.transactions))
     
     try:
-        # Determine bank account if provided
+        # Determine bank account - new bank_account_id field takes precedence
         bank_account_id = None
-        if getattr(body, "ledger_account_id", None):
+        if getattr(body, "bank_account_id", None):
+            # User explicitly selected a bank account
+            bank_account_id = body.bank_account_id
+            ds.update_document(conn, doc_id, bank_account_id=bank_account_id)
+        elif getattr(body, "ledger_account_id", None):
+            # Legacy: derive bank account from ledger account
             bank_account_id = ds.get_or_create_bank_for_ledger(conn, cid, body.ledger_account_id)
             ds.update_document(conn, doc_id, bank_account_id=bank_account_id)
         elif getattr(body, "bank_name", None) and getattr(body, "account_last_four", None):
@@ -177,6 +184,9 @@ def import_csv(body: BulkImportRequest):
                                account_last_four=body.account_last_four,
                                bank_account_id=bank_account_id)
         
+        # Get default category if provided
+        default_category_id = getattr(body, "category_id", None)
+        
         # 2. Process each mapped transaction
         for entry in body.transactions:
             # 2a. Duplicate check
@@ -187,10 +197,14 @@ def import_csv(body: BulkImportRequest):
                 description=entry.description,
             )
             
-            # 2b. Smart categorization
-            acct_id, confidence = suggest_account(
-                conn, cid, entry.description, entry.vendor_name
-            )
+            # 2b. Smart categorization (unless user provided a default category)
+            if default_category_id:
+                acct_id = default_category_id
+                confidence = 0.9  # High confidence for user-selected default
+            else:
+                acct_id, confidence = suggest_account(
+                    conn, cid, entry.description, entry.vendor_name
+                )
             
             # 2c. Auto-suggest bank ledger account if nothing matched
             if not acct_id and bank_account_id:
@@ -207,7 +221,9 @@ def import_csv(body: BulkImportRequest):
                 amount=entry.amount,
                 vendor_name=entry.vendor_name,
                 suggested_account_id=acct_id,
+                category_id=acct_id,  # Also set category_id for new schema
                 confidence=confidence,
+                bank_account_id=bank_account_id,
             )
             
             if is_dup:
@@ -215,8 +231,6 @@ def import_csv(body: BulkImportRequest):
                                           is_duplicate=1,
                                           duplicate_of_txn_id=dup_txn_id,
                                           status="duplicate")
-            if bank_account_id:
-                ds.update_doc_transaction(conn, dt_id, bank_account_id=bank_account_id)
         
         status = "review" if body.transactions else "completed"
         ds.update_document(conn, doc_id, status=status, processed_at=ds._now())
@@ -256,14 +270,15 @@ def action_doc_transaction(dt_id: int, body: DocTransactionAction):
         raise HTTPException(404, "Document transaction not found")
 
     if body.action == "approve":
-        account_id = body.account_id or dt.get("user_account_id") or dt.get("suggested_account_id")
-        if not account_id:
-            raise HTTPException(400, "No account specified for approval")
+        # Use category_id if provided, otherwise fall back to account_id for backward compatibility
+        category_id = body.category_id or body.account_id or dt.get("user_category_id") or dt.get("category_id") or dt.get("user_account_id") or dt.get("suggested_account_id")
+        if not category_id:
+            raise HTTPException(400, "No category specified for approval")
 
-        # Single Entry: Category + Bank Account
+        # Create transaction with proper Account/Category separation
         ds.create_transaction(
             conn, cid,
-            account_id=account_id,
+            category_id=category_id,
             txn_date=dt["txn_date"] or "2025-01-01",
             amount=dt["amount"] or 0,
             description=dt["description"] or "",
@@ -273,11 +288,12 @@ def action_doc_transaction(dt_id: int, body: DocTransactionAction):
             bank_account_id=dt.get("bank_account_id"),
         )
 
-        ds.update_doc_transaction(conn, dt_id, status="posted", user_account_id=account_id)
+        # Update both legacy and new fields for backward compatibility
+        ds.update_doc_transaction(conn, dt_id, status="posted", user_category_id=category_id, user_account_id=category_id)
 
         # ═══ LEARNING: update vendor-account map so next time it auto-categorizes ═══
         if dt.get("vendor_name"):
-            ds._update_vendor_account_map(conn, cid, dt["vendor_name"], account_id)
+            ds._update_vendor_account_map(conn, cid, dt["vendor_name"], category_id)
 
     elif body.action == "reject":
         ds.update_doc_transaction(conn, dt_id, status="rejected")
@@ -320,14 +336,15 @@ def bulk_action(body: BulkDocTransactionAction):
             continue
 
         if body.action == "approve":
-            account_id = body.account_id or dt.get("user_account_id") or dt.get("suggested_account_id")
-            if not account_id:
+            # Use category_id if provided, otherwise fall back to account_id for backward compatibility
+            category_id = body.category_id or body.account_id or dt.get("user_category_id") or dt.get("category_id") or dt.get("user_account_id") or dt.get("suggested_account_id")
+            if not category_id:
                 continue
             
-            # Single Entry: Category + Bank Account
+            # Create transaction with proper Account/Category separation
             ds.create_transaction(
                 conn, cid,
-                account_id=account_id,
+                category_id=category_id,
                 txn_date=dt["txn_date"] or "2025-01-01",
                 amount=dt["amount"] or 0,
                 description=dt["description"] or "",
@@ -337,10 +354,11 @@ def bulk_action(body: BulkDocTransactionAction):
                 bank_account_id=dt.get("bank_account_id"),
             )
 
-            ds.update_doc_transaction(conn, dt_id, status="posted", user_account_id=account_id)
+            # Update both legacy and new fields for backward compatibility
+            ds.update_doc_transaction(conn, dt_id, status="posted", user_category_id=category_id, user_account_id=category_id)
             # Learning
             if dt.get("vendor_name"):
-                ds._update_vendor_account_map(conn, cid, dt["vendor_name"], account_id)
+                ds._update_vendor_account_map(conn, cid, dt["vendor_name"], category_id)
         elif body.action == "reject":
             ds.update_doc_transaction(conn, dt_id, status="rejected")
         processed += 1
@@ -376,17 +394,35 @@ def _doc_out(r: dict) -> DocumentOut:
 
 
 def _dt_out(r: dict) -> DocTransactionOut:
+    # Build bank account display name
+    bank_account_name = r.get("bank_account_name")
+    if bank_account_name and r.get("bank_account_last_four"):
+        bank_account_name = f"{bank_account_name} ****{r['bank_account_last_four']}"
+    
+    # Use category fields if available, fall back to account fields for backward compatibility
+    suggested_category_id = r.get("category_id") or r.get("suggested_account_id")
+    suggested_category_name = r.get("suggested_category_name") or r.get("suggested_account_name")
+    user_category_id = r.get("user_category_id") or r.get("user_account_id")
+    user_category_name = r.get("user_category_name") or r.get("user_account_name")
+    
     return DocTransactionOut(
         id=r["id"], document_id=r["document_id"],
         txn_date=r.get("txn_date"), description=r.get("description"),
         amount=r.get("amount"), vendor_name=r.get("vendor_name"),
+        # Legacy fields (deprecated)
         suggested_account_id=r.get("suggested_account_id"),
         suggested_account_name=r.get("suggested_account_name"),
-        confidence=r.get("confidence", 0),
-        status=r["status"],
         user_account_id=r.get("user_account_id"),
         user_account_name=r.get("user_account_name"),
+        # New category fields
+        suggested_category_id=suggested_category_id,
+        suggested_category_name=suggested_category_name,
+        user_category_id=user_category_id,
+        user_category_name=user_category_name,
+        confidence=r.get("confidence", 0),
+        status=r["status"],
         is_duplicate=bool(r.get("is_duplicate", 0)),
         duplicate_of_txn_id=r.get("duplicate_of_txn_id"),
         bank_account_id=r.get("bank_account_id"),
+        bank_account_name=bank_account_name,
     )

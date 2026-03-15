@@ -1,10 +1,11 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import {
-  getTransactions, getAccounts, createTransaction, updateTransaction,
+  getTransactions, getAccounts, getBankAccounts, createTransaction, updateTransaction,
   deleteTransaction, bulkRecategorize,
 } from '../api/client';
-import { Plus, Search, Trash2, X, Check, Tags, Filter, Edit2 } from 'lucide-react';
+import { Plus, Search, Trash2, X, Check, Tags, Filter, Edit2, Building2 } from 'lucide-react';
 import GroupedAccountSelect from '../components/GroupedAccountSelect';
+import DatePresetPicker from '../components/DatePresetPicker';
 
 function formatMoney(val) {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(val);
@@ -13,12 +14,20 @@ function formatMoney(val) {
 export default function Transactions() {
   const [transactions, setTransactions] = useState([]);
   const [accounts, setAccounts] = useState([]);
+  const [bankAccounts, setBankAccounts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [selected, setSelected] = useState(new Set());
   const [bulkAccount, setBulkAccount] = useState('');
-  const [filters, setFilters] = useState({ search: '', account_id: '', date_from: '', date_to: '' });
-  const [form, setForm] = useState({ txn_date: new Date().toISOString().slice(0, 10), vendor_name: '', description: '', amount: '', account_id: '' });
+  const [filters, setFilters] = useState({ search: '', account_id: '', category_id: '', category_type: '', bank_account_id: '', date_from: '', date_to: '' });
+  const [form, setForm] = useState({
+    txn_date: new Date().toISOString().slice(0, 10),
+    vendor_name: '',
+    description: '',
+    amount: '',
+    category_id: '',
+    bank_account_id: ''
+  });
 
   // Inline edit state
   const [editId, setEditId] = useState(null);
@@ -32,12 +41,29 @@ export default function Transactions() {
     setLoading(true);
     try {
       const currentFilters = filtersRef.current;
-      const [txns, accts] = await Promise.all([
-        getTransactions(currentFilters),
+      // Build filters for API - if category_type is set, don't send category_id
+      const apiFilters = { ...currentFilters };
+      if (currentFilters.category_type) {
+        delete apiFilters.category_id;
+      } else {
+        delete apiFilters.category_type;
+      }
+      
+      const [txns, accts, banks] = await Promise.all([
+        getTransactions(apiFilters),
         getAccounts(),
+        getBankAccounts(),
       ]);
-      setTransactions(txns);
+      
+      // Client-side filtering by category_type if backend doesn't support it
+      let filteredTxns = txns;
+      if (currentFilters.category_type && !apiFilters.category_type) {
+        filteredTxns = txns.filter(t => (t.category_type || t.account_type) === currentFilters.category_type);
+      }
+      
+      setTransactions(filteredTxns);
       setAccounts(accts);
+      setBankAccounts(banks);
     } catch (e) { console.error(e); }
     setLoading(false);
   }, []);
@@ -49,13 +75,25 @@ export default function Transactions() {
   useEffect(() => {
     const timer = setTimeout(() => { load(); }, 300);
     return () => clearTimeout(timer);
-  }, [filters.search, filters.account_id, filters.date_from, filters.date_to, load]);
+  }, [filters.search, filters.account_id, filters.category_id, filters.category_type, filters.bank_account_id, filters.date_from, filters.date_to, load]);
 
   // ─── Create new ───
   const handleSubmit = async (e) => {
     e.preventDefault();
-    await createTransaction({ ...form, amount: parseFloat(form.amount), account_id: parseInt(form.account_id) });
-    setForm({ txn_date: new Date().toISOString().slice(0, 10), vendor_name: '', description: '', amount: '', account_id: '' });
+    await createTransaction({
+      ...form,
+      amount: parseFloat(form.amount),
+      category_id: parseInt(form.category_id),
+      bank_account_id: form.bank_account_id ? parseInt(form.bank_account_id) : null
+    });
+    setForm({
+      txn_date: new Date().toISOString().slice(0, 10),
+      vendor_name: '',
+      description: '',
+      amount: '',
+      category_id: '',
+      bank_account_id: ''
+    });
     setShowForm(false);
     load();
   };
@@ -68,7 +106,8 @@ export default function Transactions() {
       vendor_name: txn.vendor_name || '',
       description: txn.description || '',
       amount: txn.amount,
-      account_id: txn.account_id,
+      category_id: txn.category_id || txn.account_id,
+      bank_account_id: txn.bank_account_id || '',
     });
   };
 
@@ -84,7 +123,8 @@ export default function Transactions() {
         vendor_name: editForm.vendor_name,
         description: editForm.description,
         amount: parseFloat(editForm.amount),
-        account_id: parseInt(editForm.account_id),
+        category_id: parseInt(editForm.category_id),
+        bank_account_id: editForm.bank_account_id ? parseInt(editForm.bank_account_id) : null,
       });
       setEditId(null);
       setEditForm({});
@@ -112,7 +152,7 @@ export default function Transactions() {
   // ─── Bulk ───
   const handleBulkRecategorize = async () => {
     if (!bulkAccount || selected.size === 0) return;
-    await bulkRecategorize({ transaction_ids: [...selected], account_id: parseInt(bulkAccount) });
+    await bulkRecategorize({ transaction_ids: [...selected], category_id: parseInt(bulkAccount) });
     setSelected(new Set());
     setBulkAccount('');
     load();
@@ -131,10 +171,29 @@ export default function Transactions() {
 
   // Clear all filters
   const clearFilters = () => {
-    setFilters({ search: '', account_id: '', date_from: '', date_to: '' });
+    setFilters({ search: '', account_id: '', category_id: '', category_type: '', bank_account_id: '', date_from: '', date_to: '' });
   };
 
-  const hasActiveFilters = filters.search || filters.account_id || filters.date_from || filters.date_to;
+  const hasActiveFilters = filters.search || filters.account_id || filters.category_id || filters.category_type || filters.bank_account_id || filters.date_from || filters.date_to;
+  
+  // Group categories by type for custom dropdown
+  const TYPE_ORDER = ['expense', 'income', 'asset', 'liability'];
+  const TYPE_LABELS = { expense: 'Expenses', income: 'Income', asset: 'Assets', liability: 'Liabilities' };
+  const groupedCategories = TYPE_ORDER.map(type => ({
+    type,
+    label: TYPE_LABELS[type],
+    items: accounts.filter(a => a.type === type && a.is_active !== false),
+  })).filter(g => g.items.length > 0);
+  
+  // Handle category/group filter change
+  const handleCategoryFilterChange = (value) => {
+    if (value.startsWith('GROUP_')) {
+      const groupType = value.replace('GROUP_', '').toLowerCase();
+      setFilters({...filters, category_id: '', category_type: groupType});
+    } else {
+      setFilters({...filters, category_id: value, category_type: ''});
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -164,21 +223,53 @@ export default function Transactions() {
             </div>
           </div>
           <div>
+            <label className="label">Category</label>
+            <select
+              value={filters.category_type ? `GROUP_${filters.category_type.toUpperCase()}` : filters.category_id}
+              onChange={e => handleCategoryFilterChange(e.target.value)}
+              className="input-field"
+            >
+              <option value="">All categories</option>
+              {/* Group-level filters */}
+              {groupedCategories.map(({ type, label }) => (
+                <option key={`group_${type}`} value={`GROUP_${type.toUpperCase()}`}>
+                  ── All {label} ──
+                </option>
+              ))}
+              {/* Individual categories grouped by type */}
+              {groupedCategories.map(({ type, label, items }) => (
+                <optgroup key={type} label={`── ${label} ──`}>
+                  {items.map(a => (
+                    <option key={a.id} value={a.id}>
+                      {a.code ? `${a.code} – ` : ''}{a.name}
+                    </option>
+                  ))}
+                </optgroup>
+              ))}
+            </select>
+          </div>
+          <div>
             <label className="label">Account</label>
-            <GroupedAccountSelect
-              accounts={accounts}
-              value={filters.account_id}
-              onChange={e => setFilters({...filters, account_id: e.target.value})}
-              placeholder="All accounts"
+            <select
+              value={filters.bank_account_id || ''}
+              onChange={e => setFilters({...filters, bank_account_id: e.target.value})}
+              className="input-field"
+            >
+              <option value="">All accounts</option>
+              {bankAccounts.map(ba => (
+                <option key={ba.id} value={ba.id}>
+                  {ba.bank_name} ****{ba.last_four}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="flex-1 min-w-[300px]">
+            <label className="label">Period</label>
+            <DatePresetPicker
+              dateFrom={filters.date_from}
+              dateTo={filters.date_to}
+              onDateChange={(from, to) => setFilters({...filters, date_from: from, date_to: to})}
             />
-          </div>
-          <div>
-            <label className="label">From</label>
-            <input type="date" value={filters.date_from} onChange={e => setFilters({...filters, date_from: e.target.value})} className="input-field" />
-          </div>
-          <div>
-            <label className="label">To</label>
-            <input type="date" value={filters.date_to} onChange={e => setFilters({...filters, date_to: e.target.value})} className="input-field" />
           </div>
           {hasActiveFilters && (
             <button onClick={clearFilters} className="btn-secondary text-sm">
@@ -192,7 +283,7 @@ export default function Transactions() {
       {showForm && (
         <div className="card border-2 border-primary-200 bg-primary-50/30">
           <h3 className="text-lg font-semibold mb-4 text-primary-700">New Transaction</h3>
-          <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
+          <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-7 gap-4">
             <div>
               <label className="label">Date *</label>
               <input type="date" value={form.txn_date} onChange={e => setForm({...form, txn_date: e.target.value})} required className="input-field" />
@@ -210,14 +301,30 @@ export default function Transactions() {
               <input type="number" step="0.01" value={form.amount} onChange={e => setForm({...form, amount: e.target.value})} required className="input-field" placeholder="-50.00" />
             </div>
             <div>
-              <label className="label">Account *</label>
+              <label className="label">Category *</label>
               <GroupedAccountSelect
                 accounts={accounts}
-                value={form.account_id}
-                onChange={e => setForm({...form, account_id: e.target.value})}
-                placeholder="Select..."
+                value={form.category_id}
+                onChange={e => setForm({...form, category_id: e.target.value})}
+                placeholder="Select category..."
                 required
               />
+            </div>
+            <div>
+              <label className="label">Account *</label>
+              <select
+                value={form.bank_account_id}
+                onChange={e => setForm({...form, bank_account_id: e.target.value})}
+                required
+                className="input-field"
+              >
+                <option value="">Select account...</option>
+                {bankAccounts.map(ba => (
+                  <option key={ba.id} value={ba.id}>
+                    {ba.bank_name} ****{ba.last_four}
+                  </option>
+                ))}
+              </select>
             </div>
             <div className="flex items-end gap-2">
               <button type="submit" className="btn-primary"><Check className="w-4 h-4 mr-1" /> Save</button>
@@ -300,14 +407,24 @@ export default function Transactions() {
                         placeholder="Description"
                       />
                     </td>
-                    <td className="py-2 px-3 text-gray-500 text-xs">
-                      {txn.bank_account_name || '-'}
+                    <td className="py-2 px-3">
+                      <select
+                        value={editForm.bank_account_id || ''}
+                        onChange={e => setEditForm({...editForm, bank_account_id: e.target.value})}
+                        className="input-field text-sm py-1"
+                      >
+                        {bankAccounts.map(ba => (
+                          <option key={ba.id} value={ba.id}>
+                            {ba.bank_name} ****{ba.last_four}
+                          </option>
+                        ))}
+                      </select>
                     </td>
                     <td className="py-2 px-3">
                       <GroupedAccountSelect
                         accounts={accounts}
-                        value={editForm.account_id}
-                        onChange={e => setEditForm({...editForm, account_id: e.target.value})}
+                        value={editForm.category_id}
+                        onChange={e => setEditForm({...editForm, category_id: e.target.value})}
                         includeEmpty={false}
                         className="input-field text-sm py-1"
                       />
@@ -343,10 +460,17 @@ export default function Transactions() {
                     <td className="py-3 px-3 font-medium text-gray-900">{txn.vendor_name || '-'}</td>
                     <td className="py-3 px-3 text-gray-500 max-w-xs truncate">{txn.description || '-'}</td>
                     <td className="py-3 px-3 whitespace-nowrap text-gray-500 text-sm">
-                      {txn.bank_account_name || '-'}
+                      {txn.bank_account_name ? (
+                        <span className="flex items-center gap-1">
+                          <Building2 className="w-3 h-3" />
+                          {txn.bank_account_name}
+                        </span>
+                      ) : '-'}
                     </td>
                     <td className="py-3 px-3">
-                      <span className={`badge-${txn.account_type}`}>{txn.account_name}</span>
+                      <span className={`badge-${txn.category_type || txn.account_type}`}>
+                        {txn.category_name || txn.account_name}
+                      </span>
                     </td>
                     <td className={`py-3 px-3 text-right font-medium whitespace-nowrap ${txn.amount >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
                       {formatMoney(txn.amount)}

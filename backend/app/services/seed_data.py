@@ -89,24 +89,43 @@ def seed_demo_data(conn: sqlite3.Connection, company_id: int) -> None:
 
     account_map = seed_default_accounts(conn, company_id)
 
-    # ── Create Demo Bank Accounts ──
-    chase_id = upsert_bank_account(conn, company_id, bank_name="National Bank of Canada", last_four="1234", full_number="")
-    rbc_id = upsert_bank_account(conn, company_id, bank_name="Cash on Hand", last_four="5678", full_number="")
+    # ── Create Demo Bank Accounts linked to COA Asset accounts ──
+    # Create bank accounts and link them to Asset accounts in the COA
+    chase_checking_asset_id = account_map.get("Checking Account")
+    chase_id = upsert_bank_account(
+        conn, company_id,
+        bank_name="Chase",
+        last_four="1234",
+        full_number="",
+        ledger_account_id=chase_checking_asset_id
+    )
+    
+    corporate_card_liability_id = account_map.get("Chase Corporate Card")
+    corp_card_id = upsert_bank_account(
+        conn, company_id,
+        bank_name="Chase Corporate Card",
+        last_four="5678",
+        full_number="",
+        ledger_account_id=corporate_card_liability_id
+    )
 
-    # ── Create Transactions (6 months of realistic data) ──
+    # ── Create Transactions (9 months of realistic data) ──
+    # Each transaction has:
+    # - category_id = COA expense/income account (the "Category")
+    # - bank_account_id = source bank account (the "Account")
     vendors_by_category = {
-        "Sales Revenue": [("Acme Corp", 2500), ("Beta LLC", 1800), ("Gamma Inc", 3200), ("Delta Co", 950)],
-        "Consulting Income": [("TechStart Inc", 5000), ("FinancePartners", 3500)],
-        "Rent": [("Metro Properties", -2200)],
-        "Utilities": [("City Power", -185), ("Waterworks Co", -65), ("Metro Gas", -95), ("Fiber Internet", -120)],
-        "Office Supplies": [("Staples", -45), ("Amazon Business", -85), ("OfficeMax", -35)],
-        "Travel": [("United Airlines", -450), ("Uber", -28), ("Marriott", -189), ("Lyft", -22), ("Delta Airlines", -380)],
-        "Meals & Entertainment": [("Panera Bread", -18), ("DoorDash", -32), ("Starbucks", -7), ("The Capital Grille", -95)],
-        "Software & Subscriptions": [("Microsoft 365", -30), ("Slack", -15), ("Adobe Creative", -55), ("Zoom", -20), ("GitHub", -10)],
-        "Marketing": [("Google Ads", -350), ("Facebook Ads", -200), ("Mailchimp", -45)],
-        "Insurance": [("StateFarm", -280)],
-        "Professional Services": [("Smith & Associates CPA", -500), ("Legal Shield", -150)],
-        "Miscellaneous": [("Office Depot", -25), ("PostNet Shipping", -18)],
+        "Sales Revenue": [("Acme Corp", 125000.00), ("Beta LLC", 87500.00), ("Gamma Inc", 152000.00)],
+        "Consulting Income": [("TechStart Inc", 50000.00), ("FinancePartners", 32000.00)],
+        "Rent": [("Metro Properties", -12800.00)],
+        "Utilities": [("City Power", -1450.00), ("Waterworks Co", -1380.00)],
+        "Office Supplies": [("Staples", -1125.00), ("Amazon Business", -890.00)],
+        "Travel": [("United Airlines", -4850.00), ("Marriott", -5200.00)],
+        "Meals & Entertainment": [("Panera Bread", -450.00), ("DoorDash", -650.00), ("Starbucks", -280.00)],
+        "Software & Subscriptions": [("Microsoft 365", -1125.00), ("Slack", -850.00), ("Adobe Creative", -1195.00)],
+        "Marketing": [("Google Ads", -8500.00), ("Facebook Ads", -6200.00)],
+        "Insurance": [("StateFarm", -3400.00)],
+        "Professional Services": [("Smith & Associates CPA", -12500.00)],
+        "Miscellaneous": [("Office Depot", -750.00), ("PostNet Shipping", -450.00)],
     }
 
     base_date = datetime(2025, 7, 1)
@@ -114,19 +133,16 @@ def seed_demo_data(conn: sqlite3.Connection, company_id: int) -> None:
     for month_offset in range(9):  # July 2025 through March 2026
         month_start = base_date + timedelta(days=month_offset * 30)
 
-        for category, vendor_list in vendors_by_category.items():
-            account_id = account_map.get(category)
-            if not account_id:
+        for category_name, vendor_list in vendors_by_category.items():
+            # category_id = the COA category (expense/income account)
+            category_id = account_map.get(category_name)
+            if not category_id:
                 continue
 
             for vendor_name, base_amount in vendor_list:
                 # Add some variance
                 variance = random.uniform(0.85, 1.25)
                 amount = round(base_amount * variance, 2)
-
-                # Spread transactions across the month
-                day_offset = random.randint(1, 28)
-                txn_date = (month_start + timedelta(days=day_offset)).strftime("%Y-%m-%d")
 
                 # Some vendors appear multiple times per month
                 occurrences = 1
@@ -140,34 +156,40 @@ def seed_demo_data(conn: sqlite3.Connection, company_id: int) -> None:
 
                     desc_options = [
                         f"Payment to {vendor_name}",
-                        f"{vendor_name} - {category}",
+                        f"{vendor_name} - {category_name}",
                         f"Invoice from {vendor_name}",
                         f"{vendor_name}",
                     ]
 
-                    # Assign a bank account (80% Chase, 20% RBC)
-                    assigned_bank_id = chase_id if random.random() > 0.2 else rbc_id
+                    # Assign a bank account (80% Checking, 20% Corporate Card)
+                    # This demonstrates the Account/Category separation:
+                    # - bank_account_id = which account the transaction came from
+                    # - category_id = what the transaction was for
+                    assigned_bank_id = chase_id if random.random() > 0.2 else corp_card_id
 
                     create_transaction(
-                        conn, company_id, account_id, txn_date, actual_amount,
+                        conn, company_id,
+                        account_id=category_id,      # COA category (expense/income)
+                        txn_date=txn_date,
+                        amount=actual_amount,
                         description=random.choice(desc_options),
                         vendor_name=vendor_name,
                         source="manual",
-                        bank_account_id=assigned_bank_id,
+                        bank_account_id=assigned_bank_id,  # Source bank account
                     )
 
     # ── Create Budgets (for each expense account, each month) ──
     budget_amounts = {
-        "Rent": 2200,
-        "Utilities": 500,
-        "Office Supplies": 200,
-        "Travel": 800,
-        "Meals & Entertainment": 400,
-        "Software & Subscriptions": 150,
-        "Marketing": 600,
-        "Insurance": 300,
-        "Professional Services": 700,
-        "Miscellaneous": 100,
+        "Rent": 12800.00,
+        "Utilities": 2850.00,
+        "Office Supplies": 2250.00,
+        "Travel": 12500.00,
+        "Meals & Entertainment": 1500.00,
+        "Software & Subscriptions": 3450.00,
+        "Marketing": 15800.00,
+        "Insurance": 3400.00,
+        "Professional Services": 12800.00,
+        "Miscellaneous": 1200.00,
     }
 
     for month_offset in range(9):

@@ -377,7 +377,7 @@ missing module named compression - imported by urllib3.util.request (conditional
 missing module named socks - imported by urllib3.contrib.socks (optional)
 missing module named 'OpenSSL.crypto' - imported by urllib3.contrib.pyopenssl (delayed, conditional)
 missing module named OpenSSL - imported by urllib3.contrib.pyopenssl (top-level)
-missing module named chardet - imported by requests (optional)
+missing module named chardet - imported by requests.compat (optional), requests (optional), requests.packages (optional)
 missing module named 'pyodide.ffi' - imported by urllib3.contrib.emscripten.fetch (delayed, optional)
 missing module named pyodide - imported by urllib3.contrib.emscripten.fetch (top-level)
 missing module named js - imported by urllib3.contrib.emscripten.fetch (top-level)

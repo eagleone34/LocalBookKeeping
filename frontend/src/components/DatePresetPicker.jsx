@@ -89,8 +89,27 @@ export default function DatePresetPicker({ dateFrom, dateTo, onDateChange }) {
     setShowCustom(false);
   };
 
+  // Format date range for display
+  const formatDateRange = () => {
+    if (!dateFrom && !dateTo) return 'All Time';
+    if (!dateFrom) return `Up to ${new Date(dateTo + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
+    if (!dateTo) return `From ${new Date(dateFrom + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
+    
+    const fromDate = new Date(dateFrom + 'T12:00:00');
+    const toDate = new Date(dateTo + 'T12:00:00');
+    const options = { month: 'short', day: 'numeric', year: 'numeric' };
+    return `${fromDate.toLocaleDateString('en-US', options)} – ${toDate.toLocaleDateString('en-US', options)}`;
+  };
+
   return (
-    <div className="flex flex-wrap items-center gap-2">
+    <div className="space-y-3">
+      {/* Date range indicator - always show */}
+      <div className="text-sm font-medium text-gray-700 flex items-center gap-2">
+        <span className="text-gray-500">Showing:</span>
+        <span className="text-primary-700">{formatDateRange()}</span>
+      </div>
+      
+      <div className="flex flex-wrap items-center gap-2">
       {/* Preset buttons */}
       <div className="flex flex-wrap gap-1.5">
         {presets.map(p => (
@@ -137,6 +156,7 @@ export default function DatePresetPicker({ dateFrom, dateTo, onDateChange }) {
           />
         </div>
       )}
+      </div>
     </div>
   );
 }

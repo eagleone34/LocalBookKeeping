@@ -30,7 +30,7 @@ def budget_vs_actual(month_from: Optional[str] = None, month_to: Optional[str] =
     return [BudgetVsActualRow(
         account_id=r["account_id"], account_name=r["account_name"],
         account_type=r["account_type"], budgeted=r["budgeted"], actual=r["actual"],
-        variance=r["variance"],
+        variance=r["variance"], budget_month_count=r.get("budget_month_count", 1),
     ) for r in rows]
 
 
@@ -76,13 +76,19 @@ def dashboard(date_from: Optional[str] = None, date_to: Optional[str] = None):
     trend = ds.monthly_trend(conn, cid, 12)
     recent_txns = ds.list_transactions(conn, cid, limit=10, date_from=date_from, date_to=date_to)
 
+    # Calculate net worth from balance sheet (proper asset/liability totals)
+    bs_rows = ds.balance_sheet(conn, cid)
+    total_assets = sum(r["balance"] for r in bs_rows if r["type"] == "asset")
+    total_liabilities = sum(r["balance"] for r in bs_rows if r["type"] == "liability")
+    net_worth = total_assets - abs(total_liabilities)
+
     return DashboardSummary(
         total_income=totals.get("income", 0),
         total_expenses=abs(totals.get("expense", 0)),
-        net_income=totals.get("income", 0) + totals.get("expense", 0),
-        total_assets=totals.get("asset", 0),
-        total_liabilities=abs(totals.get("liability", 0)),
-        net_worth=totals.get("asset", 0) + totals.get("liability", 0),
+        net_income=totals.get("income", 0) - abs(totals.get("expense", 0)),
+        total_assets=total_assets,
+        total_liabilities=abs(total_liabilities),
+        net_worth=net_worth,
         account_count=len(accounts),
         transaction_count=txn_count,
         pending_review_count=pending,

@@ -147,7 +147,9 @@ def list_vendors(conn: sqlite3.Connection, company_id: int) -> List[Dict]:
 
 def list_transactions(conn: sqlite3.Connection, company_id: int,
                       account_id: Optional[int] = None,
+                      category_id: Optional[int] = None,
                       vendor_id: Optional[int] = None,
+                      bank_account_id: Optional[int] = None,
                       search: Optional[str] = None,
                       date_from: Optional[str] = None,
                       date_to: Optional[str] = None,
@@ -162,12 +164,18 @@ def list_transactions(conn: sqlite3.Connection, company_id: int,
         WHERE t.company_id = ?
     """
     params: list = [company_id]
-    if account_id:
+    # Use category_id if provided (new naming), fallback to account_id for backward compatibility
+    # Both map to t.account_id in the database (COA category)
+    filter_account_id = category_id if category_id else account_id
+    if filter_account_id:
         sql += " AND t.account_id=?"
-        params.append(account_id)
+        params.append(filter_account_id)
     if vendor_id:
         sql += " AND t.vendor_id=?"
         params.append(vendor_id)
+    if bank_account_id:
+        sql += " AND t.bank_account_id=?"
+        params.append(bank_account_id)
     if search:
         sql += " AND (t.description LIKE ? OR v.name LIKE ? OR t.memo LIKE ? OR a.name LIKE ?)"
         like = f"%{search}%"
@@ -531,7 +539,8 @@ def budget_vs_actual(conn: sqlite3.Connection, company_id: int,
         SELECT b.account_id, a.name AS account_name, a.type AS account_type,
                SUM(b.amount) AS budgeted,
                COALESCE(SUM(t.actual_amount), 0) AS actual,
-               SUM(b.amount) - COALESCE(SUM(t.actual_amount), 0) AS variance
+               SUM(b.amount) - COALESCE(SUM(t.actual_amount), 0) AS variance,
+               COUNT(DISTINCT b.month) AS budget_month_count
         FROM budgets b
         JOIN accounts a ON b.account_id = a.id
         LEFT JOIN monthly_actuals t ON t.account_id = b.account_id AND t.month = b.month
@@ -634,26 +643,74 @@ def monthly_trend(conn: sqlite3.Connection, company_id: int, months: int = 12, b
 
 def balance_sheet(conn: sqlite3.Connection, company_id: int) -> List[Dict]:
     """
-    Return a balance sheet with two data sources merged:
-    1. Actual asset/liability account balances (from transactions against those accounts)
-    2. Retained Earnings – the net income accumulated by the business, shown as an asset
-       (represents the cash/equity the business has generated through operations)
+    Return a balance sheet following proper accounting equation: Assets = Liabilities + Equity
+
+    Data sources:
+    1. Asset accounts: Balances computed from transactions flowing through linked bank accounts
+    2. Liability accounts: Balances computed from transactions flowing through linked bank accounts
+    3. Direct asset/liability/equity transactions (manual journal entries where account_id is asset/liability/equity)
+    4. Retained Earnings: Net Income (Income - Expenses) accumulated over time, shown as equity
+
+    Key insight: In this application, transactions.account_id points to COA categories
+    (income/expense accounts), NOT to bank/asset/liability accounts. The link to
+    asset/liability accounts is: transactions.bank_account_id → bank_accounts.ledger_account_id → accounts.
+
+    The balance sheet must always balance: Total Assets = Total Liabilities + Total Equity
     """
     rows = []
+    seen_account_ids = set()
 
-    # ── Real asset/liability account transactions ──
-    txn_rows = conn.execute("""
-        SELECT a.type, a.name AS account_name, SUM(t.amount) AS balance
+    # ── 1. Asset/Liability balances from bank account transactions ──
+    # Each bank_account links to a ledger account (asset or liability) via ledger_account_id.
+    # A bank account's balance = sum of all transaction amounts flowing through it.
+    bank_balances = conn.execute("""
+        SELECT a.id AS account_id, a.type, a.name AS account_name,
+               COALESCE(SUM(t.amount), 0) AS balance
+        FROM bank_accounts ba
+        JOIN accounts a ON ba.ledger_account_id = a.id
+        LEFT JOIN transactions t ON t.bank_account_id = ba.id AND t.company_id = ?
+        WHERE ba.company_id = ? AND a.type IN ('asset', 'liability')
+        GROUP BY a.id, a.type, a.name
+        ORDER BY a.type, a.name
+    """, (company_id, company_id)).fetchall()
+
+    for r in bank_balances:
+        r = dict(r)
+        seen_account_ids.add(r.pop("account_id"))
+        rows.append(r)
+
+    # ── 2. Direct asset/liability/equity transactions ──
+    # Catches manual journal entries where transactions.account_id directly
+    # points to an asset, liability, or equity account.
+    direct_balances = conn.execute("""
+        SELECT a.id AS account_id, a.type, a.name AS account_name, SUM(t.amount) AS balance
         FROM transactions t
         JOIN accounts a ON t.account_id = a.id
-        WHERE t.company_id=? AND a.type IN ('asset','liability')
-        GROUP BY a.type, a.name
+        WHERE t.company_id = ? AND a.type IN ('asset', 'liability', 'equity')
+        GROUP BY a.id, a.type, a.name
         ORDER BY a.type, a.name
     """, (company_id,)).fetchall()
-    rows.extend([dict(r) for r in txn_rows])
 
-    # ── Retained Earnings from income/expense operations ──
+    for r in direct_balances:
+        r = dict(r)
+        acct_id = r.pop("account_id")
+        if acct_id in seen_account_ids:
+            # Merge with existing bank-account-derived balance
+            for existing in rows:
+                if existing["account_name"] == r["account_name"] and existing["type"] == r["type"]:
+                    existing["balance"] = round(existing["balance"] + r["balance"], 2)
+                    break
+        else:
+            seen_account_ids.add(acct_id)
+            rows.append(r)
+
+    # Round all balances
+    for r in rows:
+        r["balance"] = round(r["balance"], 2)
+
+    # ── 3. Retained Earnings from income/expense operations ──
     # Net income = total income + total expenses (expenses are stored as negatives)
+    # Retained Earnings is part of Equity
     net = conn.execute("""
         SELECT
             COALESCE(SUM(CASE WHEN a.type='income'  THEN t.amount ELSE 0 END), 0) AS total_income,
@@ -667,10 +724,33 @@ def balance_sheet(conn: sqlite3.Connection, company_id: int) -> List[Dict]:
         retained = float(net["total_income"]) + float(net["total_expense"])  # expenses are negative
         if retained != 0:
             rows.append({
-                "type": "asset",
+                "type": "equity",
                 "account_name": "Retained Earnings (Net Income)",
                 "balance": round(retained, 2),
             })
+
+    # ── 4. Validation: Accounting Equation must balance ──
+    # Assets = Liabilities + Equity
+    total_assets = sum(r["balance"] for r in rows if r["type"] == "asset")
+    total_liabilities = sum(r["balance"] for r in rows if r["type"] == "liability")
+    total_equity = sum(r["balance"] for r in rows if r["type"] == "equity")
+    
+    balance_check = total_assets - (total_liabilities + total_equity)
+    
+    import logging
+    logger = logging.getLogger(__name__)
+    
+    if abs(balance_check) >= 0.01:
+        logger.warning(
+            f"BALANCE SHEET IMBALANCE: Assets (${total_assets:,.2f}) != "
+            f"Liabilities (${total_liabilities:,.2f}) + Equity (${total_equity:,.2f}). "
+            f"Difference: ${balance_check:,.2f}"
+        )
+    else:
+        logger.info(
+            f"Balance sheet balanced: Assets=${total_assets:,.2f}, "
+            f"Liabilities=${total_liabilities:,.2f}, Equity=${total_equity:,.2f}"
+        )
 
     return rows
 

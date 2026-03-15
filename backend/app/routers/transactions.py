@@ -17,7 +17,9 @@ router = APIRouter(prefix="/api/transactions", tags=["transactions"])
 @router.get("", response_model=List[TransactionOut])
 def list_transactions(
     account_id: Optional[int] = None,
+    category_id: Optional[int] = None,
     vendor_id: Optional[int] = None,
+    bank_account_id: Optional[int] = None,
     search: Optional[str] = None,
     date_from: Optional[str] = None,
     date_to: Optional[str] = None,
@@ -26,7 +28,7 @@ def list_transactions(
 ):
     rows = ds.list_transactions(
         get_conn(), get_company_id(),
-        account_id=account_id, vendor_id=vendor_id, search=search,
+        account_id=account_id, category_id=category_id, vendor_id=vendor_id, bank_account_id=bank_account_id, search=search,
         date_from=date_from, date_to=date_to, limit=limit, offset=offset,
     )
     return [_to_out(r) for r in rows]
@@ -79,7 +81,7 @@ def delete_transaction(txn_id: int):
 
 @router.post("/bulk-recategorize")
 def bulk_recategorize(body: BulkRecategorize):
-    count = ds.bulk_recategorize(get_conn(), body.transaction_ids, body.account_id)
+    count = ds.bulk_recategorize(get_conn(), body.transaction_ids, body.category_id)
     return {"updated": count}
 
 
@@ -89,6 +91,9 @@ def _to_out(row: dict) -> TransactionOut:
         account_id=row["account_id"],
         account_name=row.get("account_name", ""),
         account_type=row.get("account_type", ""),
+        category_id=row.get("account_id"),  # Map to account_id
+        category_name=row.get("account_name"),  # Map to account_name
+        category_type=row.get("account_type"),  # Map to account_type
         vendor_id=row.get("vendor_id"),
         vendor_name=row.get("vendor_name"),
         txn_date=row["txn_date"],
@@ -98,6 +103,8 @@ def _to_out(row: dict) -> TransactionOut:
         is_posted=bool(row.get("is_posted", True)),
         source=row.get("source", "manual"),
         source_doc_id=row.get("source_doc_id"),
+        bank_account_id=row.get("bank_account_id"),
+        bank_account_name=row.get("bank_account_name"),
         created_at=row["created_at"],
         updated_at=row["updated_at"],
     )

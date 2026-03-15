@@ -89,8 +89,14 @@ export default function Reports() {
   // Balance sheet groups
   const assets = balanceSheet.filter(r => r.type === 'asset');
   const liabilities = balanceSheet.filter(r => r.type === 'liability');
+  const equity = balanceSheet.filter(r => r.type === 'equity');
   const totalAssets = assets.reduce((s, r) => s + r.balance, 0);
   const totalLiabilities = liabilities.reduce((s, r) => s + Math.abs(r.balance), 0);
+  const totalEquity = equity.reduce((s, r) => s + r.balance, 0);
+  
+  // Balance sheet validation: Assets = Liabilities + Equity
+  const balanceCheck = Math.abs(totalAssets - (totalLiabilities + totalEquity));
+  const isBalanced = balanceCheck < 0.01; // Allow for rounding errors
 
   return (
     <div className="space-y-6">
@@ -331,24 +337,47 @@ export default function Reports() {
               </tfoot>
             </table>
           </div>
-          <div className="card">
-            <h3 className="text-lg font-semibold mb-4 text-amber-700">Liabilities</h3>
-            <table className="w-full text-sm">
-              <tbody>
-                {liabilities.map(r => (
-                  <tr key={r.account_name} className="border-b border-gray-100">
-                    <td className="py-3 px-2 font-medium">{r.account_name}</td>
-                    <td className="py-3 px-2 text-right text-amber-600 font-medium">{formatMoney(Math.abs(r.balance))}</td>
+          <div className="space-y-6">
+            <div className="card">
+              <h3 className="text-lg font-semibold mb-4 text-amber-700">Liabilities</h3>
+              <table className="w-full text-sm">
+                <tbody>
+                  {liabilities.map(r => (
+                    <tr key={r.account_name} className="border-b border-gray-100">
+                      <td className="py-3 px-2 font-medium">{r.account_name}</td>
+                      <td className="py-3 px-2 text-right text-amber-600 font-medium">{formatMoney(Math.abs(r.balance))}</td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr className="border-t-2 border-amber-200">
+                    <td className="py-3 px-2 font-bold">Total Liabilities</td>
+                    <td className="py-3 px-2 text-right font-bold text-amber-700">{formatMoney(totalLiabilities)}</td>
                   </tr>
-                ))}
-              </tbody>
-              <tfoot>
-                <tr className="border-t-2 border-amber-200">
-                  <td className="py-3 px-2 font-bold">Total Liabilities</td>
-                  <td className="py-3 px-2 text-right font-bold text-amber-700">{formatMoney(totalLiabilities)}</td>
-                </tr>
-              </tfoot>
-            </table>
+                </tfoot>
+              </table>
+            </div>
+            <div className="card">
+              <h3 className="text-lg font-semibold mb-4 text-purple-700">Equity</h3>
+              <table className="w-full text-sm">
+                <tbody>
+                  {balanceSheet.filter(r => r.type === 'equity').map(r => (
+                    <tr key={r.account_name} className="border-b border-gray-100">
+                      <td className="py-3 px-2 font-medium">{r.account_name}</td>
+                      <td className="py-3 px-2 text-right text-purple-600 font-medium">{formatMoney(r.balance)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr className="border-t-2 border-purple-200">
+                    <td className="py-3 px-2 font-bold">Total Equity</td>
+                    <td className="py-3 px-2 text-right font-bold text-purple-700">
+                      {formatMoney(balanceSheet.filter(r => r.type === 'equity').reduce((s, r) => s + r.balance, 0))}
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
           </div>
           <div className="card lg:col-span-2 text-center">
             <p className="text-sm text-gray-500">Net Worth (Assets - Liabilities)</p>

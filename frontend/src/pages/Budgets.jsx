@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { getBudgets, getAccounts, upsertBudget, deleteBudget, getBudgetVsActual } from '../api/client';
-import { Plus, Trash2, Check, X, TrendingUp, TrendingDown, Minus, Pencil, BarChart2, Activity } from 'lucide-react';
+import { Plus, Trash2, Check, X, TrendingUp, TrendingDown, Minus, Pencil, BarChart2, Activity, Lock } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, Cell, ReferenceLine,
 } from 'recharts';
@@ -27,6 +27,14 @@ const CustomYTick = ({ x, y, payload }) => {
 
 // ── Period helpers ────────────────────────────────────────
 function toMonth(d) { return d.toISOString().slice(0, 7); }  // "YYYY-MM"
+
+/** Count the number of months between two "YYYY-MM" strings, inclusive. */
+function countMonthsBetween(fromMonth, toMonth) {
+  if (!fromMonth || !toMonth) return null;
+  const [fy, fm] = fromMonth.split('-').map(Number);
+  const [ty, tm] = toMonth.split('-').map(Number);
+  return (ty - fy) * 12 + (tm - fm) + 1;
+}
 
 function getPresetRange(preset) {
   const now = new Date();
@@ -81,6 +89,9 @@ export default function Budgets() {
 
   // Budget form
   const [form, setForm] = useState({ account_id: '', month: new Date().toISOString().slice(0, 7), amount: '', notes: '' });
+  
+  // Current month for validation
+  const currentMonth = new Date().toISOString().slice(0, 7);
 
   // Inline editing
   const [editingKey, setEditingKey] = useState(null);
@@ -91,6 +102,18 @@ export default function Budgets() {
     if (preset === 'custom') return { from: customFrom || null, to: customTo || null };
     return getPresetRange(preset);
   }, [preset, customFrom, customTo]);
+
+  // Number of elapsed months in the selected period (for monthly avg actual)
+  const monthsElapsed = useMemo(() => {
+    if (!monthFrom) return null;
+    const effectiveTo = monthTo && monthTo < currentMonth ? monthTo : currentMonth;
+    return countMonthsBetween(monthFrom, effectiveTo);
+  }, [monthFrom, monthTo, currentMonth]);
+
+  // Number of months in the full budget period (for monthly avg budget)
+  const monthsInPeriod = useMemo(() => {
+    return countMonthsBetween(monthFrom, monthTo);
+  }, [monthFrom, monthTo]);
 
   const load = useCallback(async () => {
     try {
@@ -109,8 +132,13 @@ export default function Budgets() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    // Prevent setting budgets for past months
+    if (form.month < currentMonth) {
+      alert('Cannot set budgets for past months. Please select current month or a future month.');
+      return;
+    }
     await upsertBudget({ account_id: parseInt(form.account_id), month: form.month, amount: parseFloat(form.amount), notes: form.notes });
-    setForm({ account_id: '', month: form.month, amount: '', notes: '' });
+    setForm({ account_id: '', month: currentMonth, amount: '', notes: '' });
     setShowForm(false);
     load();
   };
@@ -120,17 +148,25 @@ export default function Budgets() {
   };
 
   const startEdit = (row, budget) => {
+    // Always allow editing — it targets current/future month budget
     setEditingKey(`${row.account_id}`);
-    setEditAmount(String(budget ? budget.amount : row.budgeted));
+    // Use the current/future budget amount if available, otherwise use the row's budgeted amount
+    const acctBudgets = budgets.filter(b => b.account_id === row.account_id);
+    const editableBudget = acctBudgets.find(b => b.month >= currentMonth);
+    setEditAmount(String(editableBudget ? editableBudget.amount : (budget ? budget.amount : row.budgeted)));
   };
   const cancelEdit = () => { setEditingKey(null); setEditAmount(''); };
   const saveEdit = async (row) => {
-    // upsert for each month that has a budget in range — simplest: find the most recent budget for this account
+    // Find the budget to update - prefer current month or future month
     const acctBudgets = budgets.filter(b => b.account_id === row.account_id);
-    if (acctBudgets.length === 0) return;
-    // Update only the month matching the current form default, or the most recent one
-    const target = acctBudgets[acctBudgets.length - 1];
-    await upsertBudget({ account_id: row.account_id, month: target.month, amount: parseFloat(editAmount), notes: target.notes });
+    const editableBudget = acctBudgets.find(b => b.month >= currentMonth);
+    if (editableBudget) {
+      // Update existing current/future budget
+      await upsertBudget({ account_id: row.account_id, month: editableBudget.month, amount: parseFloat(editAmount), notes: editableBudget.notes || '' });
+    } else {
+      // No current/future budget exists — create new one for the current month
+      await upsertBudget({ account_id: row.account_id, month: currentMonth, amount: parseFloat(editAmount), notes: '' });
+    }
     cancelEdit();
     load();
   };
@@ -194,11 +230,11 @@ export default function Budgets() {
           </div>
         )}
 
-        {/* Account filter */}
+        {/* Category filter */}
         <div className="flex items-center gap-2">
-          <span className="text-sm font-medium text-gray-500">Account:</span>
+          <span className="text-sm font-medium text-gray-500">Category:</span>
           <select value={selectedAccount} onChange={e => setSelectedAccount(e.target.value)} className="input-field w-auto">
-            <option value="">All accounts</option>
+            <option value="">All categories</option>
             {expenseAccounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
           </select>
           {selectedAccount && (
@@ -214,15 +250,23 @@ export default function Budgets() {
           <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-5 gap-4">
             <div>
               <label className="label">Month *</label>
-              <input type="month" value={form.month} onChange={e => setForm({...form, month: e.target.value})} required className="input-field" />
+              <input
+                type="month"
+                value={form.month}
+                onChange={e => setForm({...form, month: e.target.value})}
+                min={currentMonth}
+                required
+                className="input-field"
+                title="Budgets can only be set for current month and future months"
+              />
             </div>
             <div>
-              <label className="label">Account *</label>
+              <label className="label">Category *</label>
               <GroupedAccountSelect
                 accounts={expenseAccounts}
                 value={form.account_id}
                 onChange={e => setForm({...form, account_id: e.target.value})}
-                placeholder="Select account..."
+                placeholder="Select category..."
                 required
               />
             </div>
@@ -248,7 +292,7 @@ export default function Budgets() {
           <div className="flex items-center justify-between mb-4">
             <div>
               <h3 className="text-lg font-semibold">
-                {chartView === 'budget_actual' ? 'Budget vs Actual' : 'Variance by Account'}
+                {chartView === 'budget_actual' ? 'Budget vs Actual' : 'Variance by Category'}
               </h3>
               <p className="text-xs text-gray-400 mt-0.5">{periodLabel}</p>
             </div>
@@ -307,15 +351,17 @@ export default function Budgets() {
       {/* Budget Table — one row per account */}
       <div className="card overflow-hidden p-0">
         <div className="px-4 py-3 border-b border-gray-100 bg-gray-50 flex items-center justify-between">
-          <p className="text-sm font-medium text-gray-600">{periodLabel} — {bva.length} account{bva.length !== 1 ? 's' : ''}</p>
+          <p className="text-sm font-medium text-gray-600">{periodLabel} — {bva.length} categor{bva.length !== 1 ? 'ies' : 'y'}</p>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-gray-50 border-b border-gray-200">
-                <th className="py-3 px-4 text-left text-gray-500 font-medium">Account</th>
+                <th className="py-3 px-4 text-left text-gray-500 font-medium">Category</th>
                 <th className="py-3 px-4 text-right text-gray-500 font-medium">Budget</th>
+                <th className="py-3 px-4 text-right text-gray-500 font-medium">Avg Monthly Budget</th>
                 <th className="py-3 px-4 text-right text-gray-500 font-medium">Actual</th>
+                <th className="py-3 px-4 text-right text-gray-500 font-medium">Avg Monthly Actual</th>
                 <th className="py-3 px-4 text-right text-gray-500 font-medium">Variance</th>
                 <th className="py-3 px-4 text-center text-gray-500 font-medium">Status</th>
                 <th className="py-3 px-4 text-right text-gray-500 font-medium">Actions</th>
@@ -327,6 +373,12 @@ export default function Budgets() {
                 const overBudget = row.actual > row.budgeted;
                 const budget = budgets.find(b => b.account_id === row.account_id);
                 const isEditing = editingKey === String(row.account_id);
+
+                // Monthly averages: use period range if available, fallback to budget_month_count from backend
+                const budgetDivisor = monthsInPeriod || row.budget_month_count || 1;
+                const actualDivisor = monthsElapsed || row.budget_month_count || 1;
+                const avgMonthlyBudget = row.budgeted / budgetDivisor;
+                const avgMonthlyActual = row.actual / actualDivisor;
 
                 return (
                   <tr key={i} className={`border-b border-gray-100 ${isEditing ? 'bg-blue-50' : 'hover:bg-gray-50'}`}>
@@ -346,7 +398,11 @@ export default function Budgets() {
                       )}
                     </td>
 
+                    <td className="py-3 px-4 text-right text-gray-500">{formatMoney(avgMonthlyBudget)}</td>
+
                     <td className="py-3 px-4 text-right">{formatMoney(row.actual)}</td>
+
+                    <td className="py-3 px-4 text-right text-gray-500">{formatMoney(avgMonthlyActual)}</td>
 
                     <td className={`py-3 px-4 text-right font-medium ${overBudget ? 'text-red-600' : 'text-emerald-600'}`}>
                       {isEditing
@@ -376,12 +432,22 @@ export default function Budgets() {
                           <button onClick={() => saveEdit(row)} className="p-1.5 rounded-lg bg-blue-100 text-blue-700 hover:bg-blue-200" title="Save"><Check className="w-4 h-4" /></button>
                           <button onClick={cancelEdit} className="p-1.5 rounded-lg bg-gray-100 text-gray-500 hover:bg-gray-200" title="Cancel"><X className="w-4 h-4" /></button>
                         </div>
-                      ) : budget ? (
-                        <div className="flex items-center justify-end gap-1">
-                          <button onClick={() => startEdit(row, budget)} className="p-1.5 rounded-lg hover:bg-blue-50 text-gray-400 hover:text-blue-600" title="Edit"><Pencil className="w-4 h-4" /></button>
-                          <button onClick={() => handleDelete(budget.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-500" title="Delete"><Trash2 className="w-4 h-4" /></button>
-                        </div>
-                      ) : null}
+                      ) : (() => {
+                        // Check if this account has ANY budget for current or future month
+                        const editableBudget = budgets.find(b => b.account_id === row.account_id && b.month >= currentMonth);
+                        const deletableBudget = editableBudget || budget;
+                        return (
+                          <div className="flex items-center justify-end gap-1">
+                            {budget && !editableBudget && (
+                              <Lock className="w-4 h-4 text-gray-300" title="Historical months locked" />
+                            )}
+                            <button onClick={() => startEdit(row, budget)} className="p-1.5 rounded-lg hover:bg-blue-50 text-gray-400 hover:text-blue-600" title={editableBudget ? "Edit budget" : "Set budget for current month"}><Pencil className="w-4 h-4" /></button>
+                            {deletableBudget && deletableBudget.month >= currentMonth && (
+                              <button onClick={() => handleDelete(deletableBudget.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-500" title="Delete"><Trash2 className="w-4 h-4" /></button>
+                            )}
+                          </div>
+                        );
+                      })()}
                     </td>
                   </tr>
                 );

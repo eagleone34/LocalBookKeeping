@@ -1,9 +1,9 @@
-import React, { useState, useRef, useMemo } from 'react';
+import React, { useState, useRef, useMemo, useEffect } from 'react';
 import { X, UploadCloud, CheckCircle2, ChevronRight, FileSpreadsheet, AlertCircle } from 'lucide-react';
 import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
 import { parse, isValid, parseISO } from 'date-fns';
-import { importMappedCsv } from '../api/client';
+import { importMappedCsv, getBankAccounts } from '../api/client';
 
 const REQUIRED_FIELDS = [
   { id: 'date', label: 'Date', required: true },
@@ -60,13 +60,20 @@ function parseAmount(val) {
 export default function ImportWizard({ onClose, onSuccess, accounts = [] }) {
   const [step, setStep] = useState(1); // 1: Upload, 2: Map, 3: Preview
   const [file, setFile] = useState(null);
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
   const assetLiabilityAccounts = accounts.filter(a => a.type === 'asset' || a.type === 'liability');
+  
+  // Bank accounts
+  const [bankAccounts, setBankAccounts] = useState([]);
+  const [loadingBankAccounts, setLoadingBankAccounts] = useState(false);
   
   // Multi-sheet and Account selection
   const [workbook, setWorkbook] = useState(null);
   const [sheets, setSheets] = useState([]);
   const [selectedSheet, setSelectedSheet] = useState('');
-  const [selectedAccountId, setSelectedAccountId] = useState('');
+  const [selectedBankAccountId, setSelectedBankAccountId] = useState('');
+  const [selectedCategoryId, setSelectedCategoryId] = useState('');
 
   const [headers, setHeaders] = useState([]);
   const [rows, setRows] = useState([]);
@@ -76,6 +83,31 @@ export default function ImportWizard({ onClose, onSuccess, accounts = [] }) {
   const [amountType, setAmountType] = useState('single'); // 'single' or 'split'
 
   const fileInputRef = useRef();
+
+  // Fetch bank accounts on component mount
+  useEffect(() => {
+    const fetchBankAccounts = async () => {
+      setLoadingBankAccounts(true);
+      setError(''); // Clear any previous errors
+      try {
+        const data = await getBankAccounts();
+        // Ensure data is an array (handle null, undefined, or non-array responses)
+        const accountsArray = Array.isArray(data) ? data : [];
+        setBankAccounts(accountsArray);
+        // Only show error if there was an actual API error, not just empty results
+        if (accountsArray.length === 0) {
+          console.log('No bank accounts found - user can still import and select/create one');
+        }
+      } catch (err) {
+        console.error('Failed to fetch bank accounts:', err);
+        // Don't block import if bank accounts fail to load - just show warning
+        setBankAccounts([]);
+      } finally {
+        setLoadingBankAccounts(false);
+      }
+    };
+    fetchBankAccounts();
+  }, []);
 
   const handleFileChange = (e) => {
     const f = e.target.files[0];
@@ -206,6 +238,7 @@ export default function ImportWizard({ onClose, onSuccess, accounts = [] }) {
 
   const isMappingValid = () => {
     if (!mapping.date || !mapping.description) return false;
+    if (!selectedBankAccountId) return false; // Bank account is required
     if (amountType === 'single') {
       return !!mapping.amountStr;
     } else {
@@ -254,7 +287,8 @@ export default function ImportWizard({ onClose, onSuccess, accounts = [] }) {
 
       const payload = {
         filename: file.name + (selectedSheet ? ` [${selectedSheet}]` : ''),
-        ledger_account_id: selectedAccountId ? parseInt(selectedAccountId, 10) : null,
+        bank_account_id: selectedBankAccountId ? parseInt(selectedBankAccountId, 10) : null,
+        category_id: selectedCategoryId ? parseInt(selectedCategoryId, 10) : null,
         transactions: mappedData.map(d => ({
           txn_date: d.txn_date,
           description: d.description,
@@ -336,41 +370,81 @@ export default function ImportWizard({ onClose, onSuccess, accounts = [] }) {
             <div className="space-y-6">
               <p className="text-gray-600">Please configure your import settings for <strong>{file?.name}</strong>.</p>
               
-              {/* Top Settings Row: Sheet & Account */}
-              <div className="bg-gray-50 border border-gray-200 rounded-lg p-5 flex flex-col md:flex-row gap-6">
+              {/* Top Settings Row: Sheet, Bank Account & Category */}
+              <div className="bg-gray-50 border border-gray-200 rounded-lg p-5 flex flex-col gap-6">
                 
-                {sheets.length > 1 && (
-                  <div className="w-full md:w-1/2 flex flex-col gap-1.5">
-                    <label className="text-sm font-semibold text-gray-700">Excel Sheet <span className="text-red-500">*</span></label>
+                {/* First row: Excel Sheet and Bank Account */}
+                <div className="flex flex-col md:flex-row gap-6">
+                  {sheets.length > 1 && (
+                    <div className="w-full md:w-1/2 flex flex-col gap-1.5">
+                      <label className="text-sm font-semibold text-gray-700">Excel Sheet <span className="text-red-500">*</span></label>
+                      <select 
+                        className="input-field bg-white shadow-sm"
+                        value={selectedSheet}
+                        onChange={handleSheetChange}
+                      >
+                        {sheets.map(s => <option key={s} value={s}>{s}</option>)}
+                      </select>
+                    </div>
+                  )}
+                  
+                  {/* Bank Account Selection (Required) */}
+                  <div className={`w-full ${sheets.length > 1 ? 'md:w-1/2' : ''} flex flex-col gap-1.5`}>
+                    <label className="text-sm font-semibold text-gray-700">
+                      Bank Account <span className="text-red-500">*</span>
+                    </label>
                     <select 
                       className="input-field bg-white shadow-sm"
-                      value={selectedSheet}
-                      onChange={handleSheetChange}
+                      value={selectedBankAccountId}
+                      onChange={e => setSelectedBankAccountId(e.target.value)}
+                      disabled={loadingBankAccounts}
                     >
-                      {sheets.map(s => <option key={s} value={s}>{s}</option>)}
+                      <option value="">
+                        {loadingBankAccounts ? 'Loading bank accounts...' : '-- Select bank account --'}
+                      </option>
+                      {bankAccounts.length === 0 ? (
+                        <option disabled>No bank accounts found</option>
+                      ) : (
+                        bankAccounts.map(ba => (
+                          <option key={ba.id} value={ba.id}>
+                            {ba.bank_name} {ba.account_last_four ? `(...${ba.account_last_four})` : ''}
+                            {ba.ledger_account_name ? ` → ${ba.ledger_account_name}` : ''}
+                          </option>
+                        ))
+                      )}
                     </select>
+                    <p className="text-xs text-gray-500">
+                      Transactions will be linked to this bank account
+                    </p>
                   </div>
-                )}
-                
-                <div className={`w-full ${sheets.length > 1 ? 'md:w-1/2' : 'max-w-md'} flex flex-col gap-1.5`}>
-                  <label className="text-sm font-semibold text-gray-700">Assign to Account <span className="text-gray-400 font-normal">(Optional)</span></label>
-                  <select 
-                    className="input-field bg-white shadow-sm"
-                    value={selectedAccountId}
-                    onChange={e => setSelectedAccountId(e.target.value)}
-                    disabled={assetLiabilityAccounts.length === 0}
-                  >
-                    <option value="">-- Let system auto-categorize --</option>
-                    {assetLiabilityAccounts.length === 0 ? (
-                      <option disabled>No Asset/Liability accounts found</option>
-                    ) : (
-                      assetLiabilityAccounts.map(a => (
-                        <option key={a.id} value={a.id}>
-                          {a.name} ({a.type === 'asset' ? 'Asset' : 'Liability'})
-                        </option>
-                      ))
-                    )}
-                  </select>
+                </div>
+
+                {/* Second row: Default Category (Optional) */}
+                <div className="flex flex-col md:flex-row gap-6">
+                  <div className="w-full md:w-1/2 flex flex-col gap-1.5">
+                    <label className="text-sm font-semibold text-gray-700">
+                      Default Category <span className="text-gray-400 font-normal">(Optional)</span>
+                    </label>
+                    <select 
+                      className="input-field bg-white shadow-sm"
+                      value={selectedCategoryId}
+                      onChange={e => setSelectedCategoryId(e.target.value)}
+                    >
+                      <option value="">-- Let system auto-categorize --</option>
+                      {assetLiabilityAccounts.length === 0 ? (
+                        <option disabled>No categories found</option>
+                      ) : (
+                        assetLiabilityAccounts.map(a => (
+                          <option key={a.id} value={a.id}>
+                            {a.name} ({a.type === 'asset' ? 'Asset' : 'Liability'})
+                          </option>
+                        ))
+                      )}
+                    </select>
+                    <p className="text-xs text-gray-500">
+                      All transactions will use this category. Leave empty for auto-categorization.
+                    </p>
+                  </div>
                 </div>
 
               </div>
@@ -481,6 +555,15 @@ export default function ImportWizard({ onClose, onSuccess, accounts = [] }) {
               <div className="bg-emerald-50 text-emerald-800 p-4 rounded-lg flex items-center gap-3 border border-emerald-100">
                 <CheckCircle2 className="w-5 h-5 text-emerald-500" />
                 <p className="font-medium text-sm">Mapped successfully. Found {mappedData.length} valid transactions to import.</p>
+              </div>
+
+              {/* Import Summary */}
+              <div className="bg-blue-50 text-blue-800 p-4 rounded-lg border border-blue-100">
+                <h4 className="font-medium mb-2">Import Settings</h4>
+                <div className="text-sm space-y-1">
+                  <p><span className="font-medium">Bank Account:</span> {bankAccounts.find(ba => ba.id === parseInt(selectedBankAccountId))?.bank_name || 'Unknown'} {bankAccounts.find(ba => ba.id === parseInt(selectedBankAccountId))?.account_last_four ? `(...${bankAccounts.find(ba => ba.id === parseInt(selectedBankAccountId))?.account_last_four})` : ''}</p>
+                  <p><span className="font-medium">Default Category:</span> {selectedCategoryId ? (accounts.find(a => a.id === parseInt(selectedCategoryId))?.name || 'Selected') : 'Auto-categorize'}</p>
+                </div>
               </div>
 
               <div className="overflow-y-auto max-h-[400px] border border-gray-200 rounded-lg shadow-inner">

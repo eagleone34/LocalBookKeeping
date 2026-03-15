@@ -1,4 +1,4 @@
-"""
+r"""
 LocalBooks - Main FastAPI Application.
 Local-first bookkeeping for small businesses.
 
@@ -65,13 +65,17 @@ if getattr(sys, 'frozen', False):
     INSTALL_DIR = Path(sys.executable).parent
     DATA_DIR = INSTALL_DIR / "company_data"
     DATA_DIR.mkdir(parents=True, exist_ok=True)
-    DB_PATH = DATA_DIR / "localbooks.db"
+    DB_PATH = DATA_DIR / "ledgerlocal.db"
 
-    # On first run, copy the bundled golden-copy DB
+    # On first run (no existing DB), copy the bundled golden-copy DB
     bundled_db = Path(sys._MEIPASS) / "company_data" / "ledgerlocal.db"
-    if not DB_PATH.exists() and bundled_db.exists():
+    if DB_PATH.exists():
+        log(f"Using existing database at {DB_PATH} ({DB_PATH.stat().st_size} bytes)")
+    elif bundled_db.exists():
         shutil.copy2(bundled_db, DB_PATH)
-        log("Copied bundled demo DB to data dir.")
+        log(f"Copied bundled demo DB to {DB_PATH} ({bundled_db.stat().st_size} bytes)")
+    else:
+        log("No bundled DB found - database will be created fresh")
 
     FRONTEND_DIST = Path(sys._MEIPASS) / "frontend" / "dist"
 else:

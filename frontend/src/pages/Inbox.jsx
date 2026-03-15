@@ -77,15 +77,15 @@ export default function Inbox() {
     handleFiles(e.dataTransfer.files);
   }, []);
 
-  const handleAction = async (id, action, accountId) => {
-    const finalAccountId = overrides[id] || accountId;
-    if (action === 'approve' && !finalAccountId) {
-      alert("Cannot approve transaction without a selected account category. Please categorize it first.");
+  const handleAction = async (id, action, categoryId) => {
+    const finalCategoryId = overrides[id] || categoryId;
+    if (action === 'approve' && !finalCategoryId) {
+      alert("Cannot approve transaction without a selected category. Please categorize it first.");
       return;
     }
 
     try {
-      await actionDocTransaction(id, { action, account_id: finalAccountId || undefined });
+      await actionDocTransaction(id, { action, category_id: finalCategoryId || undefined });
       load();
     } catch (err) {
       console.error(err);
@@ -102,9 +102,9 @@ export default function Inbox() {
 
     if (action === 'approve') {
       // Validate categories exist for approvals
-      const missingAccounts = txnsToProcess.filter(t => !(overrides[t.id] || t.suggested_account_id));
-      if (missingAccounts.length > 0) {
-        alert(`Cannot approve. ${missingAccounts.length} selected transaction(s) are missing an account category. Please categorize them first.`);
+      const missingCategories = txnsToProcess.filter(t => !(overrides[t.id] || t.suggested_category_id || t.suggested_account_id));
+      if (missingCategories.length > 0) {
+        alert(`Cannot approve. ${missingCategories.length} selected transaction(s) are missing a category. Please categorize them first.`);
         return;
       }
     }
@@ -113,9 +113,9 @@ export default function Inbox() {
       // Process each transaction individually so overrides are sent correctly
       let failed = 0;
       for (const t of txnsToProcess) {
-        const accountId = overrides[t.id] || t.suggested_account_id;
+        const categoryId = overrides[t.id] || t.suggested_category_id || t.suggested_account_id;
         try {
-          await actionDocTransaction(t.id, { action, account_id: accountId || undefined });
+          await actionDocTransaction(t.id, { action, category_id: categoryId || undefined });
         } catch (err) {
           console.error(`Failed to ${action} transaction ${t.id}:`, err);
           failed++;
@@ -415,6 +415,7 @@ export default function Inbox() {
                         <th className="py-2.5 px-3 text-left text-gray-500 font-medium">Vendor</th>
                         <th className="py-2.5 px-3 text-left text-gray-500 font-medium">Description</th>
                         <th className="py-2.5 px-3 text-right text-gray-500 font-medium w-28">Amount</th>
+                        <th className="py-2.5 px-3 text-left text-gray-500 font-medium w-40">Account</th>
                         <th className="py-2.5 px-3 text-left text-gray-500 font-medium w-48">Category</th>
                         <th className="py-2.5 px-3 text-center text-gray-500 font-medium w-16">Conf.</th>
                         <th className="py-2.5 px-3 text-right text-gray-500 font-medium w-24">Actions</th>
@@ -448,16 +449,27 @@ export default function Inbox() {
                             {formatMoney(dt.amount)}
                           </td>
                           <td className="py-2 px-3">
+                            {dt.bank_account_name ? (
+                              <span className="text-xs font-medium text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-100">
+                                {dt.bank_account_name}
+                              </span>
+                            ) : (
+                              <span className="text-xs text-gray-400">-</span>
+                            )}
+                          </td>
+                          <td className="py-2 px-3">
                             {dt.status === 'review' ? (
                               <GroupedAccountSelect
                                 accounts={accounts}
-                                value={overrides[dt.id] || dt.suggested_account_id || ''}
+                                value={overrides[dt.id] || dt.suggested_category_id || dt.suggested_account_id || ''}
                                 onChange={(e) => setOverrides({...overrides, [dt.id]: parseInt(e.target.value)})}
                                 placeholder="Uncategorized"
                                 className="input-field text-xs py-1"
                               />
                             ) : (
-                              <span className="text-sm font-medium text-gray-600">{dt.suggested_account_name || dt.user_account_name || 'Uncategorized'}</span>
+                              <span className="text-sm font-medium text-gray-600">
+                                {dt.suggested_category_name || dt.user_category_name || dt.suggested_account_name || dt.user_account_name || 'Uncategorized'}
+                              </span>
                             )}
                           </td>
                           <td className="py-2 px-3 text-center">{confidenceBadge(dt.confidence)}</td>

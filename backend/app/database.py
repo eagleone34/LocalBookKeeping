@@ -26,7 +26,7 @@ CREATE TABLE IF NOT EXISTS accounts (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
     company_id  INTEGER NOT NULL REFERENCES company(id),
     name        TEXT NOT NULL,
-    type        TEXT NOT NULL CHECK(type IN ('income','expense','asset','liability')),
+    type        TEXT NOT NULL CHECK(type IN ('income','expense','asset','liability','equity')),
     parent_id   INTEGER REFERENCES accounts(id),
     code        TEXT,
     description TEXT,
@@ -192,9 +192,11 @@ def _migrate(conn: sqlite3.Connection) -> None:
     """Add columns that may be missing in older databases."""
     migrations = [
         ("transactions", "bank_account_id", "ALTER TABLE transactions ADD COLUMN bank_account_id INTEGER REFERENCES bank_accounts(id)"),
+        ("transactions", "category_id", "ALTER TABLE transactions ADD COLUMN category_id INTEGER REFERENCES accounts(id)"),
         ("document_transactions", "is_duplicate", "ALTER TABLE document_transactions ADD COLUMN is_duplicate INTEGER NOT NULL DEFAULT 0"),
         ("document_transactions", "duplicate_of_txn_id", "ALTER TABLE document_transactions ADD COLUMN duplicate_of_txn_id INTEGER"),
         ("document_transactions", "bank_account_id", "ALTER TABLE document_transactions ADD COLUMN bank_account_id INTEGER REFERENCES bank_accounts(id)"),
+        ("document_transactions", "category_id", "ALTER TABLE document_transactions ADD COLUMN category_id INTEGER REFERENCES accounts(id)"),
         ("documents", "bank_name", "ALTER TABLE documents ADD COLUMN bank_name TEXT"),
         ("documents", "account_last_four", "ALTER TABLE documents ADD COLUMN account_last_four TEXT"),
         ("documents", "bank_account_id", "ALTER TABLE documents ADD COLUMN bank_account_id INTEGER REFERENCES bank_accounts(id)"),
@@ -207,3 +209,27 @@ def _migrate(conn: sqlite3.Connection) -> None:
                 conn.commit()
         except Exception:
             pass
+
+    # ═══════════════════════════════════════════════════════
+    #  Data Migration: Copy account_id to category_id for existing records
+    #  This ensures backward compatibility with the new Account/Category separation
+    # ═══════════════════════════════════════════════════════
+    try:
+        # Check if we need to migrate transactions
+        cols = [r[1] for r in conn.execute("PRAGMA table_info(transactions)").fetchall()]
+        if "category_id" in cols:
+            # Migrate transactions: copy account_id to category_id where category_id is NULL
+            conn.execute("""
+                UPDATE transactions
+                SET category_id = account_id
+                WHERE category_id IS NULL AND account_id IS NOT NULL
+            """)
+            # Migrate document_transactions: copy suggested_account_id to category_id
+            conn.execute("""
+                UPDATE document_transactions
+                SET category_id = suggested_account_id
+                WHERE category_id IS NULL AND suggested_account_id IS NOT NULL
+            """)
+            conn.commit()
+    except Exception:
+        pass
