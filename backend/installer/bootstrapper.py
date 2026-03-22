@@ -178,37 +178,14 @@ def main():
                 # Verify restore was successful
                 if new_db_path.exists() and new_db_path.stat().st_size == db_backup_path.stat().st_size:
                     log(f"SUCCESS: Restored user database to {new_db_path} ({new_db_path.stat().st_size} bytes)")
-                    
-                    # Delete Demo Company to allow re-seeding with new data
-                    try:
-                        import sqlite3
-                        conn = sqlite3.connect(str(new_db_path))
-                        # Find Demo Company ID
-                        row = conn.execute("SELECT id FROM company WHERE name = 'Demo Company'").fetchone()
-                        if row:
-                            demo_id = row[0]
-                            # Delete all data for Demo Company
-                            conn.execute("DELETE FROM document_transactions WHERE document_id IN (SELECT id FROM documents WHERE company_id=?)", (demo_id,))
-                            conn.execute("DELETE FROM documents WHERE company_id=?", (demo_id,))
-                            conn.execute("DELETE FROM transactions WHERE company_id=?", (demo_id,))
-                            conn.execute("DELETE FROM budgets WHERE company_id=?", (demo_id,))
-                            conn.execute("DELETE FROM categorization_rules WHERE company_id=?", (demo_id,))
-                            conn.execute("DELETE FROM vendor_account_map WHERE company_id=?", (demo_id,))
-                            conn.execute("DELETE FROM bank_accounts WHERE company_id=?", (demo_id,))
-                            conn.execute("DELETE FROM accounts WHERE company_id=?", (demo_id,))
-                            conn.execute("DELETE FROM vendors WHERE company_id=?", (demo_id,))
-                            conn.execute("DELETE FROM audit_log WHERE company_id=?", (demo_id,))
-                            conn.execute("DELETE FROM company WHERE id=?", (demo_id,))
-                            conn.commit()
-                            log("Deleted old Demo Company to allow re-seeding with updated data.")
-                        conn.close()
-                    except Exception as e:
-                        log(f"Error deleting old Demo Company: {e}")
+                    # Demo Company is preserved as-is from the backup.
+                    # Do NOT delete or re-seed Demo Company data — it may contain user modifications.
                 else:
                     raise Exception(f"Restore verification failed - expected {db_backup_path.stat().st_size} bytes, got {new_db_path.stat().st_size if new_db_path.exists() else 0}")
             else:
+                # User has ONLY an unmodified Demo Company (no real companies, no uploaded documents).
+                # Safe to discard the backup and use the new bundled database with fresh demo data.
                 log("Only unmodified Demo Company found. Using new bundled database to get updated demo data.")
-                # We don't restore the backup, so the new bundled database is kept.
             
             # Keep backup for safety (don't delete immediately)
             permanent_backup = Path.home() / "Documents" / "localbooks_last_backup.db"

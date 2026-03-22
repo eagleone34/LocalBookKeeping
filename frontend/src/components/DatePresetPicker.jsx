@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Calendar, ChevronDown } from 'lucide-react';
+import { Calendar } from 'lucide-react';
 
 /**
  * Compute date presets relative to the current date.
@@ -102,21 +102,17 @@ export default function DatePresetPicker({ dateFrom, dateTo, onDateChange }) {
   };
 
   return (
-    <div className="space-y-3">
-      {/* Date range indicator - always show */}
-      <div className="text-sm font-medium text-gray-700 flex items-center gap-2">
-        <span className="text-gray-500">Showing:</span>
-        <span className="text-primary-700">{formatDateRange()}</span>
-      </div>
-      
+    <div className="space-y-2">
+      {/* Period row: label, preset buttons, showing indicator */}
       <div className="flex flex-wrap items-center gap-2">
-      {/* Preset buttons */}
-      <div className="flex flex-wrap gap-1.5">
+        <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide mr-1">Period</span>
+
+        {/* Preset buttons */}
         {presets.map(p => (
           <button
             key={p.key}
             onClick={() => handlePreset(p)}
-            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-150 ${
+            className={`px-2.5 py-1 rounded-md text-xs font-medium transition-all duration-150 ${
               activePreset?.key === p.key
                 ? 'bg-primary-600 text-white shadow-sm'
                 : 'bg-gray-100 text-gray-600 hover:bg-gray-200 hover:text-gray-800'
@@ -127,7 +123,7 @@ export default function DatePresetPicker({ dateFrom, dateTo, onDateChange }) {
         ))}
         <button
           onClick={() => setShowCustom(!showCustom)}
-          className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-150 flex items-center gap-1 ${
+          className={`px-2.5 py-1 rounded-md text-xs font-medium transition-all duration-150 flex items-center gap-1 ${
             showCustom || (!activePreset && (dateFrom || dateTo))
               ? 'bg-primary-600 text-white shadow-sm'
               : 'bg-gray-100 text-gray-600 hover:bg-gray-200 hover:text-gray-800'
@@ -136,11 +132,16 @@ export default function DatePresetPicker({ dateFrom, dateTo, onDateChange }) {
           <Calendar className="w-3 h-3" />
           Custom
         </button>
+
+        {/* Subtle date range indicator */}
+        <span className="ml-auto text-xs text-gray-400 whitespace-nowrap">
+          {formatDateRange()}
+        </span>
       </div>
 
       {/* Custom date inputs - slide open */}
       {showCustom && (
-        <div className="flex items-center gap-2 ml-1 animate-in">
+        <div className="flex items-center gap-2 pl-[3.5rem]">
           <input
             type="date"
             value={dateFrom}
@@ -156,7 +157,6 @@ export default function DatePresetPicker({ dateFrom, dateTo, onDateChange }) {
           />
         </div>
       )}
-      </div>
     </div>
   );
 }

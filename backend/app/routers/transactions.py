@@ -7,9 +7,13 @@ from typing import List, Optional
 
 from fastapi import APIRouter, HTTPException, Query
 
-from app.models import TransactionCreate, TransactionOut, TransactionUpdate, BulkRecategorize
+from app.models import (
+    TransactionCreate, TransactionOut, TransactionUpdate, BulkRecategorize,
+    SuggestCategoriesRequest, SuggestCategoriesResponse, CategorySuggestionGroup,
+)
 from app.main_state import get_conn, get_company_id
 from app.services import data_service as ds
+from app.services import categorization
 
 router = APIRouter(prefix="/api/transactions", tags=["transactions"])
 
@@ -83,6 +87,51 @@ def delete_transaction(txn_id: int):
 def bulk_recategorize(body: BulkRecategorize):
     count = ds.bulk_recategorize(get_conn(), body.transaction_ids, body.category_id)
     return {"updated": count}
+
+
+@router.post("/suggest-categories", response_model=SuggestCategoriesResponse)
+def suggest_categories(body: SuggestCategoriesRequest):
+    """
+    Analyze a batch of incoming transactions and suggest categories
+    based on similar past transactions, vendor matching, and keyword heuristics.
+
+    Groups similar transactions together so the user can categorize them in bulk.
+    """
+    conn = get_conn()
+    company_id = get_company_id()
+
+    # Convert Pydantic models to plain dicts for the categorization engine
+    txn_dicts = [
+        {
+            "description": t.description,
+            "amount": t.amount,
+            "date": t.date,
+        }
+        for t in body.transactions
+    ]
+
+    result = categorization.suggest_categories_for_batch(
+        conn, company_id, txn_dicts, body.bank_account_id,
+    )
+
+    # Convert to response model
+    groups = [
+        CategorySuggestionGroup(
+            group_key=g["group_key"],
+            sample_description=g["sample_description"],
+            transaction_indices=g["transaction_indices"],
+            suggested_category_id=g.get("suggested_category_id"),
+            suggested_category_name=g.get("suggested_category_name"),
+            confidence=g.get("confidence", 0.0),
+            match_reason=g.get("match_reason", ""),
+        )
+        for g in result["groups"]
+    ]
+
+    return SuggestCategoriesResponse(
+        groups=groups,
+        ungrouped_indices=result["ungrouped_indices"],
+    )
 
 
 def _to_out(row: dict) -> TransactionOut:

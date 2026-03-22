@@ -208,9 +208,10 @@ export default function Transactions() {
       </div>
 
       {/* Filters */}
-      <div className="card">
-        <div className="flex flex-wrap items-end gap-4">
-          <div className="flex-1 min-w-[200px]">
+      <div className="card space-y-3">
+        {/* Row 1: Search, Category, Account, Clear */}
+        <div className="flex flex-wrap items-end gap-3">
+          <div className="flex-1 min-w-[180px]">
             <label className="label">Search</label>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -222,7 +223,7 @@ export default function Transactions() {
               />
             </div>
           </div>
-          <div>
+          <div className="min-w-[160px]">
             <label className="label">Category</label>
             <select
               value={filters.category_type ? `GROUP_${filters.category_type.toUpperCase()}` : filters.category_id}
@@ -248,7 +249,7 @@ export default function Transactions() {
               ))}
             </select>
           </div>
-          <div>
+          <div className="min-w-[160px]">
             <label className="label">Account</label>
             <select
               value={filters.bank_account_id || ''}
@@ -263,20 +264,19 @@ export default function Transactions() {
               ))}
             </select>
           </div>
-          <div className="flex-1 min-w-[300px]">
-            <label className="label">Period</label>
-            <DatePresetPicker
-              dateFrom={filters.date_from}
-              dateTo={filters.date_to}
-              onDateChange={(from, to) => setFilters({...filters, date_from: from, date_to: to})}
-            />
-          </div>
           {hasActiveFilters && (
-            <button onClick={clearFilters} className="btn-secondary text-sm">
+            <button onClick={clearFilters} className="btn-secondary text-sm self-end">
               <X className="w-4 h-4 mr-1" /> Clear
             </button>
           )}
         </div>
+
+        {/* Row 2: Period picker */}
+        <DatePresetPicker
+          dateFrom={filters.date_from}
+          dateTo={filters.date_to}
+          onDateChange={(from, to) => setFilters({...filters, date_from: from, date_to: to})}
+        />
       </div>
 
       {/* Add Form */}

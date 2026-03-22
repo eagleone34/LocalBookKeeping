@@ -9,7 +9,7 @@ import shutil
 from pathlib import Path
 from typing import List, Optional
 
-from fastapi import APIRouter, File, HTTPException, UploadFile
+from fastapi import APIRouter, Body, File, HTTPException, UploadFile
 
 from app.models import DocumentOut, DocTransactionOut, DocTransactionAction, BulkDocTransactionAction, BulkImportRequest, MappedTransactionIn
 from app.main_state import get_conn, get_company_id, get_upload_dir
@@ -99,19 +99,15 @@ async def upload_documents(files: List[UploadFile] = File(...)):
                     description=entry.description,
                 )
 
-                # 3b. Smart categorization
+                # 3b. Smart categorization (only suggests expense/income categories)
                 acct_id, confidence = suggest_account(
                     conn, cid, entry.description, entry.vendor_name
                 )
 
-                # 3c. If we know the bank account's ledger account and nothing else matched
-                if not acct_id and bank_account_id:
-                    ba = ds.get_bank_account(conn, bank_account_id)
-                    if ba and ba.get("ledger_account_id"):
-                        acct_id = ba["ledger_account_id"]
-                        confidence = max(confidence, 0.4)
-
-                # 3d. Create the document transaction
+                # 3c. Create the document transaction
+                # Note: We no longer fall back to the bank's ledger account as a category
+                # because that would suggest an asset/liability account (bank account)
+                # when the user expects an expense/income category.
                 status = "duplicate" if is_dup else "review"
                 dt_id = ds.create_doc_transaction(
                     conn, doc_id,
@@ -206,14 +202,10 @@ def import_csv(body: BulkImportRequest):
                     conn, cid, entry.description, entry.vendor_name
                 )
             
-            # 2c. Auto-suggest bank ledger account if nothing matched
-            if not acct_id and bank_account_id:
-                ba = ds.get_bank_account(conn, bank_account_id)
-                if ba and ba.get("ledger_account_id"):
-                    acct_id = ba["ledger_account_id"]
-                    confidence = max(confidence, 0.4)
-            
-            # 2d. Create staging record
+            # 2c. Create staging record
+            # Note: We no longer fall back to the bank's ledger account as a category
+            # because that would suggest an asset/liability account (bank account)
+            # when the user expects an expense/income category.
             dt_id = ds.create_doc_transaction(
                 conn, doc_id,
                 txn_date=entry.txn_date,
@@ -278,7 +270,7 @@ def action_doc_transaction(dt_id: int, body: DocTransactionAction):
         # Create transaction with proper Account/Category separation
         ds.create_transaction(
             conn, cid,
-            category_id=category_id,
+            account_id=category_id,
             txn_date=dt["txn_date"] or "2025-01-01",
             amount=dt["amount"] or 0,
             description=dt["description"] or "",
@@ -289,7 +281,7 @@ def action_doc_transaction(dt_id: int, body: DocTransactionAction):
         )
 
         # Update both legacy and new fields for backward compatibility
-        ds.update_doc_transaction(conn, dt_id, status="posted", user_category_id=category_id, user_account_id=category_id)
+        ds.update_doc_transaction(conn, dt_id, status="posted", category_id=category_id, user_account_id=category_id)
 
         # ═══ LEARNING: update vendor-account map so next time it auto-categorizes ═══
         if dt.get("vendor_name"):
@@ -344,7 +336,7 @@ def bulk_action(body: BulkDocTransactionAction):
             # Create transaction with proper Account/Category separation
             ds.create_transaction(
                 conn, cid,
-                category_id=category_id,
+                account_id=category_id,
                 txn_date=dt["txn_date"] or "2025-01-01",
                 amount=dt["amount"] or 0,
                 description=dt["description"] or "",
@@ -355,7 +347,7 @@ def bulk_action(body: BulkDocTransactionAction):
             )
 
             # Update both legacy and new fields for backward compatibility
-            ds.update_doc_transaction(conn, dt_id, status="posted", user_category_id=category_id, user_account_id=category_id)
+            ds.update_doc_transaction(conn, dt_id, status="posted", category_id=category_id, user_account_id=category_id)
             # Learning
             if dt.get("vendor_name"):
                 ds._update_vendor_account_map(conn, cid, dt["vendor_name"], category_id)
@@ -371,6 +363,21 @@ def bulk_action(body: BulkDocTransactionAction):
 @router.get("/bank-accounts")
 def list_bank_accounts():
     return ds.list_bank_accounts(get_conn(), get_company_id())
+
+
+@router.post("/bank-accounts")
+def create_bank_account(payload: dict = Body(...)):
+    """Create a new bank account on the fly (e.g., from Import Wizard)."""
+    bank_name = payload.get("bank_name", "").strip()
+    last_four = payload.get("last_four", "").strip()
+    if not bank_name:
+        raise HTTPException(400, "bank_name is required")
+    if not last_four:
+        last_four = "0000"
+    ba_id = ds.upsert_bank_account(get_conn(), get_company_id(), bank_name, last_four)
+    # Return the created/found bank account
+    ba = ds.get_bank_account(get_conn(), ba_id)
+    return ba if ba else {"id": ba_id, "bank_name": bank_name, "last_four": last_four}
 
 
 @router.put("/bank-accounts/{ba_id}")
@@ -394,14 +401,19 @@ def _doc_out(r: dict) -> DocumentOut:
 
 
 def _dt_out(r: dict) -> DocTransactionOut:
-    # Build bank account display name
-    bank_account_name = r.get("bank_account_name")
-    if bank_account_name and r.get("bank_account_last_four"):
-        bank_account_name = f"{bank_account_name} ****{r['bank_account_last_four']}"
+    # Build bank account display name from bank_name + last_four
+    bank_name = r.get("bank_account_name")
+    last_four = r.get("bank_account_last_four")
+    if bank_name and last_four:
+        bank_account_name = f"{bank_name} ****{last_four}"
+    elif bank_name:
+        bank_account_name = bank_name
+    else:
+        bank_account_name = None
     
     # Use category fields if available, fall back to account fields for backward compatibility
     suggested_category_id = r.get("category_id") or r.get("suggested_account_id")
-    suggested_category_name = r.get("suggested_category_name") or r.get("suggested_account_name")
+    suggested_category_name = r.get("category_name") or r.get("suggested_category_name") or r.get("suggested_account_name")
     user_category_id = r.get("user_category_id") or r.get("user_account_id")
     user_category_name = r.get("user_category_name") or r.get("user_account_name")
     

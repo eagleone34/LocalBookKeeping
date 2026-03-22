@@ -130,8 +130,8 @@ export default function Accounts() {
               </select>
             </div>
             <div>
-              <label className="label">Code</label>
-              <input value={newForm.code} onChange={e => setNewForm({...newForm, code: e.target.value})} className="input-field" placeholder="e.g., 5200" />
+              <label className="label">Code (auto)</label>
+              <input value={newForm.code} onChange={e => setNewForm({...newForm, code: e.target.value})} className="input-field" placeholder="Auto-generated" />
             </div>
             <div>
               <label className="label">Parent</label>
@@ -195,7 +195,7 @@ export default function Accounts() {
                                 value={editForm.code}
                                 onChange={e => setEditForm({...editForm, code: e.target.value})}
                                 className="input-field text-sm py-1"
-                                placeholder="Code"
+                                placeholder="Auto-generated"
                               />
                             </td>
                             <td className="py-2 px-2">

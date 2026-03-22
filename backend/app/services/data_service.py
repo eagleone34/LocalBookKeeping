@@ -18,7 +18,7 @@ def _now() -> str:
 # ═══════════════════════════════════════════════════════
 
 def ensure_company(conn: sqlite3.Connection, name: str = "My Company", currency: str = "USD") -> int:
-    row = conn.execute("SELECT id FROM company LIMIT 1").fetchone()
+    row = conn.execute("SELECT id FROM company WHERE name = ?", (name,)).fetchone()
     if row:
         return int(row["id"])
     now = _now()
@@ -55,6 +55,37 @@ def update_company(conn: sqlite3.Connection, company_id: int, **kwargs) -> None:
 #  ACCOUNTS
 # ═══════════════════════════════════════════════════════
 
+_ACCOUNT_CODE_BASES = {
+    "asset": 1000,
+    "liability": 2000,
+    "equity": 3000,
+    "income": 4000,
+    "expense": 5000,
+}
+
+
+def _next_account_code(conn: sqlite3.Connection, company_id: int, acct_type: str) -> str:
+    """Generate the next available numeric account code for the given type and company."""
+    base = _ACCOUNT_CODE_BASES.get(acct_type, 5000)
+    range_end = base + 999  # e.g. 5000-5999
+
+    rows = conn.execute(
+        "SELECT code FROM accounts WHERE company_id=? AND type=? AND code IS NOT NULL AND code != ''",
+        (company_id, acct_type),
+    ).fetchall()
+
+    max_code = base - 10  # so first generated code will be `base` itself
+    for row in rows:
+        try:
+            val = int(row["code"])
+            if base <= val <= range_end and val > max_code:
+                max_code = val
+        except (ValueError, TypeError):
+            continue
+
+    return str(max_code + 10)
+
+
 def list_accounts(conn: sqlite3.Connection, company_id: int, include_inactive: bool = False) -> List[Dict]:
     sql = "SELECT * FROM accounts WHERE company_id=?"
     if not include_inactive:
@@ -71,6 +102,8 @@ def get_account(conn: sqlite3.Connection, account_id: int) -> Optional[Dict]:
 def create_account(conn: sqlite3.Connection, company_id: int, name: str, acct_type: str,
                    parent_id: Optional[int] = None, code: Optional[str] = None,
                    description: Optional[str] = None) -> int:
+    if not code:  # None or empty string
+        code = _next_account_code(conn, company_id, acct_type)
     now = _now()
     cur = conn.execute(
         """INSERT INTO accounts (company_id, name, type, parent_id, code, description, is_active, created_at, updated_at)
@@ -369,13 +402,14 @@ def delete_doc_transaction(conn: sqlite3.Connection, dt_id: int) -> None:
 def create_doc_transaction(conn: sqlite3.Connection, doc_id: int,
                            txn_date: str, description: str, amount: float,
                            vendor_name: str, suggested_account_id: Optional[int],
-                           confidence: float) -> int:
+                           confidence: float, bank_account_id: Optional[int] = None,
+                           category_id: Optional[int] = None) -> int:
     now = _now()
     cur = conn.execute(
         """INSERT INTO document_transactions
-           (document_id, txn_date, description, amount, vendor_name, suggested_account_id, confidence, status, created_at)
-           VALUES (?,?,?,?,?,?,?,'review',?)""",
-        (doc_id, txn_date, description, amount, vendor_name, suggested_account_id, confidence, now),
+           (document_id, txn_date, description, amount, vendor_name, suggested_account_id, confidence, status, created_at, bank_account_id, category_id)
+           VALUES (?,?,?,?,?,?,?,'review',?,?,?)""",
+        (doc_id, txn_date, description, amount, vendor_name, suggested_account_id, confidence, now, bank_account_id, category_id),
     )
     conn.commit()
     return int(cur.lastrowid)
@@ -385,11 +419,18 @@ def list_doc_transactions(conn: sqlite3.Connection, doc_id: Optional[int] = None
                           status: Optional[str] = None,
                           company_id: Optional[int] = None) -> List[Dict]:
     sql = """
-        SELECT dt.*, a1.name AS suggested_account_name, a2.name AS user_account_name
+        SELECT dt.*,
+               a1.name AS suggested_account_name,
+               a2.name AS user_account_name,
+               ac.name AS category_name,
+               ba.bank_name AS bank_account_name,
+               ba.last_four AS bank_account_last_four
         FROM document_transactions dt
         JOIN documents d ON dt.document_id = d.id
         LEFT JOIN accounts a1 ON dt.suggested_account_id = a1.id
         LEFT JOIN accounts a2 ON dt.user_account_id = a2.id
+        LEFT JOIN accounts ac ON dt.category_id = ac.id
+        LEFT JOIN bank_accounts ba ON dt.bank_account_id = ba.id
         WHERE 1=1
     """
     params: list = []

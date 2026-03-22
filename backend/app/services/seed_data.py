@@ -16,12 +16,53 @@ from app.services.data_service import (
 
 
 def seed_default_accounts(conn: sqlite3.Connection, company_id: int) -> dict:
-    """Create default chart of accounts and rules for a new company."""
+    """Create default chart of accounts, rules, and a default bank account for a company.
+    
+    This function is idempotent — safe to call multiple times.
+    If the company already has accounts, it skips account/rule creation
+    but still ensures at least one bank account exists.
+    """
+    existing = conn.execute(
+        "SELECT COUNT(*) as cnt FROM accounts WHERE company_id=?",
+        (company_id,),
+    ).fetchone()
+
+    account_map = {}
+
+    if existing["cnt"] > 0:
+        # Company already has accounts — build account_map from existing data
+        rows = list_accounts(conn, company_id)
+        for r in rows:
+            account_map[r["name"]] = r["id"]
+    else:
+        # ── Create Accounts ──
+        account_map = _create_default_accounts(conn, company_id)
+
+    # ── Ensure at least one bank account exists ──
+    has_bank = conn.execute(
+        "SELECT COUNT(*) as cnt FROM bank_accounts WHERE company_id=?",
+        (company_id,),
+    ).fetchone()
+    if has_bank["cnt"] == 0:
+        checking_id = account_map.get("Checking Account")
+        upsert_bank_account(
+            conn, company_id,
+            bank_name="General",
+            last_four="0000",
+            full_number="",
+            ledger_account_id=checking_id,
+        )
+
+    return account_map
+
+
+def _create_default_accounts(conn: sqlite3.Connection, company_id: int) -> dict:
+    """Internal helper: create the default chart of accounts and categorization rules."""
     # ── Create Accounts ──
     income_accounts = [
-        ("Sales Revenue", "income", None, "1000"),
-        ("Consulting Income", "income", None, "1100"),
-        ("Interest Income", "income", None, "1200"),
+        ("Sales Revenue", "income", None, "4000"),
+        ("Consulting Income", "income", None, "4100"),
+        ("Interest Income", "income", None, "4200"),
     ]
     expense_accounts = [
         ("Rent", "expense", None, "5000"),

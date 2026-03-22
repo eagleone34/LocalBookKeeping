@@ -104,7 +104,7 @@ try:
     from app.database import connect, init_schema
     from app.main_state import init_state, set_company_id
     from app.services.data_service import ensure_company
-    from app.services.seed_data import seed_demo_data
+    from app.services.seed_data import seed_demo_data, seed_default_accounts
     from app.services.update_service import check_for_updates
     from app.routers import accounts, transactions, budgets, reports, documents, settings
     log("App modules OK")
@@ -118,6 +118,14 @@ try:
     init_schema(conn)
     company_id = ensure_company(conn, "Demo Company", "USD")
     seed_demo_data(conn, company_id)
+
+    # ── Retrofix: ensure ALL companies have default accounts & bank accounts ──
+    all_companies = conn.execute("SELECT id FROM company ORDER BY id").fetchall()
+    for row in all_companies:
+        cid = row["id"]
+        seed_default_accounts(conn, cid)
+    log(f"Ensured default accounts for {len(all_companies)} company(ies)")
+
     init_state(conn, company_id, DATA_DIR)
     log("DB init OK")
 except Exception:

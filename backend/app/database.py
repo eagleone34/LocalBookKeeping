@@ -5,6 +5,7 @@ Uses SQLite for local-first, zero-config storage.
 from __future__ import annotations
 
 import sqlite3
+from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
@@ -206,6 +207,61 @@ def _migrate(conn: sqlite3.Connection) -> None:
             cols = [r[1] for r in conn.execute(f"PRAGMA table_info({table})").fetchall()]
             if column not in cols:
                 conn.execute(sql)
+                conn.commit()
+        except Exception:
+            pass
+    
+        # --- Backfill blank account codes ---
+        try:
+            blank_count = conn.execute(
+                "SELECT COUNT(*) FROM accounts WHERE code IS NULL OR code = ''"
+            ).fetchone()[0]
+            if blank_count > 0:
+                code_bases = {
+                    "asset": 1000,
+                    "liability": 2000,
+                    "equity": 3000,
+                    "income": 4000,
+                    "expense": 5000,
+                }
+    
+                company_ids = [
+                    r[0] for r in conn.execute("SELECT DISTINCT company_id FROM accounts").fetchall()
+                ]
+    
+                for cid in company_ids:
+                    blanks = conn.execute(
+                        "SELECT id, type FROM accounts WHERE company_id=? AND (code IS NULL OR code = '')",
+                        (cid,),
+                    ).fetchall()
+                    if not blanks:
+                        continue
+    
+                    for acct_id, acct_type in blanks:
+                        base = code_bases.get(acct_type, 5000)
+                        range_end = base + 999
+    
+                        rows = conn.execute(
+                            "SELECT code FROM accounts WHERE company_id=? AND type=? AND code IS NOT NULL AND code != ''",
+                            (cid, acct_type),
+                        ).fetchall()
+    
+                        max_code = base - 10
+                        for row in rows:
+                            try:
+                                val = int(row[0])
+                                if base <= val <= range_end and val > max_code:
+                                    max_code = val
+                            except (ValueError, TypeError):
+                                continue
+    
+                        new_code = str(max_code + 10)
+                        now = datetime.utcnow().isoformat()
+                        conn.execute(
+                            "UPDATE accounts SET code=?, updated_at=? WHERE id=?",
+                            (new_code, now, acct_id),
+                        )
+    
                 conn.commit()
         except Exception:
             pass

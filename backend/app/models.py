@@ -293,3 +293,51 @@ class DashboardSummary(BaseModel):
     top_expense_categories: List[CategoryBreakdownRow]
     monthly_trend: List[MonthlyTrendRow]
     recent_transactions: List[TransactionOut]
+
+
+# ── Bank Accounts ────────────────────────────────────
+class BankAccountCreate(BaseModel):
+    bank_name: str
+    last_four: str
+    account_type: str = Field("checking", pattern="^(checking|savings|credit_card)$")
+    nickname: Optional[str] = None
+    full_number: Optional[str] = None
+
+
+class BankAccountOut(BaseModel):
+    id: int
+    bank_name: str
+    last_four: str
+    full_number: Optional[str] = None
+    nickname: Optional[str] = None
+    ledger_account_id: Optional[int] = None
+    ledger_account_name: Optional[str] = None
+    created_at: str
+    updated_at: str
+
+
+# ── Category Suggestion ──────────────────────────────
+class SuggestCategoryTransaction(BaseModel):
+    description: str
+    amount: float
+    date: str
+
+
+class SuggestCategoriesRequest(BaseModel):
+    transactions: List[SuggestCategoryTransaction]
+    bank_account_id: Optional[int] = None
+
+
+class CategorySuggestionGroup(BaseModel):
+    group_key: str
+    sample_description: str
+    transaction_indices: List[int]
+    suggested_category_id: Optional[int] = None
+    suggested_category_name: Optional[str] = None
+    confidence: float = 0.0
+    match_reason: str = ""
+
+
+class SuggestCategoriesResponse(BaseModel):
+    groups: List[CategorySuggestionGroup]
+    ungrouped_indices: List[int]

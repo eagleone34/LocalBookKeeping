@@ -153,8 +153,14 @@ export const createBackup = () =>
   request('/api/backup', { method: 'POST' });
 export const getBackups = () => request('/api/backups');
 
-export const getBankAccounts = () => request('/api/documents/bank-accounts');
+export const getBankAccounts = () => request('/api/accounts/bank-accounts');
+export const createBankAccount = (data) =>
+  request('/api/accounts/bank-accounts', { method: 'POST', body: JSON.stringify(data) });
 export const updateBankAccount = (id, data) =>
-  request(`/api/documents/bank-accounts/${id}`, { method: 'PUT', body: JSON.stringify(data) });
+  request(`/api/accounts/bank-accounts/${id}`, { method: 'PUT', body: JSON.stringify(data) });
 export const importMappedCsv = (data) =>
   request('/api/documents/import-csv', { method: 'POST', body: JSON.stringify(data) });
+
+// Smart categorization
+export const suggestCategories = (data) =>
+  request('/api/transactions/suggest-categories', { method: 'POST', body: JSON.stringify(data) });
