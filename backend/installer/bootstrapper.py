@@ -145,47 +145,21 @@ def main():
             # Log pre-restore state
             if new_db_path.exists():
                 bundled_size = new_db_path.stat().st_size
-                log(f"Bundled database exists ({bundled_size} bytes) - checking if we should replace it")
+                log(f"Bundled database exists ({bundled_size} bytes) - will replace with user backup")
             
-            # Check if the user has any companies other than the Demo Company
-            has_user_data = False
-            try:
-                import sqlite3
-                conn = sqlite3.connect(str(db_backup_path))
-                # Check if there are any companies not named "Demo Company"
-                row = conn.execute("SELECT COUNT(*) FROM company WHERE name != 'Demo Company'").fetchone()
-                if row and row[0] > 0:
-                    has_user_data = True
-                else:
-                    # Check if they modified the Demo Company (e.g., added new accounts or transactions manually)
-                    # A fresh demo company has exactly 12 budgets, 19 rules, 17 accounts, 2 bank accounts, 12 vendors
-                    # We'll just check if they have more than 1 company, or if they want to keep their data.
-                    # Actually, if they only have "Demo Company", we can assume it's safe to overwrite with the new demo data,
-                    # BUT to be safe, let's check if they have any documents uploaded.
-                    doc_row = conn.execute("SELECT COUNT(*) FROM documents").fetchone()
-                    if doc_row and doc_row[0] > 0:
-                        has_user_data = True
-                conn.close()
-            except Exception as e:
-                log(f"Error checking user data in backup: {e}")
-                has_user_data = True # Default to safe: preserve data
+            # Always restore the user's backup database.
+            # The backup exists because the user had a previous installation — their data
+            # always takes priority over the bundled demo database, even if they only used
+            # Demo Company.  Trying to detect "unmodified" data is error-prone and risks
+            # discarding real transactions, budgets, or account customizations.
+            log("Backup database exists. Restoring user database (backup always takes priority).")
+            shutil.copy2(db_backup_path, new_db_path)
             
-            if has_user_data:
-                log("User data found in backup. Restoring user database.")
-                # Always restore user database from backup if they have real data
-                shutil.copy2(db_backup_path, new_db_path)
-                
-                # Verify restore was successful
-                if new_db_path.exists() and new_db_path.stat().st_size == db_backup_path.stat().st_size:
-                    log(f"SUCCESS: Restored user database to {new_db_path} ({new_db_path.stat().st_size} bytes)")
-                    # Demo Company is preserved as-is from the backup.
-                    # Do NOT delete or re-seed Demo Company data — it may contain user modifications.
-                else:
-                    raise Exception(f"Restore verification failed - expected {db_backup_path.stat().st_size} bytes, got {new_db_path.stat().st_size if new_db_path.exists() else 0}")
+            # Verify restore was successful
+            if new_db_path.exists() and new_db_path.stat().st_size == db_backup_path.stat().st_size:
+                log(f"SUCCESS: Restored user database to {new_db_path} ({new_db_path.stat().st_size} bytes)")
             else:
-                # User has ONLY an unmodified Demo Company (no real companies, no uploaded documents).
-                # Safe to discard the backup and use the new bundled database with fresh demo data.
-                log("Only unmodified Demo Company found. Using new bundled database to get updated demo data.")
+                raise Exception(f"Restore verification failed - expected {db_backup_path.stat().st_size} bytes, got {new_db_path.stat().st_size if new_db_path.exists() else 0}")
             
             # Keep backup for safety (don't delete immediately)
             permanent_backup = Path.home() / "Documents" / "localbooks_last_backup.db"

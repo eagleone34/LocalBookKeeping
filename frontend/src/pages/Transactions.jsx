@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   getTransactions, getAccounts, getBankAccounts, createTransaction, updateTransaction,
   deleteTransaction, bulkRecategorize,
@@ -12,6 +13,7 @@ function formatMoney(val) {
 }
 
 export default function Transactions() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [transactions, setTransactions] = useState([]);
   const [accounts, setAccounts] = useState([]);
   const [bankAccounts, setBankAccounts] = useState([]);
@@ -37,17 +39,38 @@ export default function Transactions() {
   const filtersRef = useRef(filters);
   filtersRef.current = filters;
 
+  // Initialize filters from URL search params on mount
+  useEffect(() => {
+    const paramKeys = ['search', 'account_id', 'category_id', 'category_type', 'bank_account_id', 'date_from', 'date_to'];
+    const urlFilters = {};
+    let hasUrlFilters = false;
+    paramKeys.forEach(key => {
+      const val = searchParams.get(key);
+      if (val) {
+        urlFilters[key] = val;
+        hasUrlFilters = true;
+      }
+    });
+    if (hasUrlFilters) {
+      setFilters(prev => ({ ...prev, ...urlFilters }));
+    }
+  }, []); // Run once on mount
+
   const load = useCallback(async () => {
     setLoading(true);
     try {
       const currentFilters = filtersRef.current;
-      // Build filters for API - if category_type is set, don't send category_id
-      const apiFilters = { ...currentFilters };
+      // Build filters for API
+      const apiFilters = {};
+      if (currentFilters.search) apiFilters.search = currentFilters.search;
       if (currentFilters.category_type) {
-        delete apiFilters.category_id;
-      } else {
-        delete apiFilters.category_type;
+        apiFilters.category_type = currentFilters.category_type;
+      } else if (currentFilters.category_id) {
+        apiFilters.category_id = currentFilters.category_id;
       }
+      if (currentFilters.bank_account_id) apiFilters.bank_account_id = currentFilters.bank_account_id;
+      if (currentFilters.date_from) apiFilters.date_from = currentFilters.date_from;
+      if (currentFilters.date_to) apiFilters.date_to = currentFilters.date_to;
       
       const [txns, accts, banks] = await Promise.all([
         getTransactions(apiFilters),
@@ -55,13 +78,7 @@ export default function Transactions() {
         getBankAccounts(),
       ]);
       
-      // Client-side filtering by category_type if backend doesn't support it
-      let filteredTxns = txns;
-      if (currentFilters.category_type && !apiFilters.category_type) {
-        filteredTxns = txns.filter(t => (t.category_type || t.account_type) === currentFilters.category_type);
-      }
-      
-      setTransactions(filteredTxns);
+      setTransactions(txns);
       setAccounts(accts);
       setBankAccounts(banks);
     } catch (e) { console.error(e); }

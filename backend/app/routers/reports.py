@@ -31,6 +31,8 @@ def budget_vs_actual(month_from: Optional[str] = None, month_to: Optional[str] =
         account_id=r["account_id"], account_name=r["account_name"],
         account_type=r["account_type"], budgeted=r["budgeted"], actual=r["actual"],
         variance=r["variance"], budget_month_count=r.get("budget_month_count", 1),
+        monthly_budget=r.get("monthly_budget", 0.0),
+        monthly_actual=r.get("monthly_actual", 0.0),
     ) for r in rows]
 
 

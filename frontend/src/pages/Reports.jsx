@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { getPnL, getExpenseByCategory, getExpenseByVendor, getMonthlyTrend, getBalanceSheet, getBankAccounts } from '../api/client';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -39,6 +40,7 @@ const CustomYTick = ({ x, y, payload }) => {
 const tabs = ['Profit & Loss', 'Expense by Category', 'Expense by Vendor', 'Monthly Trends', 'Balance Sheet'];
 
 export default function Reports() {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState(0);
   const [pnl, setPnl] = useState([]);
   const [categories, setCategories] = useState([]);
@@ -49,6 +51,18 @@ export default function Reports() {
   const [selectedBankAccountId, setSelectedBankAccountId] = useState('');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
+
+  /** Navigate to Transactions page with current date/bank filters + extra params */
+  const drillDown = (extraParams = {}) => {
+    const params = new URLSearchParams();
+    if (dateFrom) params.set('date_from', dateFrom);
+    if (dateTo) params.set('date_to', dateTo);
+    if (selectedBankAccountId) params.set('bank_account_id', selectedBankAccountId);
+    Object.entries(extraParams).forEach(([k, v]) => {
+      if (v !== undefined && v !== null && v !== '') params.set(k, String(v));
+    });
+    navigate(`/transactions?${params.toString()}`);
+  };
 
   const load = async () => {
     try {
@@ -86,6 +100,21 @@ export default function Reports() {
   const ytdExpense = pnlChart.reduce((s, r) => s + r.expense, 0);
   const ytdNet = ytdIncome - ytdExpense;
 
+  // Grand totals for category & vendor tables
+  const grandTotal = categories.reduce((sum, r) => sum + r.total, 0);
+  const vendorGrandTotal = vendors.reduce((sum, r) => sum + r.total, 0);
+
+  // Date range display label
+  const dateRangeLabel = (() => {
+    if (!dateFrom && !dateTo) return 'All Time';
+    const opts = { month: 'short', day: 'numeric', year: 'numeric' };
+    const from = dateFrom ? new Date(dateFrom + 'T12:00:00').toLocaleDateString('en-US', opts) : '';
+    const to = dateTo ? new Date(dateTo + 'T12:00:00').toLocaleDateString('en-US', opts) : '';
+    if (from && to) return `${from} – ${to}`;
+    if (from) return `From ${from}`;
+    return `Up to ${to}`;
+  })();
+
   // Balance sheet groups
   const assets = balanceSheet.filter(r => r.type === 'asset');
   const liabilities = balanceSheet.filter(r => r.type === 'liability');
@@ -100,30 +129,38 @@ export default function Reports() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Reports</h1>
-          <p className="text-gray-500 mt-1">Analyze your financial data</p>
-        </div>
-        <div className="flex flex-col sm:flex-row gap-4">
-          <select
-            value={selectedBankAccountId}
-            onChange={(e) => setSelectedBankAccountId(e.target.value)}
-            className="input-field max-w-xs"
-          >
-            <option value="">All accounts</option>
-            {bankAccounts.map(ba => (
-              <option key={ba.id} value={ba.id}>
-                {ba.bank_name} {ba.last_four ? `(*${ba.last_four})` : ''} - {formatMoney(ba.current_balance)}
-              </option>
-            ))}
-          </select>
+      {/* Page heading */}
+      <div>
+        <h1 className="text-2xl font-bold text-gray-900">Reports</h1>
+        <p className="text-gray-500 mt-1">Analyze your financial data</p>
+      </div>
+
+      {/* Filter toolbar */}
+      <div className="bg-gray-50 rounded-lg p-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <select
+          value={selectedBankAccountId}
+          onChange={(e) => setSelectedBankAccountId(e.target.value)}
+          className="input-field max-w-xs"
+        >
+          <option value="">All accounts</option>
+          {bankAccounts.map(ba => (
+            <option key={ba.id} value={ba.id}>
+              {ba.bank_name} {ba.last_four ? `(*${ba.last_four})` : ''}
+            </option>
+          ))}
+        </select>
+        <div className="flex items-center gap-3">
           <DatePresetPicker
             dateFrom={dateFrom}
             dateTo={dateTo}
             onDateChange={(from, to) => { setDateFrom(from); setDateTo(to); }}
           />
         </div>
+      </div>
+
+      {/* Active date range label */}
+      <div className="flex justify-end -mt-3">
+        <span className="text-xs text-gray-400">{dateRangeLabel}</span>
       </div>
 
       {/* Tabs */}
@@ -143,11 +180,11 @@ export default function Reports() {
       {activeTab === 0 && (
         <div className="space-y-6">
           <div className="grid grid-cols-3 gap-4">
-            <div className="card text-center">
+            <div className="card text-center cursor-pointer hover:shadow-md hover:bg-emerald-50 transition-all" onClick={() => drillDown({ category_type: 'income' })}>
               <p className="text-sm text-gray-500">Total Income</p>
               <p className="text-2xl font-bold text-emerald-600">{formatMoney(ytdIncome)}</p>
             </div>
-            <div className="card text-center">
+            <div className="card text-center cursor-pointer hover:shadow-md hover:bg-red-50 transition-all" onClick={() => drillDown({ category_type: 'expense' })}>
               <p className="text-sm text-gray-500">Total Expenses</p>
               <p className="text-2xl font-bold text-red-600">{formatMoney(ytdExpense)}</p>
             </div>
@@ -182,7 +219,8 @@ export default function Reports() {
               </thead>
               <tbody>
                 {pnlChart.map(r => (
-                  <tr key={r.month} className="border-b border-gray-100">
+                  <tr key={r.month} className="border-b border-gray-100 cursor-pointer hover:bg-blue-50 transition-colors"
+                      onClick={() => drillDown({ date_from: `${r.month}-01`, date_to: `${r.month}-31` })}>
                     <td className="py-3 px-4 font-medium">{r.month}</td>
                     <td className="py-3 px-4 text-right text-emerald-600">{formatMoney(r.income)}</td>
                     <td className="py-3 px-4 text-right text-red-600">{formatMoney(r.expense)}</td>
@@ -202,12 +240,10 @@ export default function Reports() {
             <h3 className="text-lg font-semibold mb-4">Expense Distribution</h3>
             <ResponsiveContainer width="100%" height={350}>
               <PieChart>
-                <Pie data={categories} dataKey="total" nameKey="account_name" cx="50%" cy="50%" outerRadius={120}
-                  label={({ account_name, percentage }) => `${account_name} (${percentage}%)`}
-                >
+                <Pie data={categories} dataKey="total" nameKey="account_name" cx="50%" cy="50%" outerRadius={120}>
                   {categories.map((r, i) => <Cell key={i} fill={getColor(r.account_name)} />)}
                 </Pie>
-                <Tooltip formatter={v => formatMoney(v)} />
+                <Tooltip formatter={(v, name) => [formatMoney(v), name]} />
               </PieChart>
             </ResponsiveContainer>
           </div>
@@ -223,7 +259,8 @@ export default function Reports() {
               </thead>
               <tbody>
                 {categories.map((r, i) => (
-                  <tr key={r.account_id} className="border-b border-gray-100">
+                  <tr key={r.account_id} className="border-b border-gray-100 cursor-pointer hover:bg-blue-50 transition-colors"
+                      onClick={() => drillDown({ category_id: r.account_id })}>
                     <td className="py-3 px-4 font-medium flex items-center gap-2">
                       <div className="w-3 h-3 rounded-full" style={{ backgroundColor: getColor(r.account_name) }} />
                       {r.account_name}
@@ -238,6 +275,14 @@ export default function Reports() {
                   </tr>
                 ))}
               </tbody>
+              <tfoot>
+                <tr className="font-bold border-t-2 border-gray-300">
+                  <td className="py-3 px-4">Total</td>
+                  <td className="py-3 px-4 text-right">{formatMoney(grandTotal)}</td>
+                  <td className="py-3 px-4 text-right">100%</td>
+                  <td></td>
+                </tr>
+              </tfoot>
             </table>
           </div>
         </div>
@@ -271,13 +316,21 @@ export default function Reports() {
               </thead>
               <tbody>
                 {vendors.map(r => (
-                  <tr key={r.vendor_name} className="border-b border-gray-100">
+                  <tr key={r.vendor_name} className="border-b border-gray-100 cursor-pointer hover:bg-blue-50 transition-colors"
+                      onClick={() => drillDown({ search: r.vendor_name })}>
                     <td className="py-3 px-4 font-medium">{r.vendor_name}</td>
                     <td className="py-3 px-4 text-right">{formatMoney(r.total)}</td>
                     <td className="py-3 px-4 text-right text-gray-500">{r.percentage}%</td>
                   </tr>
                 ))}
               </tbody>
+              <tfoot>
+                <tr className="font-bold border-t-2 border-gray-300">
+                  <td className="py-3 px-4">Total</td>
+                  <td className="py-3 px-4 text-right">{formatMoney(vendorGrandTotal)}</td>
+                  <td className="py-3 px-4 text-right">100%</td>
+                </tr>
+              </tfoot>
             </table>
           </div>
         </div>
@@ -323,7 +376,8 @@ export default function Reports() {
             <table className="w-full text-sm">
               <tbody>
                 {assets.map(r => (
-                  <tr key={r.account_name} className="border-b border-gray-100">
+                  <tr key={r.account_name} className="border-b border-gray-100 cursor-pointer hover:bg-blue-50 transition-colors"
+                      onClick={() => drillDown({ category_id: r.account_id })}>
                     <td className="py-3 px-2 font-medium">{r.account_name}</td>
                     <td className="py-3 px-2 text-right text-blue-600 font-medium">{formatMoney(r.balance)}</td>
                   </tr>
@@ -343,7 +397,8 @@ export default function Reports() {
               <table className="w-full text-sm">
                 <tbody>
                   {liabilities.map(r => (
-                    <tr key={r.account_name} className="border-b border-gray-100">
+                    <tr key={r.account_name} className="border-b border-gray-100 cursor-pointer hover:bg-amber-50 transition-colors"
+                        onClick={() => drillDown({ category_id: r.account_id })}>
                       <td className="py-3 px-2 font-medium">{r.account_name}</td>
                       <td className="py-3 px-2 text-right text-amber-600 font-medium">{formatMoney(Math.abs(r.balance))}</td>
                     </tr>
@@ -362,7 +417,8 @@ export default function Reports() {
               <table className="w-full text-sm">
                 <tbody>
                   {balanceSheet.filter(r => r.type === 'equity').map(r => (
-                    <tr key={r.account_name} className="border-b border-gray-100">
+                    <tr key={r.account_name} className="border-b border-gray-100 cursor-pointer hover:bg-purple-50 transition-colors"
+                        onClick={() => drillDown({ category_id: r.account_id })}>
                       <td className="py-3 px-2 font-medium">{r.account_name}</td>
                       <td className="py-3 px-2 text-right text-purple-600 font-medium">{formatMoney(r.balance)}</td>
                     </tr>

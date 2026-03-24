@@ -181,6 +181,7 @@ def list_vendors(conn: sqlite3.Connection, company_id: int) -> List[Dict]:
 def list_transactions(conn: sqlite3.Connection, company_id: int,
                       account_id: Optional[int] = None,
                       category_id: Optional[int] = None,
+                      category_type: Optional[str] = None,
                       vendor_id: Optional[int] = None,
                       bank_account_id: Optional[int] = None,
                       search: Optional[str] = None,
@@ -203,6 +204,9 @@ def list_transactions(conn: sqlite3.Connection, company_id: int,
     if filter_account_id:
         sql += " AND t.account_id=?"
         params.append(filter_account_id)
+    if category_type:
+        sql += " AND a.type = ?"
+        params.append(category_type)
     if vendor_id:
         sql += " AND t.vendor_id=?"
         params.append(vendor_id)
@@ -569,35 +573,76 @@ def budget_vs_actual(conn: sqlite3.Connection, company_id: int,
                      month_from: Optional[str] = None,
                      month_to: Optional[str] = None,
                      account_id: Optional[int] = None) -> List[Dict]:
-    """One row per account, budgeted/actual/variance summed across month_from..month_to."""
-    sql = """
-        WITH monthly_actuals AS (
-            SELECT account_id, strftime('%Y-%m', txn_date) AS month, SUM(ABS(amount)) as actual_amount
-            FROM transactions
-            WHERE company_id=?
-            GROUP BY account_id, month
-        )
-        SELECT b.account_id, a.name AS account_name, a.type AS account_type,
-               SUM(b.amount) AS budgeted,
-               COALESCE(SUM(t.actual_amount), 0) AS actual,
-               SUM(b.amount) - COALESCE(SUM(t.actual_amount), 0) AS variance,
-               COUNT(DISTINCT b.month) AS budget_month_count
-        FROM budgets b
-        JOIN accounts a ON b.account_id = a.id
-        LEFT JOIN monthly_actuals t ON t.account_id = b.account_id AND t.month = b.month
-        WHERE b.company_id=?
+    """One row per account, budgeted/actual/variance summed across month_from..month_to.
+
+    Budget totals and actual totals are aggregated independently by account,
+    then joined on account_id only.  This avoids the old per-month JOIN that
+    produced $0 actuals whenever budget months didn't line up with transaction
+    months.
     """
-    params: list = [company_id, company_id]
+    # -- budget_totals CTE --------------------------------------------------
+    budget_sql = """
+        WITH budget_totals AS (
+            SELECT account_id,
+                   SUM(amount) AS budgeted,
+                   COUNT(DISTINCT month) AS budget_month_count
+            FROM budgets
+            WHERE company_id=?
+    """
+    params: list = [company_id]
     if month_from:
-        sql += " AND b.month >= ?"
+        budget_sql += " AND month >= ?"
         params.append(month_from)
     if month_to:
-        sql += " AND b.month <= ?"
+        budget_sql += " AND month <= ?"
         params.append(month_to)
     if account_id:
-        sql += " AND b.account_id = ?"
+        budget_sql += " AND account_id = ?"
         params.append(account_id)
-    sql += " GROUP BY b.account_id, a.name, a.type ORDER BY a.name"
+    budget_sql += "\n            GROUP BY account_id\n        ),"
+
+    # -- actual_totals CTE -------------------------------------------------
+    actual_sql = """
+        actual_totals AS (
+            SELECT account_id,
+                   SUM(ABS(amount)) AS actual_amount,
+                   COUNT(DISTINCT strftime('%Y-%m', txn_date)) AS actual_month_count
+            FROM transactions
+            WHERE company_id=?
+    """
+    params.append(company_id)
+    if month_from:
+        actual_sql += " AND strftime('%Y-%m', txn_date) >= ?"
+        params.append(month_from)
+    if month_to:
+        actual_sql += " AND strftime('%Y-%m', txn_date) <= ?"
+        params.append(month_to)
+    if account_id:
+        actual_sql += " AND account_id = ?"
+        params.append(account_id)
+    actual_sql += "\n            GROUP BY account_id\n        )"
+
+    # -- Final SELECT -------------------------------------------------------
+    final_sql = """
+        SELECT bt.account_id,
+               a.name  AS account_name,
+               a.type  AS account_type,
+               bt.budgeted,
+               COALESCE(at.actual_amount, 0) AS actual,
+               bt.budget_month_count,
+               bt.budgeted * 1.0 / bt.budget_month_count AS monthly_budget,
+               COALESCE(at.actual_amount, 0) * 1.0 / CASE WHEN COALESCE(at.actual_month_count, 0) = 0 THEN 1 ELSE at.actual_month_count END AS monthly_actual,
+               COALESCE(at.actual_month_count, 0) AS actual_month_count,
+               (bt.budgeted * 1.0 / bt.budget_month_count)
+                 - (COALESCE(at.actual_amount, 0) * 1.0 / CASE WHEN COALESCE(at.actual_month_count, 0) = 0 THEN 1 ELSE at.actual_month_count END)
+                 AS variance
+        FROM budget_totals bt
+        JOIN accounts a ON bt.account_id = a.id
+        LEFT JOIN actual_totals at ON at.account_id = bt.account_id
+        ORDER BY a.name
+    """
+
+    sql = budget_sql + actual_sql + final_sql
     return [dict(r) for r in conn.execute(sql, params).fetchall()]
 
 

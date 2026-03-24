@@ -251,6 +251,9 @@ class BudgetVsActualRow(BaseModel):
     actual: float
     variance: float
     budget_month_count: int = 1
+    monthly_budget: float = 0.0
+    monthly_actual: float = 0.0
+    actual_month_count: int = 0
 
 
 class CategoryBreakdownRow(BaseModel):

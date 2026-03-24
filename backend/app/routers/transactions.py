@@ -22,6 +22,7 @@ router = APIRouter(prefix="/api/transactions", tags=["transactions"])
 def list_transactions(
     account_id: Optional[int] = None,
     category_id: Optional[int] = None,
+    category_type: Optional[str] = None,
     vendor_id: Optional[int] = None,
     bank_account_id: Optional[int] = None,
     search: Optional[str] = None,
@@ -32,7 +33,8 @@ def list_transactions(
 ):
     rows = ds.list_transactions(
         get_conn(), get_company_id(),
-        account_id=account_id, category_id=category_id, vendor_id=vendor_id, bank_account_id=bank_account_id, search=search,
+        account_id=account_id, category_id=category_id, category_type=category_type,
+        vendor_id=vendor_id, bank_account_id=bank_account_id, search=search,
         date_from=date_from, date_to=date_to, limit=limit, offset=offset,
     )
     return [_to_out(r) for r in rows]

@@ -102,14 +102,12 @@ export default function Dashboard() {
                 nameKey="account_name"
                 cx="50%" cy="50%"
                 outerRadius={100}
-                label={({ account_name, percentage }) => `${account_name} (${percentage}%)`}
-                labelLine={{ strokeWidth: 1 }}
               >
                 {data.top_expense_categories.map((_, i) => (
                   <Cell key={i} fill={COLORS[i % COLORS.length]} />
                 ))}
               </Pie>
-              <Tooltip formatter={v => formatMoney(v)} />
+              <Tooltip formatter={(v, name) => [formatMoney(v), name]} />
             </PieChart>
           </ResponsiveContainer>
         </div>

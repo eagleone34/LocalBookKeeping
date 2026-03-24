@@ -1,10 +1,12 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { getBudgets, getAccounts, upsertBudget, deleteBudget, getBudgetVsActual } from '../api/client';
 import { Plus, Trash2, Check, X, TrendingUp, TrendingDown, Minus, Pencil, BarChart2, Activity, Lock } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, Cell, ReferenceLine,
 } from 'recharts';
 import GroupedAccountSelect from '../components/GroupedAccountSelect';
+import DatePresetPicker from '../components/DatePresetPicker';
 
 function formatMoney(val) {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0 }).format(val);
@@ -25,9 +27,6 @@ const CustomYTick = ({ x, y, payload }) => {
   );
 };
 
-// ── Period helpers ────────────────────────────────────────
-function toMonth(d) { return d.toISOString().slice(0, 7); }  // "YYYY-MM"
-
 /** Count the number of months between two "YYYY-MM" strings, inclusive. */
 function countMonthsBetween(fromMonth, toMonth) {
   if (!fromMonth || !toMonth) return null;
@@ -36,53 +35,23 @@ function countMonthsBetween(fromMonth, toMonth) {
   return (ty - fy) * 12 + (tm - fm) + 1;
 }
 
-function getPresetRange(preset) {
-  const now = new Date();
-  const y = now.getFullYear();
-  const m = now.getMonth(); // 0-indexed
-
-  switch (preset) {
-    case 'this_month':
-      return { from: toMonth(new Date(y, m, 1)), to: toMonth(new Date(y, m, 1)) };
-    case 'last_3_months': {
-      const start = new Date(y, m - 2, 1);
-      return { from: toMonth(start), to: toMonth(new Date(y, m, 1)) };
-    }
-    case 'this_year':
-      return { from: `${y}-01`, to: toMonth(new Date(y, m, 1)) };
-    case 'last_year':
-      return { from: `${y - 1}-01`, to: `${y - 1}-12` };
-    case 'all':
-    default:
-      return { from: null, to: null };
-  }
-}
-
-const PRESETS = [
-  { id: 'all',          label: 'All Time' },
-  { id: 'this_month',   label: 'This Month' },
-  { id: 'last_3_months',label: 'Last 3 Months' },
-  { id: 'this_year',    label: 'This Year' },
-  { id: 'last_year',    label: 'Last Year' },
-  { id: 'custom',       label: 'Custom' },
-];
-
 const CHART_VIEWS = [
   { id: 'budget_actual', label: 'Budget vs Actual', icon: BarChart2 },
   { id: 'variance',      label: 'Variance Only',    icon: Activity },
 ];
 
 export default function Budgets() {
+  const navigate = useNavigate();
+
   const [budgets, setBudgets]   = useState([]);
   const [accounts, setAccounts] = useState([]);
   const [bva, setBva]           = useState([]);
   const [showForm, setShowForm] = useState(false);
   const [chartView, setChartView] = useState('budget_actual');
 
-  // Period selection
-  const [preset, setPreset]       = useState('this_year');
-  const [customFrom, setCustomFrom] = useState('');
-  const [customTo, setCustomTo]     = useState('');
+  // Period selection (YYYY-MM-DD from DatePresetPicker)
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo]     = useState('');
 
   // Account filter
   const [selectedAccount, setSelectedAccount] = useState('');
@@ -97,20 +66,11 @@ export default function Budgets() {
   const [editingKey, setEditingKey] = useState(null);
   const [editAmount, setEditAmount] = useState('');
 
-  // Resolve date range from current preset
-  const { from: monthFrom, to: monthTo } = useMemo(() => {
-    if (preset === 'custom') return { from: customFrom || null, to: customTo || null };
-    return getPresetRange(preset);
-  }, [preset, customFrom, customTo]);
+  // Convert YYYY-MM-DD dates from DatePresetPicker to YYYY-MM for budget API
+  const monthFrom = useMemo(() => dateFrom ? dateFrom.substring(0, 7) : null, [dateFrom]);
+  const monthTo   = useMemo(() => dateTo   ? dateTo.substring(0, 7)   : null, [dateTo]);
 
-  // Number of elapsed months in the selected period (for monthly avg actual)
-  const monthsElapsed = useMemo(() => {
-    if (!monthFrom) return null;
-    const effectiveTo = monthTo && monthTo < currentMonth ? monthTo : currentMonth;
-    return countMonthsBetween(monthFrom, effectiveTo);
-  }, [monthFrom, monthTo, currentMonth]);
-
-  // Number of months in the full budget period (for monthly avg budget)
+  // Number of months in the full budget period (for avg monthly budget across selected range)
   const monthsInPeriod = useMemo(() => {
     return countMonthsBetween(monthFrom, monthTo);
   }, [monthFrom, monthTo]);
@@ -171,21 +131,27 @@ export default function Budgets() {
     load();
   };
 
+  const drillDown = (accountId) => {
+    const params = new URLSearchParams();
+    params.set('category_id', String(accountId));
+    if (dateFrom) params.set('date_from', dateFrom);
+    if (dateTo) params.set('date_to', dateTo);
+    navigate(`/transactions?${params.toString()}`);
+  };
+
   const expenseAccounts = accounts.filter(a => a.type === 'expense');
 
-  // Chart data
+  // Chart data — use monthly values
   const budgetActualData = bva.map(row => ({
     name: row.account_name,
-    Budget: row.budgeted,
-    Actual: row.actual,
+    Budget: row.monthly_budget ?? 0,
+    Actual: row.monthly_actual ?? 0,
   }));
   const varianceData = bva.map(row => ({
     name: row.account_name,
-    Variance: row.variance,
-    over: row.variance < 0,
+    Variance: row.variance ?? 0,
+    over: (row.variance ?? 0) < 0,
   }));
-
-  const periodLabel = PRESETS.find(p => p.id === preset)?.label ?? 'Custom';
 
   return (
     <div className="space-y-6">
@@ -201,39 +167,11 @@ export default function Budgets() {
       </div>
 
       {/* Filter Bar */}
-      <div className="card py-3 px-4 space-y-3">
-        {/* Period presets */}
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-sm font-medium text-gray-500 mr-1">Period:</span>
-          {PRESETS.map(p => (
-            <button
-              key={p.id}
-              onClick={() => setPreset(p.id)}
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors ${
-                preset === p.id
-                  ? 'bg-primary-600 text-white border-primary-600'
-                  : 'bg-white text-gray-600 border-gray-200 hover:border-primary-300 hover:text-primary-700'
-              }`}
-            >
-              {p.label}
-            </button>
-          ))}
-        </div>
-
-        {/* Custom date pickers */}
-        {preset === 'custom' && (
-          <div className="flex items-center gap-3">
-            <span className="text-sm text-gray-500">From</span>
-            <input type="month" value={customFrom} onChange={e => setCustomFrom(e.target.value)} className="input-field w-auto" />
-            <span className="text-sm text-gray-500">To</span>
-            <input type="month" value={customTo} onChange={e => setCustomTo(e.target.value)} className="input-field w-auto" />
-          </div>
-        )}
-
+      <div className="bg-gray-50 rounded-lg p-3 space-y-3">
         {/* Category filter */}
         <div className="flex items-center gap-2">
-          <span className="text-sm font-medium text-gray-500">Category:</span>
-          <select value={selectedAccount} onChange={e => setSelectedAccount(e.target.value)} className="input-field w-auto">
+          <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide mr-1">Category</span>
+          <select value={selectedAccount} onChange={e => setSelectedAccount(e.target.value)} className="input-field w-auto max-w-xs">
             <option value="">All categories</option>
             {expenseAccounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
           </select>
@@ -241,6 +179,13 @@ export default function Budgets() {
             <button onClick={() => setSelectedAccount('')} className="text-xs text-gray-400 hover:text-gray-600 underline">Clear</button>
           )}
         </div>
+
+        {/* Date period picker */}
+        <DatePresetPicker
+          dateFrom={dateFrom}
+          dateTo={dateTo}
+          onDateChange={(from, to) => { setDateFrom(from); setDateTo(to); }}
+        />
       </div>
 
       {/* Add Form */}
@@ -294,7 +239,7 @@ export default function Budgets() {
               <h3 className="text-lg font-semibold">
                 {chartView === 'budget_actual' ? 'Budget vs Actual' : 'Variance by Category'}
               </h3>
-              <p className="text-xs text-gray-400 mt-0.5">{periodLabel}</p>
+              <p className="text-xs text-gray-400 mt-0.5">{monthFrom && monthTo ? `${monthFrom} – ${monthTo}` : 'All Time'}</p>
             </div>
             <div className="flex gap-1 bg-gray-100 rounded-lg p-1">
               {CHART_VIEWS.map(v => {
@@ -351,16 +296,16 @@ export default function Budgets() {
       {/* Budget Table — one row per account */}
       <div className="card overflow-hidden p-0">
         <div className="px-4 py-3 border-b border-gray-100 bg-gray-50 flex items-center justify-between">
-          <p className="text-sm font-medium text-gray-600">{periodLabel} — {bva.length} categor{bva.length !== 1 ? 'ies' : 'y'}</p>
+          <p className="text-sm font-medium text-gray-600">{monthFrom && monthTo ? `${monthFrom} – ${monthTo}` : 'All Time'} — {bva.length} categor{bva.length !== 1 ? 'ies' : 'y'}</p>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-gray-50 border-b border-gray-200">
                 <th className="py-3 px-4 text-left text-gray-500 font-medium">Category</th>
-                <th className="py-3 px-4 text-right text-gray-500 font-medium">Budget</th>
+                <th className="py-3 px-4 text-right text-gray-500 font-medium">Monthly Budget</th>
                 <th className="py-3 px-4 text-right text-gray-500 font-medium">Avg Monthly Budget</th>
-                <th className="py-3 px-4 text-right text-gray-500 font-medium">Actual</th>
+                <th className="py-3 px-4 text-right text-gray-500 font-medium">Monthly Actual</th>
                 <th className="py-3 px-4 text-right text-gray-500 font-medium">Avg Monthly Actual</th>
                 <th className="py-3 px-4 text-right text-gray-500 font-medium">Variance</th>
                 <th className="py-3 px-4 text-center text-gray-500 font-medium">Status</th>
@@ -369,16 +314,15 @@ export default function Budgets() {
             </thead>
             <tbody>
               {bva.map((row, i) => {
-                const pct = row.budgeted > 0 ? (row.actual / row.budgeted * 100) : 0;
-                const overBudget = row.actual > row.budgeted;
+                const monthlyBudget = row.monthly_budget ?? 0;
+                const monthlyActual = row.monthly_actual ?? 0;
+                const pct = monthlyBudget > 0 ? (monthlyActual / monthlyBudget * 100) : 0;
+                const overBudget = monthlyActual > monthlyBudget;
                 const budget = budgets.find(b => b.account_id === row.account_id);
                 const isEditing = editingKey === String(row.account_id);
 
-                // Monthly averages: use period range if available, fallback to budget_month_count from backend
-                const budgetDivisor = monthsInPeriod || row.budget_month_count || 1;
-                const actualDivisor = monthsElapsed || row.budget_month_count || 1;
-                const avgMonthlyBudget = row.budgeted / budgetDivisor;
-                const avgMonthlyActual = row.actual / actualDivisor;
+                // Avg monthly budget across the entire selected period (accounts for months without a budget set)
+                const avgMonthlyBudget = monthsInPeriod ? row.budgeted / monthsInPeriod : monthlyBudget;
 
                 return (
                   <tr key={i} className={`border-b border-gray-100 ${isEditing ? 'bg-blue-50' : 'hover:bg-gray-50'}`}>
@@ -394,19 +338,35 @@ export default function Budgets() {
                           autoFocus
                         />
                       ) : (
-                        <span className="font-medium">{formatMoney(row.budgeted)}</span>
+                        <span className="font-medium">{formatMoney(monthlyBudget)}</span>
                       )}
                     </td>
 
                     <td className="py-3 px-4 text-right text-gray-500">{formatMoney(avgMonthlyBudget)}</td>
 
-                    <td className="py-3 px-4 text-right">{formatMoney(row.actual)}</td>
+                    <td className="py-3 px-4 text-right">
+                      <span
+                        className="cursor-pointer text-blue-600 hover:text-blue-800 hover:underline"
+                        onClick={() => drillDown(row.account_id)}
+                        title="View transactions"
+                      >
+                        {formatMoney(monthlyActual)}
+                      </span>
+                    </td>
 
-                    <td className="py-3 px-4 text-right text-gray-500">{formatMoney(avgMonthlyActual)}</td>
+                    <td className="py-3 px-4 text-right text-gray-500">
+                      <span
+                        className="cursor-pointer text-blue-600 hover:text-blue-800 hover:underline"
+                        onClick={() => drillDown(row.account_id)}
+                        title="View transactions"
+                      >
+                        {formatMoney(monthlyActual)}
+                      </span>
+                    </td>
 
                     <td className={`py-3 px-4 text-right font-medium ${overBudget ? 'text-red-600' : 'text-emerald-600'}`}>
                       {isEditing
-                        ? formatMoney(parseFloat(editAmount || 0) - row.actual)
+                        ? formatMoney(parseFloat(editAmount || 0) - monthlyActual)
                         : formatMoney(row.variance)
                       }
                     </td>
