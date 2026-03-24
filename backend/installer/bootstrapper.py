@@ -3,8 +3,11 @@ LocalBooks Setup Bootstrapper
 Tiny installer - no FastAPI/uvicorn, stdlib only.
 Shows EULA, extracts app to Documents\LocalBooks, creates shortcut, launches app.
 """
+from __future__ import annotations
+
 import sys
 import os
+import json
 import zipfile
 import shutil
 import subprocess
@@ -15,6 +18,17 @@ from pathlib import Path
 INSTALL_DIR  = Path.home() / "Documents" / "LocalBooks"
 APP_EXE_NAME = "LocalBooks.exe"
 LOG_FILE     = Path.home() / "Documents" / "localbooks_setup.log"
+
+# Backup destination: %APPDATA%\LocalBooks\backups\  (isolated from install dir)
+_APPDATA = os.environ.get("APPDATA", "")
+APPDATA_BASE: Path = (
+    Path(_APPDATA) / "LocalBooks"
+    if _APPDATA
+    else Path.home() / "AppData" / "Roaming" / "LocalBooks"
+)
+APPDATA_BACKUPS_DIR: Path = APPDATA_BASE / "backups"
+RESTORE_SENTINEL: Path = APPDATA_BASE / "restore_pending.json"
+MAX_BACKUPS = 10
 
 
 def get_desktop_path() -> Path:
@@ -52,6 +66,134 @@ def msgbox(title, msg, style=0):
         return 0
 
 
+# ---------------------------------------------------------------------------
+# Backup helpers (stdlib only — mirrors backup_service.py logic)
+# ---------------------------------------------------------------------------
+
+def _backup_all_dbs(data_dir: Path) -> Path | None:
+    """Copy every *.db file from *data_dir* to a timestamped APPDATA folder.
+
+    Returns the backup folder Path on success, None on failure.
+    """
+    db_files = list(data_dir.glob("*.db"))
+    if not db_files:
+        log(f"No *.db files found in {data_dir} — nothing to back up.")
+        return None
+
+    timestamp = datetime.now().strftime("%Y-%m-%d_%H%M%S")
+    backup_folder = APPDATA_BACKUPS_DIR / timestamp
+
+    try:
+        backup_folder.mkdir(parents=True, exist_ok=True)
+
+        backed_up = []
+        for db_file in db_files:
+            dest = backup_folder / db_file.name
+            shutil.copy2(db_file, dest)
+            src_size = db_file.stat().st_size
+            dst_size = dest.stat().st_size
+            if src_size != dst_size:
+                raise RuntimeError(
+                    f"Size mismatch: {db_file.name} src={src_size} dst={dst_size}"
+                )
+            log(f"BACKUP: {db_file.name} ({src_size:,} bytes) → {dest}")
+            backed_up.append(db_file.name)
+
+        meta = {
+            "timestamp": timestamp,
+            "source_dir": str(data_dir),
+            "files": backed_up,
+            "created_at": datetime.now().isoformat(),
+        }
+        (backup_folder / "meta.json").write_text(
+            json.dumps(meta, indent=2), encoding="utf-8"
+        )
+        log(f"Backup complete → {backup_folder}")
+        _prune_old_backups()
+        return backup_folder
+
+    except Exception as exc:
+        log(f"ERROR: Backup failed: {exc}")
+        try:
+            if backup_folder.exists():
+                shutil.rmtree(backup_folder)
+        except Exception:
+            pass
+        return None
+
+
+def _write_restore_sentinel(backup_folder: Path) -> None:
+    """Write restore_pending.json so main.py can finish the restore if the
+    bootstrapper crashes between extraction and the inline restore step."""
+    try:
+        APPDATA_BASE.mkdir(parents=True, exist_ok=True)
+        sentinel = {
+            "backup_folder": str(backup_folder),
+            "written_at": datetime.now().isoformat(),
+        }
+        RESTORE_SENTINEL.write_text(
+            json.dumps(sentinel, indent=2), encoding="utf-8"
+        )
+        log(f"Restore sentinel written: {RESTORE_SENTINEL}")
+    except Exception as exc:
+        log(f"WARNING: Could not write restore sentinel: {exc}")
+
+
+def _clear_restore_sentinel() -> None:
+    """Remove sentinel after a successful inline restore."""
+    try:
+        if RESTORE_SENTINEL.exists():
+            RESTORE_SENTINEL.unlink()
+            log("Restore sentinel cleared.")
+    except Exception as exc:
+        log(f"WARNING: Could not clear restore sentinel: {exc}")
+
+
+def _restore_from_backup(backup_folder: Path, data_dir: Path) -> bool:
+    """Restore all *.db files from backup_folder into data_dir."""
+    db_files = list(backup_folder.glob("*.db"))
+    if not db_files:
+        log(f"No *.db files in backup folder {backup_folder}.")
+        return False
+    try:
+        data_dir.mkdir(parents=True, exist_ok=True)
+        for db_file in db_files:
+            dest = data_dir / db_file.name
+            shutil.copy2(db_file, dest)
+            restored_size = dest.stat().st_size
+            if restored_size != db_file.stat().st_size:
+                raise RuntimeError(
+                    f"Restore size mismatch: {db_file.name} "
+                    f"expected={db_file.stat().st_size} got={restored_size}"
+                )
+            log(f"RESTORED: {db_file.name} ({restored_size:,} bytes) → {dest}")
+        return True
+    except Exception as exc:
+        log(f"ERROR: Inline restore failed: {exc}")
+        return False
+
+
+def _prune_old_backups() -> None:
+    """Keep only the MAX_BACKUPS most recent backup folders."""
+    if not APPDATA_BACKUPS_DIR.exists():
+        return
+    folders = sorted(
+        [d for d in APPDATA_BACKUPS_DIR.iterdir() if d.is_dir()],
+        key=lambda d: d.name,
+        reverse=True,
+    )
+    for old in folders[MAX_BACKUPS:]:
+        try:
+            shutil.rmtree(old)
+            log(f"Pruned old backup: {old}")
+        except Exception:
+            pass
+
+
+# ---------------------------------------------------------------------------
+# Main installer logic
+# ---------------------------------------------------------------------------
+
 def main():
     log("=== LocalBooks Setup starting ===")
 
@@ -75,34 +217,33 @@ def main():
     try:
         subprocess.run(["taskkill", "/IM", APP_EXE_NAME, "/F"], capture_output=True)
         log("Attempted to kill running LocalBooks.exe instances.")
-        time.sleep(1) # wait for process to die
+        time.sleep(1)  # wait for process to die
     except Exception as e:
         log(f"taskkill error: {e}")
 
-    # ── Backup Database ──
-    db_backup_path = None
-    existing_db = INSTALL_DIR / "company_data" / "ledgerlocal.db"
-    
-    log(f"Checking for existing database at: {existing_db}")
-    
-    if existing_db.exists():
-        # Create timestamped backup for extra safety
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        db_backup_path = Path.home() / "Documents" / f"localbooks_backup_{timestamp}.db"
-        try:
-            shutil.copy2(existing_db, db_backup_path)
-            log(f"SUCCESS: Backed up existing database ({existing_db.stat().st_size} bytes) to {db_backup_path}")
-            
-            # Verify backup integrity
-            if db_backup_path.exists() and db_backup_path.stat().st_size == existing_db.stat().st_size:
-                log(f"VERIFIED: Backup integrity confirmed ({db_backup_path.stat().st_size} bytes)")
-            else:
-                log(f"WARNING: Backup size mismatch - original: {existing_db.stat().st_size}, backup: {db_backup_path.stat().st_size}")
-        except Exception as e:
-            log(f"ERROR: Failed to backup database: {e}")
-            msgbox("Setup Warning", f"Could not backup your existing database:\n{e}\n\nSetup will continue, but your data may be at risk.", 0x30)
+    # ── Back up ALL *.db files from company_data/ to APPDATA ──
+    company_data_dir = INSTALL_DIR / "company_data"
+    backup_folder: Path | None = None
+
+    log(f"Checking for existing databases in: {company_data_dir}")
+    if company_data_dir.exists() and any(company_data_dir.glob("*.db")):
+        backup_folder = _backup_all_dbs(company_data_dir)
+        if backup_folder:
+            # Write sentinel BEFORE we wipe the install dir.
+            # If we crash between extraction and the inline restore below,
+            # main.py will detect the sentinel on next startup and restore.
+            _write_restore_sentinel(backup_folder)
+        else:
+            log("WARNING: Backup failed — continuing anyway. Existing data may be at risk.")
+            msgbox(
+                "Setup Warning",
+                "Could not create a backup of your existing databases.\n\n"
+                f"Your data is stored in:\n{company_data_dir}\n\n"
+                "Setup will continue, but consider cancelling and backing up manually.",
+                0x30,  # MB_ICONWARNING
+            )
     else:
-        log("No existing database found - fresh install or database already removed")
+        log("No existing databases found — fresh install.")
 
     # ── Remove any existing installation ──
     if INSTALL_DIR.exists():
@@ -110,11 +251,15 @@ def main():
             shutil.rmtree(INSTALL_DIR)
             log("Removed existing install dir.")
         except Exception as e:
-            msgbox("Setup Error", f"Could not remove old installation:\n{e}\n\nClose LocalBooks if it's running.", 0x10)
+            msgbox(
+                "Setup Error",
+                f"Could not remove old installation:\n{e}\n\nClose LocalBooks if it's running.",
+                0x10,
+            )
             sys.exit(1)
 
     # ── Extract bundled LocalBooks.zip ──
-    if getattr(sys, '_MEIPASS', None):
+    if getattr(sys, "_MEIPASS", None):
         zip_path = Path(sys._MEIPASS) / "LocalBooks.zip"
     else:
         # Dev mode: look relative to this script
@@ -135,52 +280,43 @@ def main():
         msgbox("Setup Error", f"Extraction failed:\n{e}", 0x10)
         sys.exit(1)
 
-    # ── Restore Database ──
-    new_db_path = INSTALL_DIR / "company_data" / "ledgerlocal.db"
-    
-    if db_backup_path and db_backup_path.exists():
-        try:
-            new_db_path.parent.mkdir(parents=True, exist_ok=True)
-            
-            # Log pre-restore state
-            if new_db_path.exists():
-                bundled_size = new_db_path.stat().st_size
-                log(f"Bundled database exists ({bundled_size} bytes) - will replace with user backup")
-            
-            # Always restore the user's backup database.
-            # The backup exists because the user had a previous installation — their data
-            # always takes priority over the bundled demo database, even if they only used
-            # Demo Company.  Trying to detect "unmodified" data is error-prone and risks
-            # discarding real transactions, budgets, or account customizations.
-            log("Backup database exists. Restoring user database (backup always takes priority).")
-            shutil.copy2(db_backup_path, new_db_path)
-            
-            # Verify restore was successful
-            if new_db_path.exists() and new_db_path.stat().st_size == db_backup_path.stat().st_size:
-                log(f"SUCCESS: Restored user database to {new_db_path} ({new_db_path.stat().st_size} bytes)")
-            else:
-                raise Exception(f"Restore verification failed - expected {db_backup_path.stat().st_size} bytes, got {new_db_path.stat().st_size if new_db_path.exists() else 0}")
-            
-            # Keep backup for safety (don't delete immediately)
-            permanent_backup = Path.home() / "Documents" / "localbooks_last_backup.db"
-            shutil.copy2(db_backup_path, permanent_backup)
-            log(f"Kept permanent backup at: {permanent_backup}")
-            
-            db_backup_path.unlink() # Cleanup temporary backup
-            log("Cleaned up temporary backup file")
-        except Exception as e:
-            log(f"ERROR: Failed to restore database: {e}")
-            msgbox("Setup Warning", f"Failed to restore your old database.\nIt was backed up to: {db_backup_path}\n\nError: {e}", 0x30)
-    else:
-        # Check if a bundled database was extracted
-        if new_db_path.exists():
-            log(f"Using bundled database (fresh install) at {new_db_path}")
+    # ── Inline restore: immediately overwrite the bundled demo DB ──
+    # Priority: user's own data always takes precedence over the bundled golden copy.
+    new_company_data_dir = INSTALL_DIR / "company_data"
+    if backup_folder and backup_folder.exists():
+        log("Backup exists — restoring user databases over the extracted bundle.")
+        restore_ok = _restore_from_backup(backup_folder, new_company_data_dir)
+        if restore_ok:
+            # Sentinel is no longer needed; clear it so main.py skips redundant restore.
+            _clear_restore_sentinel()
+            log("Inline restore succeeded — sentinel cleared.")
         else:
-            log("No database present after install - will be created on first run")
+            log(
+                "WARNING: Inline restore failed. "
+                "Sentinel left in place so main.py will attempt recovery on next startup."
+            )
+            msgbox(
+                "Setup Warning",
+                f"Could not restore your databases during setup.\n\n"
+                f"LocalBooks will attempt to recover automatically on first run.\n\n"
+                f"Your backup is safely stored at:\n{backup_folder}",
+                0x30,
+            )
+    else:
+        # Fresh install — use the bundled database
+        if new_company_data_dir.exists() and any(new_company_data_dir.glob("*.db")):
+            log(f"Fresh install — using bundled database in {new_company_data_dir}")
+        else:
+            log("No database present after extract — will be created on first run.")
 
+    # ── Verify executable ──
     target_exe = INSTALL_DIR / APP_EXE_NAME
     if not target_exe.exists():
-        msgbox("Setup Error", f"Expected executable not found after extraction:\n{target_exe}", 0x10)
+        msgbox(
+            "Setup Error",
+            f"Expected executable not found after extraction:\n{target_exe}",
+            0x10,
+        )
         sys.exit(1)
 
     # ── Desktop shortcut ──
@@ -202,7 +338,7 @@ def main():
         cscript = r"C:\Windows\System32\cscript.exe"
         result = subprocess.run(
             [cscript, "//Nologo", str(vbs_path)],
-            capture_output=True, text=True, timeout=15
+            capture_output=True, text=True, timeout=15,
         )
         vbs_path.unlink(missing_ok=True)  # clean up temp file
         if result.returncode != 0:
@@ -227,7 +363,7 @@ def main():
         f"{INSTALL_DIR}\n\n"
         "A Desktop shortcut has been created.\n"
         "The app is opening in your browser now!",
-        0x40  # MB_ICONINFORMATION
+        0x40,  # MB_ICONINFORMATION
     )
     log("Setup complete.")
     sys.exit(0)

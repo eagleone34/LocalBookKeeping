@@ -67,6 +67,19 @@ if getattr(sys, 'frozen', False):
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     DB_PATH = DATA_DIR / "ledgerlocal.db"
 
+    # ── Post-install safety-net restore ──
+    # The bootstrapper writes restore_pending.json to APPDATA before extraction.
+    # If the bootstrapper's own inline restore succeeded, it clears the sentinel.
+    # We only reach here if the sentinel is still present, meaning the bootstrapper
+    # crashed AFTER extraction but BEFORE completing the inline restore.
+    try:
+        from app.services.backup_service import check_and_restore
+        restored = check_and_restore(DATA_DIR, LOG_FILE)
+        if restored:
+            log("Post-install restore completed successfully by main.py safety net.")
+    except Exception:
+        log(f"WARNING: backup_service restore check failed: {traceback.format_exc()}")
+
     # On first run (no existing DB), copy the bundled golden-copy DB
     bundled_db = Path(sys._MEIPASS) / "company_data" / "ledgerlocal.db"
     if DB_PATH.exists():
@@ -197,17 +210,17 @@ def _auto_shutdown_monitor():
     while True:
         time.sleep(5)
         now = time.time()
-        
-        # If the loop took abnormally long to return (e.g., PC was asleep), 
+
+        # If the loop took abnormally long to return (e.g., PC was asleep),
         # we skip this shutdown check cycle to give the frontend a chance to hit the heartbeat api.
         if now - last_check > 10.0:
             last_check = now
             continue
-            
+
         if now - _last_heartbeat > 30.0:
             log("No heartbeat received for 30 seconds. Shutting down LocalBooks background process.")
             os._exit(0)
-            
+
         last_check = now
 
 

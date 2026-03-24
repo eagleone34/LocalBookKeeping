@@ -66,6 +66,27 @@ export const upsertBudget = (data) =>
 export const deleteBudget = (id) =>
   request(`/api/budgets/${id}`, { method: 'DELETE' });
 
+/**
+ * GET /api/budgets/summary
+ *
+ * Returns per-expense-category rows with:
+ *   user_budget  — most-recent monthly budget set by the user (not date-filtered)
+ *   actual       — monthly-normalised spend in the selected period
+ *   variance     — user_budget − actual
+ *
+ * @param {string|null} startDate  YYYY-MM-DD
+ * @param {string|null} endDate    YYYY-MM-DD
+ * @param {number|undefined} accountId  optional single-category filter
+ */
+export const getBudgetSummary = (startDate, endDate, accountId) => {
+  const qs = new URLSearchParams();
+  if (startDate) qs.set('start_date', startDate);
+  if (endDate)   qs.set('end_date',   endDate);
+  if (accountId) qs.set('account_id', accountId);
+  const q = qs.toString();
+  return request(`/api/budgets/summary${q ? '?' + q : ''}`);
+};
+
 // Reports
 export const getPnL = (dateFrom, dateTo, bankAccountId) => {
   const qs = new URLSearchParams();

@@ -140,6 +140,24 @@ class BudgetOut(BaseModel):
     updated_at: str
 
 
+class BudgetSummaryRow(BaseModel):
+    """Per-category row returned by GET /api/budgets/summary.
+
+    ``user_budget`` is the most-recent monthly budget amount the user has set
+    for this category — it is NOT filtered by the date-range query params.
+
+    ``actual`` is the monthly-normalised actual spend: total spend in the
+    requested period divided by the number of calendar months that period spans.
+
+    ``variance`` = user_budget - actual  (positive → under budget).
+    """
+    account_id: int
+    account_name: str
+    user_budget: float = 0.0
+    actual: float = 0.0
+    variance: float = 0.0
+
+
 # ── Documents ────────────────────────────────────────
 class DocumentOut(BaseModel):
     id: int

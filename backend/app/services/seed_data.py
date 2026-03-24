@@ -123,9 +123,34 @@ def _create_default_accounts(conn: sqlite3.Connection, company_id: int) -> dict:
 
 
 def seed_demo_data(conn: sqlite3.Connection, company_id: int) -> None:
-    """Seed comprehensive demo data if the database is empty."""
-    existing = conn.execute("SELECT COUNT(*) as cnt FROM accounts WHERE company_id=?", (company_id,)).fetchone()
-    if existing["cnt"] > 0:
+    """Seed comprehensive demo data if the database is empty.
+
+    Guards (belt-and-suspenders):
+    Skip seeding if ANY of the following already exist for this company:
+      1. Accounts  — primary guard (accounts are created by seed_default_accounts)
+      2. Transactions — prevents demo-data injection into a real company DB that
+                        somehow had its accounts wiped but still has transaction history
+      3. Budgets — same rationale as transactions
+
+    This ensures an update/reinstall NEVER overwrites real user data even if
+    the account-count guard were somehow bypassed.
+    """
+    # Guard 1: accounts already populated
+    if conn.execute(
+        "SELECT COUNT(*) as cnt FROM accounts WHERE company_id=?", (company_id,)
+    ).fetchone()["cnt"] > 0:
+        return
+
+    # Guard 2: transactions already exist (belt-and-suspenders)
+    if conn.execute(
+        "SELECT COUNT(*) as cnt FROM transactions WHERE company_id=?", (company_id,)
+    ).fetchone()["cnt"] > 0:
+        return
+
+    # Guard 3: budgets already exist (belt-and-suspenders)
+    if conn.execute(
+        "SELECT COUNT(*) as cnt FROM budgets WHERE company_id=?", (company_id,)
+    ).fetchone()["cnt"] > 0:
         return
 
     account_map = seed_default_accounts(conn, company_id)

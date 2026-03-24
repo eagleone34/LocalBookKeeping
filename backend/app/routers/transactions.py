@@ -47,12 +47,19 @@ def count_transactions():
 
 @router.post("", response_model=TransactionOut, status_code=201)
 def create_transaction(body: TransactionCreate):
+    # category_id is the canonical field sent by the frontend; account_id is the
+    # legacy fallback.  Both map to the COA account_id column in the DB.
+    resolved_account_id = body.category_id or body.account_id
+    if not resolved_account_id:
+        from fastapi import HTTPException as _HTTPException
+        raise _HTTPException(status_code=422, detail="category_id is required")
     tid = ds.create_transaction(
         get_conn(), get_company_id(),
-        account_id=body.account_id, txn_date=body.txn_date,
+        account_id=resolved_account_id, txn_date=body.txn_date,
         amount=body.amount, description=body.description or "",
         memo=body.memo or "", vendor_name=body.vendor_name or "",
         source=body.source,
+        bank_account_id=body.bank_account_id,
     )
     rows = ds.list_transactions(get_conn(), get_company_id(), limit=1)
     # Find the one we just created

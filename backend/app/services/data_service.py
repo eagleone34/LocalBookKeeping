@@ -646,6 +646,150 @@ def budget_vs_actual(conn: sqlite3.Connection, company_id: int,
     return [dict(r) for r in conn.execute(sql, params).fetchall()]
 
 
+def budget_summary_by_period(
+    conn: sqlite3.Connection,
+    company_id: int,
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    account_id: Optional[int] = None,
+) -> List[Dict]:
+    """Return per-expense-category budget summary rows for the Budget page.
+
+    Columns returned:
+    - ``account_id``  / ``account_name``
+    - ``user_budget`` — the MOST RECENT monthly budget amount the user has set
+      for this category.  This value is **not** filtered by the date range so
+      the user always sees their standing monthly target regardless of what
+      period they are inspecting.
+    - ``actual`` — total absolute spend in ``[start_date, end_date]`` divided
+      by the number of calendar months spanned by that period.  Formula::
+
+          actual = SUM(ABS(amount_in_period)) / num_months_in_period
+
+    - ``variance`` = user_budget − actual  (positive means under budget).
+
+    Only expense-type accounts that have at least one budget entry OR at least
+    one transaction in the selected period are included.
+    """
+    from datetime import date as _date
+
+    # ── Compute number of calendar months in the selected period ──────────────
+    # Default to 1 so we never divide by zero.
+    num_months: float = 1.0
+    if start_date and end_date:
+        try:
+            s = _date.fromisoformat(start_date)
+            e = _date.fromisoformat(end_date)
+            computed = (e.year - s.year) * 12 + (e.month - s.month) + 1
+            num_months = float(max(1, computed))
+        except (ValueError, TypeError):
+            num_months = 1.0
+    else:
+        # All Time: derive month count from the earliest transaction in this
+        # company up to today.  This makes "Actual (monthly avg)" meaningful
+        # rather than collapsing to a raw all-time total ÷ 1.
+        earliest_row = conn.execute(
+            "SELECT MIN(txn_date) AS earliest FROM transactions WHERE company_id=?",
+            (company_id,),
+        ).fetchone()
+        earliest_val = earliest_row["earliest"] if earliest_row else None
+        if earliest_val:
+            try:
+                e_dt  = _date.fromisoformat(earliest_val[:10])
+                today = _date.today()
+                computed = (today.year - e_dt.year) * 12 + (today.month - e_dt.month) + 1
+                num_months = float(max(1, computed))
+            except (ValueError, TypeError):
+                num_months = 1.0
+
+    # ── Build optional filter fragments ──────────────────────────────────────
+    # We keep separate param lists so the ? placeholder order exactly matches
+    # the position of each CTE in the final SQL string.
+    budget_params: list = [company_id, company_id]   # outer WHERE + inner correlated sub
+    actual_params: list = [company_id]
+    final_params: list = [company_id]
+
+    budget_acct_filter = ""
+    actual_acct_filter = ""
+    final_acct_filter = ""
+
+    if account_id:
+        budget_acct_filter = " AND b.account_id = ?"
+        budget_params.append(account_id)
+        actual_acct_filter = " AND t.account_id = ?"
+        actual_params.append(account_id)
+        final_acct_filter = " AND a.id = ?"
+        final_params.append(account_id)
+
+    date_filter = ""
+    if start_date:
+        date_filter += " AND t.txn_date >= ?"
+        actual_params.append(start_date)
+    if end_date:
+        date_filter += " AND t.txn_date <= ?"
+        actual_params.append(end_date)
+
+    sql = f"""
+        WITH
+        -- Most-recent monthly budget per expense account (NOT date-filtered).
+        -- Uses correlated MAX(month) sub-query for broad SQLite compatibility
+        -- (avoids ROW_NUMBER() window function which requires SQLite >= 3.25).
+        user_budgets AS (
+            SELECT b.account_id,
+                   b.amount AS user_budget
+            FROM   budgets b
+            WHERE  b.company_id = ?
+              AND  b.month = (
+                  SELECT MAX(b2.month)
+                  FROM   budgets b2
+                  WHERE  b2.company_id = ?
+                    AND  b2.account_id = b.account_id
+              ){budget_acct_filter}
+        ),
+        -- Actual spend in the selected date range (expense accounts only).
+        period_actuals AS (
+            SELECT t.account_id,
+                   SUM(ABS(t.amount)) AS total_spend
+            FROM   transactions t
+            JOIN   accounts a ON t.account_id = a.id
+            WHERE  t.company_id = ?
+              AND  a.type       = 'expense'{date_filter}{actual_acct_filter}
+            GROUP BY t.account_id
+        )
+        SELECT
+            a.id                                     AS account_id,
+            a.name                                   AS account_name,
+            COALESCE(ub.user_budget,  0)             AS user_budget,
+            COALESCE(pa.total_spend, 0) / ?          AS actual,
+            COALESCE(ub.user_budget,  0)
+              - COALESCE(pa.total_spend, 0) / ?      AS variance
+        FROM   accounts a
+        LEFT JOIN user_budgets   ub ON ub.account_id = a.id
+        LEFT JOIN period_actuals pa ON pa.account_id = a.id
+        WHERE  a.company_id = ?
+          AND  a.type       = 'expense'
+          AND  a.is_active  = 1
+          AND  ub.account_id IS NOT NULL{final_acct_filter}
+        ORDER BY a.name
+    """
+
+    # Parameter order must match the ?-placeholder positions in the SQL above:
+    #  1.  user_budgets CTE outer WHERE : company_id
+    #  2.  user_budgets CTE inner WHERE : company_id (+ optional account_id)
+    #  3.  period_actuals CTE           : company_id (+ optional dates + optional account_id)
+    #  4.  SELECT / actual expression   : num_months
+    #  5.  SELECT / variance expression : num_months
+    #  6.  Final outer WHERE            : company_id (+ optional account_id)
+    all_params = (
+        budget_params
+        + actual_params
+        + [num_months, num_months]
+        + final_params
+    )
+
+    return [dict(r) for r in conn.execute(sql, all_params).fetchall()]
+
+
 def expense_by_category(conn: sqlite3.Connection, company_id: int,
                         date_from: Optional[str] = None, date_to: Optional[str] = None,
                         bank_account_id: Optional[int] = None) -> List[Dict]:

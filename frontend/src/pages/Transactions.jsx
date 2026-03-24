@@ -97,22 +97,43 @@ export default function Transactions() {
   // ─── Create new ───
   const handleSubmit = async (e) => {
     e.preventDefault();
-    await createTransaction({
-      ...form,
-      amount: parseFloat(form.amount),
-      category_id: parseInt(form.category_id),
-      bank_account_id: form.bank_account_id ? parseInt(form.bank_account_id) : null
-    });
-    setForm({
-      txn_date: new Date().toISOString().slice(0, 10),
-      vendor_name: '',
-      description: '',
-      amount: '',
-      category_id: '',
-      bank_account_id: ''
-    });
-    setShowForm(false);
-    load();
+
+    const rawAmount = parseFloat(form.amount);
+    if (isNaN(rawAmount) || rawAmount === 0) {
+      alert('Please enter a valid non-zero amount.');
+      return;
+    }
+
+    // Auto-negate for expense categories: users always enter positive numbers,
+    // and the system stores expenses as negative values automatically.
+    // Income / asset / liability categories keep the amount positive (or as-entered).
+    const selectedCategoryId = parseInt(form.category_id, 10);
+    const selectedAccount = accounts.find(a => a.id === selectedCategoryId);
+    const finalAmount = selectedAccount?.type === 'expense'
+      ? -Math.abs(rawAmount)
+      : Math.abs(rawAmount);
+
+    try {
+      await createTransaction({
+        ...form,
+        amount: finalAmount,
+        category_id: selectedCategoryId,
+        bank_account_id: form.bank_account_id ? parseInt(form.bank_account_id, 10) : null,
+      });
+      setForm({
+        txn_date: new Date().toISOString().slice(0, 10),
+        vendor_name: '',
+        description: '',
+        amount: '',
+        category_id: '',
+        bank_account_id: '',
+      });
+      setShowForm(false);
+      load();
+    } catch (err) {
+      console.error('Failed to create transaction:', err);
+      alert(`Could not save transaction: ${err.message}`);
+    }
   };
 
   // ─── Inline edit ───
@@ -315,7 +336,7 @@ export default function Transactions() {
             </div>
             <div>
               <label className="label">Amount *</label>
-              <input type="number" step="0.01" value={form.amount} onChange={e => setForm({...form, amount: e.target.value})} required className="input-field" placeholder="-50.00" />
+              <input type="number" step="0.01" min="0" value={form.amount} onChange={e => setForm({...form, amount: e.target.value})} required className="input-field" placeholder="50.00" />
             </div>
             <div>
               <label className="label">Category *</label>
