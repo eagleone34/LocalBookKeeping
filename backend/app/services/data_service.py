@@ -371,30 +371,35 @@ def delete_document(conn: sqlite3.Connection, doc_id: int) -> None:
     Delete a document and all its associated data:
     1. Associated staging transactions (document_transactions)
     2. Associated posted transactions (ledger)
-    3. The actual file on disk
-    4. The document record itself
+    3. The document record itself
+    4. The actual file on disk (best-effort — a missing or unreadable file is not an error)
+
+    All DB operations are wrapped in a transaction with rollback on failure so the
+    database is never left in a partially-deleted state.
     """
     doc = conn.execute("SELECT file_path FROM documents WHERE id=?", (doc_id,)).fetchone()
     if not doc:
         return
 
-    # Delete staging transactions
-    conn.execute("DELETE FROM document_transactions WHERE document_id=?", (doc_id,))
-    
-    # Delete posted transactions in the ledger
-    conn.execute("DELETE FROM transactions WHERE source_doc_id=?", (doc_id,))
-    
-    # Delete the physical file
     file_path = doc["file_path"]
-    if file_path and os.path.exists(file_path):
+
+    # ── DB deletions: all-or-nothing ─────────────────────────────────────────
+    try:
+        # Child rows first to satisfy any FK constraints
+        conn.execute("DELETE FROM document_transactions WHERE document_id=?", (doc_id,))
+        conn.execute("DELETE FROM transactions WHERE source_doc_id=?", (doc_id,))
+        conn.execute("DELETE FROM documents WHERE id=?", (doc_id,))
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+
+    # ── File deletion: best-effort after successful DB commit ─────────────────
+    if file_path and file_path != "csv_import":
         try:
             os.remove(file_path)
-        except Exception as e:
-            print(f"Error deleting file {file_path}: {e}")
-            
-    # Delete the document record
-    conn.execute("DELETE FROM documents WHERE id=?", (doc_id,))
-    conn.commit()
+        except (FileNotFoundError, OSError):
+            pass
 
 
 def delete_doc_transaction(conn: sqlite3.Connection, dt_id: int) -> None:

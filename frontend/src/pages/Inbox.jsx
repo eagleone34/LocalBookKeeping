@@ -1044,20 +1044,110 @@ export default function Inbox() {
         />
       )}
 
-      {/* Processing Status for non-completed docs */}
-      {documents.filter(d => ['pending', 'processing', 'error'].includes(d.status)).length > 0 && (
+      {/* Processing Status — pending and processing only */}
+      {documents.filter(d => ['pending', 'processing'].includes(d.status)).length > 0 && (
         <div className="card">
           <h3 className="text-lg font-semibold mb-3">Processing Queue</h3>
           <div className="space-y-2">
-            {documents.filter(d => ['pending', 'processing', 'error'].includes(d.status)).map(doc => (
-              <div key={doc.id} className="flex items-center gap-3 px-3 py-2 bg-gray-50 rounded-lg text-sm">
-                <FileText className="w-4 h-4 text-primary-500 flex-shrink-0" />
-                <span className="font-medium">{doc.filename}</span>
-                <span className={`badge ${
-                  doc.status === 'error' ? 'bg-red-100 text-red-700' :
-                  doc.status === 'processing' ? 'bg-blue-100 text-blue-700 animate-pulse' :
-                  'bg-gray-100 text-gray-600'
-                }`}>{doc.status}</span>
+            {documents.filter(d => ['pending', 'processing'].includes(d.status)).map(doc => (
+              <div key={doc.id} className="flex items-center justify-between gap-3 px-3 py-2 bg-gray-50 rounded-lg text-sm">
+                <div className="flex items-center gap-3 min-w-0">
+                  <FileText className="w-4 h-4 text-primary-500 flex-shrink-0" />
+                  <span className="font-medium truncate">{doc.filename}</span>
+                  <span className={`badge flex-shrink-0 ${
+                    doc.status === 'processing' ? 'bg-blue-100 text-blue-700 animate-pulse' :
+                    'bg-gray-100 text-gray-600'
+                  }`}>{doc.status}</span>
+                </div>
+                <div className="flex-shrink-0">
+                  {confirmingDelete?.type === 'doc' && confirmingDelete?.id === doc.id ? (
+                    <div className="flex items-center gap-1 bg-white px-2 py-1 rounded-md border border-red-200 animate-in fade-in zoom-in-95">
+                      <span className="text-xs font-bold text-red-700">Delete?</span>
+                      <button
+                        onClick={() => handleDeleteDocument(doc.id)}
+                        className="p-1 rounded hover:bg-red-200 text-red-700 transition-colors"
+                        title="Confirm Delete"
+                      >
+                        <Check className="w-3 h-3" />
+                      </button>
+                      <button
+                        onClick={() => setConfirmingDelete(null)}
+                        className="p-1 rounded hover:bg-gray-100 text-gray-400 transition-colors"
+                        title="Cancel"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => setConfirmingDelete({ type: 'doc', id: doc.id })}
+                      className="p-1.5 rounded-md hover:bg-red-200 text-red-400 hover:text-red-600 transition-colors flex items-center gap-1 text-xs font-medium"
+                      title="Delete stuck record"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      <span>Delete</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Failed Imports — documents that errored during processing */}
+      {documents.filter(d => d.status === 'error').length > 0 && (
+        <div className="card border border-red-200 bg-red-50/20">
+          <div className="flex items-center gap-2 mb-3">
+            <XCircle className="w-5 h-5 text-red-500" />
+            <h3 className="text-lg font-semibold text-red-700">Failed Imports</h3>
+            <span className="text-sm text-red-500 font-normal">
+              ({documents.filter(d => d.status === 'error').length})
+            </span>
+          </div>
+          <div className="space-y-2">
+            {documents.filter(d => d.status === 'error').map(doc => (
+              <div key={doc.id} className="flex items-start gap-3 px-3 py-3 bg-red-50 rounded-lg border border-red-100 text-sm">
+                <FileText className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-medium text-gray-800">{doc.filename}</span>
+                    <span className="badge bg-red-100 text-red-700">error</span>
+                  </div>
+                  {doc.error_msg && (
+                    <p className="text-xs text-red-600 mt-1">{doc.error_msg}</p>
+                  )}
+                </div>
+                <div className="flex-shrink-0">
+                  {confirmingDelete?.type === 'doc' && confirmingDelete?.id === doc.id ? (
+                    <div className="flex items-center gap-1 bg-white px-2 py-1 rounded-md border border-red-200 animate-in fade-in zoom-in-95">
+                      <span className="text-xs font-bold text-red-700">Delete?</span>
+                      <button
+                        onClick={() => handleDeleteDocument(doc.id)}
+                        className="p-1 rounded hover:bg-red-200 text-red-700 transition-colors"
+                        title="Confirm Delete"
+                      >
+                        <Check className="w-3 h-3" />
+                      </button>
+                      <button
+                        onClick={() => setConfirmingDelete(null)}
+                        className="p-1 rounded hover:bg-gray-100 text-gray-400 transition-colors"
+                        title="Cancel"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => setConfirmingDelete({ type: 'doc', id: doc.id })}
+                      className="p-1.5 rounded-md hover:bg-red-200 text-red-400 hover:text-red-600 transition-colors flex items-center gap-1 text-xs font-medium"
+                      title="Delete failed import and its records"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      <span>Delete</span>
+                    </button>
+                  )}
+                </div>
               </div>
             ))}
           </div>

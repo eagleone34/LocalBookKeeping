@@ -29,7 +29,10 @@ def list_documents():
 @router.delete("/{doc_id}")
 def delete_document(doc_id: int):
     """Delete a document and all related staging/ledger data."""
-    ds.delete_document(get_conn(), doc_id)
+    try:
+        ds.delete_document(get_conn(), doc_id)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
     return {"ok": True}
 
 
@@ -61,9 +64,11 @@ async def upload_documents(files: List[UploadFile] = File(...)):
         # Create document record
         doc_id = ds.create_document(conn, cid, file.filename, str(dest), len(content))
 
-        try:
-            ds.update_document(conn, doc_id, status="processing")
+        # Immediately mark as processing so the record never gets stuck in 'pending'
+        # if any subsequent step raises before entering the try block.
+        ds.update_document(conn, doc_id, status="processing")
 
+        try:
             # ═══ STEP 1: Parse the PDF ═══
             info = parse_statement(str(dest))
             pages = get_page_count(str(dest))
