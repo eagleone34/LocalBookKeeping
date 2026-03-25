@@ -15,6 +15,7 @@ if %ERRORLEVEL% NEQ 0 (
     echo  GIT PULL FAILED. Check your internet
     echo  connection or repository access.
     echo ==========================================
+    pause
     exit /b 1
 )
 
@@ -29,6 +30,7 @@ if %ERRORLEVEL% NEQ 0 (
     echo  BUILD FAILED. Your data has NOT been touched.
     echo  Fix the build errors above and try again.
     echo ==========================================
+    pause
     exit /b 1
 )
 
@@ -46,6 +48,7 @@ if %ERRORLEVEL% NEQ 0 (
     echo  INSTALLER FAILED. Check the log at:
     echo  %USERPROFILE%\Documents\localbooks_setup.log
     echo ==========================================
+    pause
     exit /b 1
 )
 
@@ -53,3 +56,4 @@ echo.
 echo ==========================================
 echo  Update complete! Your data is safe.
 echo ==========================================
+pause
