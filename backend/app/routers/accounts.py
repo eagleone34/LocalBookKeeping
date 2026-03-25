@@ -8,7 +8,7 @@ from typing import List, Optional
 from fastapi import APIRouter, HTTPException
 
 from app.models import AccountCreate, AccountOut, AccountUpdate, BankAccountCreate, BankAccountOut
-from app.main_state import get_conn, get_company_id
+from app.main_state import get_conn, get_live_conn, get_company_id
 from app.services import data_service as ds
 
 router = APIRouter(prefix="/api/accounts", tags=["accounts"])
@@ -23,21 +23,18 @@ def list_accounts(include_inactive: bool = False):
 @router.post("", response_model=AccountOut, status_code=201)
 def create_account(body: AccountCreate):
     aid = ds.create_account(
-        get_conn(), get_company_id(), body.name, body.type,
+        get_live_conn(), get_company_id(), body.name, body.type,
         body.parent_id, body.code, body.description,
     )
-    row = ds.get_account(get_conn(), aid)
+    row = ds.get_account(get_live_conn(), aid)
     return _to_out(row)
 
 
 @router.put("/{account_id}", response_model=AccountOut)
 def update_account(account_id: int, body: AccountUpdate):
     kwargs = body.model_dump(exclude_none=True)
-    if "type" in kwargs:
-        # Rename to avoid SQL conflict
-        pass
-    ds.update_account(get_conn(), account_id, **kwargs)
-    row = ds.get_account(get_conn(), account_id)
+    ds.update_account(get_live_conn(), account_id, **kwargs)
+    row = ds.get_account(get_live_conn(), account_id)
     if not row:
         raise HTTPException(404, "Account not found")
     return _to_out(row)
@@ -45,30 +42,30 @@ def update_account(account_id: int, body: AccountUpdate):
 
 @router.post("/{account_id}/archive")
 def archive_account(account_id: int):
-    ds.archive_account(get_conn(), account_id)
+    ds.archive_account(get_live_conn(), account_id)
     return {"ok": True}
 
 
 @router.post("/{account_id}/restore")
 def restore_account(account_id: int):
-    ds.restore_account(get_conn(), account_id)
+    ds.restore_account(get_live_conn(), account_id)
     return {"ok": True}
 
 
 @router.delete("/{account_id}")
 def delete_account(account_id: int):
     """Delete account only if it has zero transactions."""
-    txn_count = ds.count_account_transactions(get_conn(), account_id)
+    txn_count = ds.count_account_transactions(get_live_conn(), account_id)
     if txn_count > 0:
         raise HTTPException(
             400,
             f"Cannot delete account: it has {txn_count} transaction(s). "
             "Remove or re-categorize them first, or archive the account instead.",
         )
-    acc = ds.get_account(get_conn(), account_id)
+    acc = ds.get_account(get_live_conn(), account_id)
     if not acc:
         raise HTTPException(404, "Account not found")
-    ds.delete_account(get_conn(), account_id)
+    ds.delete_account(get_live_conn(), account_id)
     return {"ok": True, "message": f"Account '{acc['name']}' deleted"}
 
 
@@ -99,7 +96,7 @@ def create_bank_account(body: BankAccountCreate):
     - checking/savings → asset COA account
     - credit_card → liability COA account
     """
-    conn = get_conn()
+    conn = get_live_conn()
     company_id = get_company_id()
 
     # Determine COA account type based on bank account type
@@ -153,6 +150,13 @@ def create_bank_account(body: BankAccountCreate):
     if not row:
         raise HTTPException(500, "Bank account created but not found")
     return _bank_to_out(row)
+
+
+@router.put("/bank-accounts/{bank_account_id}")
+def update_bank_account(bank_account_id: int, body: dict):
+    """Update bank account fields (e.g., link a ledger account)."""
+    ds.update_bank_account(get_live_conn(), bank_account_id, **body)
+    return {"ok": True}
 
 
 def _to_out(row: dict) -> AccountOut:
