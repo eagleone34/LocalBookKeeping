@@ -6,7 +6,20 @@ echo  Your data will be protected throughout.
 echo ==========================================
 echo.
 
-echo [1/2] Building latest LocalBooks...
+echo [0/3] Pulling latest code from git...
+echo.
+git pull
+if %ERRORLEVEL% NEQ 0 (
+    echo.
+    echo ==========================================
+    echo  GIT PULL FAILED. Check your internet
+    echo  connection or repository access.
+    echo ==========================================
+    exit /b 1
+)
+
+echo.
+echo [1/3] Building latest LocalBooks...
 echo.
 call build.bat
 
@@ -20,7 +33,7 @@ if %ERRORLEVEL% NEQ 0 (
 )
 
 echo.
-echo [2/2] Running installer (your company_data is safe)...
+echo [2/3] Running installer (your company_data is safe)...
 echo.
 
 rem  start /wait ensures we block until the installer process exits,
