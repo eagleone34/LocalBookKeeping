@@ -1,10 +1,12 @@
-import { NavLink, Outlet } from 'react-router-dom';
+import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, BookOpen, ArrowLeftRight, PiggyBank,
-  BarChart3, FileText, Settings, Inbox, Building2, Plus, Trash2, AlertCircle
+  BarChart3, FileText, Settings, Inbox, Building2, AlertCircle,
+  Eye, EyeOff, RotateCcw, Clock,
 } from 'lucide-react';
 import { useCompany } from '../context/CompanyContext';
 import { useState, useEffect } from 'react';
+import { getBackupPreviewStatus, exitBackupPreview, restoreBackup } from '../api/client';
 
 
 const navItems = [
@@ -17,9 +19,27 @@ const navItems = [
   { to: '/settings', icon: Settings, label: 'Settings' },
 ];
 
+function formatBackupDate(isoString) {
+  if (!isoString) return '';
+  try {
+    return new Date(isoString).toLocaleString('en-CA', {
+      year: 'numeric', month: 'short', day: 'numeric',
+      hour: '2-digit', minute: '2-digit',
+    });
+  } catch {
+    return isoString;
+  }
+}
+
 export default function Layout() {
   const { companies, currentCompany, switchCompany, createCompany, deleteCompany, loading } = useCompany();
+  const navigate = useNavigate();
   const [updateInfo, setUpdateInfo] = useState({ available: false, version: null });
+
+  // Preview mode state
+  const [previewStatus, setPreviewStatus] = useState({ preview_active: false, filename: null, created_at: null });
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [restoreConfirm, setRestoreConfirm] = useState(false);
 
   useEffect(() => {
     fetch('/api/health/update')
@@ -31,6 +51,47 @@ export default function Layout() {
       })
       .catch(() => {});
   }, []);
+
+  // Poll preview status every 3 seconds so the banner stays in sync
+  useEffect(() => {
+    const check = () => {
+      getBackupPreviewStatus()
+        .then(s => setPreviewStatus(s))
+        .catch(() => {});
+    };
+    check();
+    const id = setInterval(check, 3000);
+    return () => clearInterval(id);
+  }, []);
+
+  const handleExitPreview = async () => {
+    setPreviewLoading(true);
+    try {
+      await exitBackupPreview();
+      setPreviewStatus({ preview_active: false, filename: null, created_at: null });
+      setRestoreConfirm(false);
+      // Reload so all cached data refreshes
+      window.location.reload();
+    } catch (err) {
+      alert('Failed to exit preview: ' + err.message);
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+
+  const handleRestoreFromPreview = async () => {
+    if (!previewStatus.filename) return;
+    setPreviewLoading(true);
+    try {
+      await restoreBackup(previewStatus.filename);
+      setRestoreConfirm(false);
+      window.location.reload();
+    } catch (err) {
+      alert('Restore failed: ' + err.message);
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
 
   const handleCompanyChange = async (e) => {
     const val = e.target.value;
@@ -82,9 +143,11 @@ export default function Layout() {
                 <Building2 className="h-4 w-4 text-gray-500" />
               </div>
               <select
-                className="w-full bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-primary-500 focus:border-primary-500 block p-2.5 pl-9 font-medium"
+                className={`w-full bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-primary-500 focus:border-primary-500 block p-2.5 pl-9 font-medium ${previewStatus.preview_active ? 'opacity-50 cursor-not-allowed' : ''}`}
                 value={currentCompany.id}
                 onChange={handleCompanyChange}
+                disabled={previewStatus.preview_active}
+                title={previewStatus.preview_active ? 'Exit preview mode to switch companies' : undefined}
               >
                 {companies.map(c => (
                   <option key={c.id} value={c.id}>
@@ -128,15 +191,82 @@ export default function Layout() {
 
       {/* Main content */}
       <main className="flex-1 overflow-auto flex flex-col">
-        {updateInfo.available && (
-          <div className="bg-blue-50 p-4 border-b border-blue-100 flex items-center gap-3">
-            <AlertCircle className="w-5 h-5 text-blue-500 flex-shrink-0" />
-            <div className="text-sm text-blue-700">
-              <span className="font-semibold">Update Available!</span> Version {updateInfo.version} is now available. 
-              Please download the latest version from <a href="https://github.com/eagleone34/LocalBookKeeping/releases/latest" target="_blank" rel="noopener noreferrer" className="font-medium underline hover:text-blue-800">GitHub</a>.
+        {/* ── Preview Mode Banner ── */}
+        {previewStatus.preview_active && (
+          <div className="bg-amber-500 text-white px-4 py-3 flex items-center gap-3 shadow-md z-40 flex-shrink-0">
+            <Eye className="w-5 h-5 flex-shrink-0" />
+            <div className="flex-1 min-w-0">
+              <span className="font-semibold">Preview Mode</span>
+              <span className="ml-2 text-amber-100 text-sm">
+                Viewing backup from{' '}
+                <span className="font-medium text-white">
+                  {formatBackupDate(previewStatus.created_at)}
+                </span>
+                {' '}— changes are read-only and will not affect your live data.
+              </span>
+            </div>
+            <div className="flex items-center gap-2 flex-shrink-0">
+              {restoreConfirm ? (
+                <div className="flex items-center gap-2 bg-amber-600 rounded-lg px-3 py-1.5">
+                  <span className="text-sm font-medium">Restore this backup?</span>
+                  <button
+                    onClick={handleRestoreFromPreview}
+                    disabled={previewLoading}
+                    className="px-2 py-1 bg-white text-amber-700 rounded text-xs font-bold hover:bg-amber-50 transition-colors"
+                  >
+                    {previewLoading ? '…' : 'Yes, Restore'}
+                  </button>
+                  <button
+                    onClick={() => setRestoreConfirm(false)}
+                    className="px-2 py-1 bg-amber-400 text-white rounded text-xs font-medium hover:bg-amber-300 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <button
+                    onClick={() => setRestoreConfirm(true)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-white text-amber-700 rounded-lg text-sm font-semibold hover:bg-amber-50 transition-colors"
+                    title="Make this backup the live database"
+                  >
+                    <RotateCcw className="w-4 h-4" />
+                    Restore This Backup
+                  </button>
+                  <button
+                    onClick={handleExitPreview}
+                    disabled={previewLoading}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-600 text-white rounded-lg text-sm font-semibold hover:bg-amber-700 transition-colors"
+                    title="Return to your live data"
+                  >
+                    <EyeOff className="w-4 h-4" />
+                    {previewLoading ? 'Exiting…' : 'Exit Preview'}
+                  </button>
+                </>
+              )}
             </div>
           </div>
         )}
+
+        {/* ── Update Banner ── */}
+        {updateInfo.available && (
+          <div className="bg-blue-50 p-4 border-b border-blue-100 flex items-center gap-3 flex-shrink-0">
+            <AlertCircle className="w-5 h-5 text-blue-500 flex-shrink-0" />
+            <div className="text-sm text-blue-700">
+              <span className="font-semibold">Update Available!</span> Version {updateInfo.version} is now available.{' '}
+              Please download the latest version from{' '}
+              <a
+                href="https://github.com/eagleone34/LocalBookKeeping/releases/latest"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-medium underline hover:text-blue-800"
+              >
+                GitHub
+              </a>.
+            </div>
+          </div>
+        )}
+
         <div className="p-8 max-w-7xl mx-auto w-full">
           <Outlet />
         </div>

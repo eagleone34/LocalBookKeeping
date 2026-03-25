@@ -2,10 +2,35 @@ import { useEffect, useState } from 'react';
 import {
   getCompany, updateCompany, getRules, createRule, deleteRule,
   getAccounts, createBackup, getBackups, getBankAccounts, updateBankAccount,
+  deleteBackup, previewBackup, exitBackupPreview, restoreBackup,
+  getBackupPreviewStatus,
 } from '../api/client';
-import { Save, Trash2, Plus, Shield, Database, BookOpen, Check, Building2, CreditCard, Link } from 'lucide-react';
+import {
+  Save, Trash2, Plus, Shield, Database, BookOpen, Check, Building2,
+  CreditCard, Link, Eye, EyeOff, RotateCcw, Clock, AlertTriangle,
+  HardDrive, ChevronDown, ChevronUp,
+} from 'lucide-react';
 import GroupedAccountSelect from '../components/GroupedAccountSelect';
 import { useCompany } from '../context/CompanyContext';
+
+function formatBytes(bytes) {
+  if (!bytes) return '0 B';
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+}
+
+function formatDate(isoString) {
+  if (!isoString) return '—';
+  try {
+    return new Date(isoString).toLocaleString('en-CA', {
+      year: 'numeric', month: 'short', day: 'numeric',
+      hour: '2-digit', minute: '2-digit', second: '2-digit',
+    });
+  } catch {
+    return isoString;
+  }
+}
 
 export default function SettingsPage() {
   const [company, setCompany] = useState(null);
@@ -18,16 +43,26 @@ export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState(0);
   const { fetchCompanies } = useCompany();
 
+  // Backup management state
+  const [backupLoading, setBackupLoading] = useState(false);
+  const [previewStatus, setPreviewStatus] = useState({ preview_active: false, filename: null, created_at: null });
+  const [confirmDelete, setConfirmDelete] = useState(null);   // filename to confirm delete
+  const [confirmRestore, setConfirmRestore] = useState(null); // filename to confirm restore
+  const [actionMsg, setActionMsg] = useState('');
+
   const load = async () => {
     try {
-      const [c, r, a, b, ba] = await Promise.all([
-        getCompany(), getRules(), getAccounts(), getBackups(), getBankAccounts().catch(() => []),
+      const [c, r, a, b, ba, ps] = await Promise.all([
+        getCompany(), getRules(), getAccounts(), getBackups(),
+        getBankAccounts().catch(() => []),
+        getBackupPreviewStatus().catch(() => ({ preview_active: false })),
       ]);
       setCompany(c);
       setRules(r);
       setAccounts(a);
       setBackups(b);
       setBankAccounts(ba);
+      setPreviewStatus(ps);
     } catch (e) { console.error(e); }
   };
 
@@ -54,13 +89,86 @@ export default function SettingsPage() {
   };
 
   const handleBackup = async () => {
-    await createBackup();
-    load();
+    setBackupLoading(true);
+    setActionMsg('');
+    try {
+      await createBackup();
+      setActionMsg('Backup created successfully.');
+      load();
+    } catch (err) {
+      setActionMsg('Backup failed: ' + err.message);
+    } finally {
+      setBackupLoading(false);
+    }
   };
 
   const handleLinkBankAccount = async (baId, ledgerAccountId) => {
     await updateBankAccount(baId, { ledger_account_id: parseInt(ledgerAccountId) });
     load();
+  };
+
+  // ── Backup actions ──────────────────────────────────────────────────────
+
+  const handlePreview = async (filename) => {
+    setBackupLoading(true);
+    setActionMsg('');
+    try {
+      await previewBackup(filename);
+      setPreviewStatus({ preview_active: true, filename });
+      setActionMsg('Preview mode activated. The entire app now shows this backup\'s data.');
+      load();
+      // Reload the page so all components re-fetch from the backup DB
+      setTimeout(() => window.location.reload(), 800);
+    } catch (err) {
+      setActionMsg('Preview failed: ' + err.message);
+    } finally {
+      setBackupLoading(false);
+    }
+  };
+
+  const handleExitPreview = async () => {
+    setBackupLoading(true);
+    setActionMsg('');
+    try {
+      await exitBackupPreview();
+      setPreviewStatus({ preview_active: false, filename: null, created_at: null });
+      setActionMsg('Returned to live data.');
+      setTimeout(() => window.location.reload(), 500);
+    } catch (err) {
+      setActionMsg('Failed to exit preview: ' + err.message);
+    } finally {
+      setBackupLoading(false);
+    }
+  };
+
+  const handleRestore = async (filename) => {
+    setBackupLoading(true);
+    setActionMsg('');
+    setConfirmRestore(null);
+    try {
+      await restoreBackup(filename);
+      setActionMsg('Database restored! Reloading…');
+      setTimeout(() => window.location.reload(), 1200);
+    } catch (err) {
+      setActionMsg('Restore failed: ' + err.message);
+    } finally {
+      setBackupLoading(false);
+    }
+  };
+
+  const handleDeleteBackup = async (filename) => {
+    setBackupLoading(true);
+    setActionMsg('');
+    setConfirmDelete(null);
+    try {
+      await deleteBackup(filename);
+      setActionMsg('Backup deleted.');
+      load();
+    } catch (err) {
+      setActionMsg('Delete failed: ' + err.message);
+    } finally {
+      setBackupLoading(false);
+    }
   };
 
   const tabs = ['Company Info', 'Categorization Rules', 'Bank Accounts', 'Backup & Security'];
@@ -133,7 +241,7 @@ export default function SettingsPage() {
             <h3 className="text-lg font-semibold mb-4">Add Categorization Rule</h3>
             <p className="text-sm text-gray-500 mb-4">
               Rules automatically categorize transactions based on keywords. When a transaction matches a pattern, it gets assigned to the specified account.
-              The system also learns from your approvals in the Inbox -- every time you approve a transaction, its vendor-to-account mapping is remembered.
+              The system also learns from your approvals in the Inbox — every time you approve a transaction, its vendor-to-account mapping is remembered.
             </p>
             <form onSubmit={handleAddRule} className="grid grid-cols-1 md:grid-cols-5 gap-4">
               <div>
@@ -271,34 +379,208 @@ export default function SettingsPage() {
       {/* Backup & Security */}
       {activeTab === 3 && (
         <div className="space-y-6">
+
+          {/* Action message */}
+          {actionMsg && (
+            <div className={`px-4 py-3 rounded-lg text-sm font-medium flex items-center gap-2 ${
+              actionMsg.toLowerCase().includes('fail') || actionMsg.toLowerCase().includes('error')
+                ? 'bg-red-50 text-red-700 border border-red-200'
+                : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+            }`}>
+              <Check className="w-4 h-4 flex-shrink-0" />
+              {actionMsg}
+            </div>
+          )}
+
+          {/* Preview mode notice (within settings) */}
+          {previewStatus.preview_active && (
+            <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 flex items-center gap-3">
+              <Eye className="w-5 h-5 text-amber-600 flex-shrink-0" />
+              <div className="flex-1 text-sm text-amber-800">
+                <span className="font-semibold">Preview Mode Active</span> — you are viewing backup{' '}
+                <span className="font-mono text-xs bg-amber-100 px-1 rounded">{previewStatus.filename}</span>.
+                All pages show this backup's data. Your live data is untouched.
+              </div>
+              <button
+                onClick={handleExitPreview}
+                disabled={backupLoading}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-600 text-white rounded-lg text-sm font-semibold hover:bg-amber-700 transition-colors"
+              >
+                <EyeOff className="w-4 h-4" />
+                Exit Preview
+              </button>
+            </div>
+          )}
+
+          {/* Create Backup */}
           <div className="card max-w-2xl">
-            <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+            <h3 className="text-lg font-semibold mb-2 flex items-center gap-2">
               <Database className="w-5 h-5 text-primary-600" />
-              Backup
+              Create Backup
             </h3>
             <p className="text-sm text-gray-500 mb-4">
-              Create a backup of your entire database. Backups are stored alongside your data.
+              Create a snapshot of your entire database. Backups are stored locally alongside your data.
+              You can preview any backup before restoring it.
             </p>
-            <button onClick={handleBackup} className="btn-primary">
-              <Database className="w-4 h-4 mr-2" /> Create Backup Now
+            <button
+              onClick={handleBackup}
+              disabled={backupLoading}
+              className="btn-primary"
+            >
+              <Database className="w-4 h-4 mr-2" />
+              {backupLoading ? 'Working…' : 'Create Backup Now'}
             </button>
-
-            {backups.length > 0 && (
-              <div className="mt-6">
-                <h4 className="text-sm font-medium text-gray-700 mb-2">Available Backups</h4>
-                <ul className="space-y-2">
-                  {backups.map(b => (
-                    <li key={b.filename} className="flex items-center gap-3 text-sm text-gray-600 bg-gray-50 rounded-lg px-3 py-2">
-                      <Database className="w-4 h-4 text-gray-400" />
-                      <span className="font-mono">{b.filename}</span>
-                      <span className="text-gray-400">{(b.size / 1024).toFixed(0)} KB</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
           </div>
 
+          {/* Backup List */}
+          {backups.length > 0 && (
+            <div className="card max-w-4xl">
+              <h4 className="text-base font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                <HardDrive className="w-5 h-5 text-gray-500" />
+                Available Backups
+                <span className="ml-1 text-xs font-normal text-gray-400">({backups.length})</span>
+              </h4>
+
+              <div className="space-y-3">
+                {backups.map((b) => {
+                  const isCurrentPreview = previewStatus.preview_active && previewStatus.filename === b.filename;
+                  const isConfirmingDelete = confirmDelete === b.filename;
+                  const isConfirmingRestore = confirmRestore === b.filename;
+
+                  return (
+                    <div
+                      key={b.filename}
+                      className={`rounded-lg border px-4 py-3 transition-colors ${
+                        isCurrentPreview
+                          ? 'border-amber-300 bg-amber-50'
+                          : 'border-gray-200 bg-white hover:bg-gray-50'
+                      }`}
+                    >
+                      <div className="flex flex-wrap items-center gap-3">
+                        {/* Icon + info */}
+                        <div className="flex items-center gap-3 flex-1 min-w-0">
+                          <Database className={`w-5 h-5 flex-shrink-0 ${isCurrentPreview ? 'text-amber-500' : 'text-gray-400'}`} />
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-mono text-xs text-gray-600 truncate">{b.filename}</span>
+                              {isCurrentPreview && (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-200 text-amber-800 text-xs font-semibold">
+                                  <Eye className="w-3 h-3" /> Previewing
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-3 mt-0.5 text-xs text-gray-500">
+                              <span className="flex items-center gap-1">
+                                <Clock className="w-3 h-3" />
+                                {formatDate(b.created_at)}
+                              </span>
+                              <span>{formatBytes(b.size)}</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Actions */}
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          {isConfirmingRestore ? (
+                            <div className="flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-lg px-3 py-1.5">
+                              <AlertTriangle className="w-4 h-4 text-blue-600" />
+                              <span className="text-xs font-semibold text-blue-800">Replace live data?</span>
+                              <button
+                                onClick={() => handleRestore(b.filename)}
+                                disabled={backupLoading}
+                                className="px-2 py-1 bg-blue-600 text-white rounded text-xs font-bold hover:bg-blue-700 transition-colors"
+                              >
+                                {backupLoading ? '…' : 'Yes, Restore'}
+                              </button>
+                              <button
+                                onClick={() => setConfirmRestore(null)}
+                                className="px-2 py-1 bg-gray-200 text-gray-700 rounded text-xs font-medium hover:bg-gray-300 transition-colors"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          ) : isConfirmingDelete ? (
+                            <div className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-lg px-3 py-1.5">
+                              <AlertTriangle className="w-4 h-4 text-red-600" />
+                              <span className="text-xs font-semibold text-red-800">Delete permanently?</span>
+                              <button
+                                onClick={() => handleDeleteBackup(b.filename)}
+                                disabled={backupLoading}
+                                className="px-2 py-1 bg-red-600 text-white rounded text-xs font-bold hover:bg-red-700 transition-colors"
+                              >
+                                {backupLoading ? '…' : 'Delete'}
+                              </button>
+                              <button
+                                onClick={() => setConfirmDelete(null)}
+                                className="px-2 py-1 bg-gray-200 text-gray-700 rounded text-xs font-medium hover:bg-gray-300 transition-colors"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          ) : (
+                            <>
+                              {/* Preview / Exit Preview */}
+                              {isCurrentPreview ? (
+                                <button
+                                  onClick={handleExitPreview}
+                                  disabled={backupLoading}
+                                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium bg-amber-100 text-amber-800 hover:bg-amber-200 transition-colors"
+                                  title="Return to live data"
+                                >
+                                  <EyeOff className="w-4 h-4" />
+                                  Exit Preview
+                                </button>
+                              ) : (
+                                <button
+                                  onClick={() => handlePreview(b.filename)}
+                                  disabled={backupLoading || previewStatus.preview_active}
+                                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium bg-gray-100 text-gray-700 hover:bg-primary-50 hover:text-primary-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                                  title={previewStatus.preview_active ? 'Exit current preview first' : 'Browse this backup across the whole app'}
+                                >
+                                  <Eye className="w-4 h-4" />
+                                  Preview
+                                </button>
+                              )}
+
+                              {/* Restore */}
+                              <button
+                                onClick={() => setConfirmRestore(b.filename)}
+                                disabled={backupLoading}
+                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors disabled:opacity-40"
+                                title="Restore this backup as your live database"
+                              >
+                                <RotateCcw className="w-4 h-4" />
+                                Restore
+                              </button>
+
+                              {/* Delete */}
+                              <button
+                                onClick={() => setConfirmDelete(b.filename)}
+                                disabled={backupLoading || isCurrentPreview}
+                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-gray-400 hover:bg-red-50 hover:text-red-600 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                                title={isCurrentPreview ? 'Exit preview before deleting' : 'Permanently delete this backup'}
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {backups.length === 0 && (
+            <div className="card max-w-2xl p-8 text-center text-gray-400 bg-gray-50">
+              <Database className="w-10 h-10 mx-auto mb-2 text-gray-300" />
+              <p>No backups yet. Create your first backup above.</p>
+            </div>
+          )}
+
+          {/* Security info */}
           <div className="card max-w-2xl">
             <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
               <Shield className="w-5 h-5 text-primary-600" />
@@ -329,8 +611,8 @@ export default function SettingsPage() {
               <div className="flex items-start gap-3 p-3 bg-blue-50 rounded-lg">
                 <Shield className="w-5 h-5 text-blue-600 mt-0.5" />
                 <div>
-                  <p className="font-medium text-blue-800">Manual Backups</p>
-                  <p className="text-blue-600">Create backups at any time. Keep copies on an external drive for safety.</p>
+                  <p className="font-medium text-blue-800">Backup & Preview</p>
+                  <p className="text-blue-600">Create backups at any time. Use Preview to browse a backup across the whole app before committing to a restore.</p>
                 </div>
               </div>
             </div>

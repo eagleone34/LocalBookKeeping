@@ -68,15 +68,6 @@ export const deleteBudget = (id) =>
 
 /**
  * GET /api/budgets/summary
- *
- * Returns per-expense-category rows with:
- *   user_budget  — most-recent monthly budget set by the user (not date-filtered)
- *   actual       — monthly-normalised spend in the selected period
- *   variance     — user_budget − actual
- *
- * @param {string|null} startDate  YYYY-MM-DD
- * @param {string|null} endDate    YYYY-MM-DD
- * @param {number|undefined} accountId  optional single-category filter
  */
 export const getBudgetSummary = (startDate, endDate, accountId) => {
   const qs = new URLSearchParams();
@@ -173,6 +164,16 @@ export const deleteRule = (id) =>
 export const createBackup = () =>
   request('/api/backup', { method: 'POST' });
 export const getBackups = () => request('/api/backups');
+export const deleteBackup = (filename) =>
+  request(`/api/backups/${encodeURIComponent(filename)}`, { method: 'DELETE' });
+export const previewBackup = (filename) =>
+  request(`/api/backups/${encodeURIComponent(filename)}/preview`, { method: 'POST' });
+export const exitBackupPreview = () =>
+  request('/api/backup-preview/exit', { method: 'POST' });
+export const restoreBackup = (filename) =>
+  request(`/api/backups/${encodeURIComponent(filename)}/restore`, { method: 'POST' });
+export const getBackupPreviewStatus = () =>
+  request('/api/backup-preview-status');
 
 export const getBankAccounts = () => request('/api/accounts/bank-accounts');
 export const createBankAccount = (data) =>
