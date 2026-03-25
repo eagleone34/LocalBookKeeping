@@ -4,6 +4,7 @@ Single-responsibility: translate between Python dicts/models and SQLite rows.
 """
 from __future__ import annotations
 
+import os
 import sqlite3
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
@@ -969,12 +970,12 @@ def balance_sheet(conn: sqlite3.Connection, company_id: int) -> List[Dict]:
     total_assets = sum(r["balance"] for r in rows if r["type"] == "asset")
     total_liabilities = sum(r["balance"] for r in rows if r["type"] == "liability")
     total_equity = sum(r["balance"] for r in rows if r["type"] == "equity")
-    
+
     balance_check = total_assets - (total_liabilities + total_equity)
-    
+
     import logging
     logger = logging.getLogger(__name__)
-    
+
     if abs(balance_check) >= 0.01:
         logger.warning(
             f"BALANCE SHEET IMBALANCE: Assets (${total_assets:,.2f}) != "
@@ -988,7 +989,6 @@ def balance_sheet(conn: sqlite3.Connection, company_id: int) -> List[Dict]:
         )
 
     return rows
-
 
 
 def summary_totals(conn: sqlite3.Connection, company_id: int,
@@ -1083,22 +1083,22 @@ def ensure_bank_ledger_account(conn: sqlite3.Connection, bank_account_id: int) -
     # Create a new Asset account for this bank account
     company_id = ba["company_id"]
     name = f"{ba['bank_name']} - {ba['last_four']}"
-    # Default to 'asset' for bank accounts. If it's a credit card, might be 'liability' 
+    # Default to 'asset' for bank accounts. If it's a credit card, might be 'liability'
     # but 'asset' is a safe default for now as most imports are checking/savings.
     # In a full app, we'd guess based on bank name or user input.
     acct_type = "asset"
-    
+
     # Check if an account with this name already exists for the company
     existing = conn.execute(
         "SELECT id FROM accounts WHERE company_id=? AND name=? AND type=?",
         (company_id, name, acct_type)
     ).fetchone()
-    
+
     if existing:
         ledger_id = int(existing["id"])
     else:
         ledger_id = create_account(conn, company_id, name, acct_type)
-    
+
     # Link it back to the bank account
     update_bank_account(conn, bank_account_id, ledger_account_id=ledger_id)
     return ledger_id
@@ -1109,10 +1109,10 @@ def get_or_create_bank_for_ledger(conn: sqlite3.Connection, company_id: int, led
     row = conn.execute("SELECT id FROM bank_accounts WHERE company_id=? AND ledger_account_id=?", (company_id, ledger_account_id)).fetchone()
     if row:
         return int(row["id"])
-    
+
     acct = conn.execute("SELECT name FROM accounts WHERE id=?", (ledger_account_id,)).fetchone()
     bank_name = acct["name"] if acct else f"Account {ledger_account_id}"
-    
+
     now = _now()
     cur = conn.execute(
         """INSERT INTO bank_accounts (company_id, bank_name, last_four, full_number, nickname, ledger_account_id, created_at, updated_at)
