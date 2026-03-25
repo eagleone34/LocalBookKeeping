@@ -115,7 +115,7 @@ export default function SettingsPage() {
     try {
       await previewBackup(filename);
       setPreviewStatus({ preview_active: true, filename });
-      setActionMsg('Preview mode activated. The entire app now shows this backup\'s data.');
+      setActionMsg("Preview mode activated. The entire app now shows this backup's data.");
       load();
       // Reload the page so all components re-fetch from the backup DB
       setTimeout(() => window.location.reload(), 800);
@@ -171,7 +171,7 @@ export default function SettingsPage() {
     }
   };
 
-  const tabs = ['Company Info', 'Categorization Rules', 'Bank Accounts', 'Backup & Security'];
+  const tabs = ['Company Info', 'Categorization Rules', 'Bank Accounts', 'Backup &amp; Security'];
 
   if (!company) return <div className="text-gray-400">Loading...</div>;
 
@@ -194,7 +194,7 @@ export default function SettingsPage() {
             {i === 1 && <Shield className="w-4 h-4" />}
             {i === 2 && <Building2 className="w-4 h-4" />}
             {i === 3 && <Database className="w-4 h-4" />}
-            {tab}
+            <span dangerouslySetInnerHTML={{ __html: tab }} />
           </button>
         ))}
       </div>
@@ -399,7 +399,7 @@ export default function SettingsPage() {
               <div className="flex-1 text-sm text-amber-800">
                 <span className="font-semibold">Preview Mode Active</span> — you are viewing backup{' '}
                 <span className="font-mono text-xs bg-amber-100 px-1 rounded">{previewStatus.filename}</span>.
-                All pages show this backup's data. Your live data is untouched.
+                All pages show this backup&apos;s data. Your live data is untouched.
               </div>
               <button
                 onClick={handleExitPreview}
@@ -584,7 +584,7 @@ export default function SettingsPage() {
           <div className="card max-w-2xl">
             <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
               <Shield className="w-5 h-5 text-primary-600" />
-              Security & Privacy
+              Security &amp; Privacy
             </h3>
             <div className="space-y-3 text-sm">
               <div className="flex items-start gap-3 p-3 bg-emerald-50 rounded-lg">
@@ -611,7 +611,7 @@ export default function SettingsPage() {
               <div className="flex items-start gap-3 p-3 bg-blue-50 rounded-lg">
                 <Shield className="w-5 h-5 text-blue-600 mt-0.5" />
                 <div>
-                  <p className="font-medium text-blue-800">Backup & Preview</p>
+                  <p className="font-medium text-blue-800">Backup &amp; Preview</p>
                   <p className="text-blue-600">Create backups at any time. Use Preview to browse a backup across the whole app before committing to a restore.</p>
                 </div>
               </div>
