@@ -41,14 +41,15 @@ cd ..
 echo.
 echo [3/4] Building main LocalBooks app (onedir)...
 cd backend
-python -m PyInstaller -y --name LocalBooks --onedir --noconsole --add-data "company_data/ledgerlocal.db;company_data" --add-data "../frontend/dist;frontend/dist" app/main.py
-if %ERRORLEVEL% NEQ 0 (
+python -m PyInstaller -y --name LocalBooks --onedir --noconsole --add-data "company_data/ledgerlocal.db;company_data" --add-data "../frontend/dist;frontend/dist" app/main.py > nul 2>&1
+if not exist "dist\LocalBooks\LocalBooks.exe" (
     echo.
-    echo ERROR: PyInstaller (main app) failed!
+    echo ERROR: PyInstaller (main app) failed - output exe not found.
     cd ..
     pause
     exit /b 1
 )
+echo PyInstaller build succeeded.
 
 echo.
 echo [3b] Zipping LocalBooks folder for bundling into installer...
@@ -63,14 +64,15 @@ if %ERRORLEVEL% NEQ 0 (
 
 echo.
 echo [4/4] Building single-file Setup installer (bootstrapper)...
-python -m PyInstaller -y --name LocalBooks_Setup --onefile --noconsole --add-data "installer/LocalBooks.zip;." installer/bootstrapper.py
-if %ERRORLEVEL% NEQ 0 (
+python -m PyInstaller -y --name LocalBooks_Setup --onefile --noconsole --add-data "installer/LocalBooks.zip;." installer/bootstrapper.py > nul 2>&1
+if not exist "dist\LocalBooks_Setup.exe" (
     echo.
-    echo ERROR: PyInstaller (installer) failed!
+    echo ERROR: PyInstaller (installer) failed - setup exe not found.
     cd ..
     pause
     exit /b 1
 )
+echo Installer build succeeded.
 cd ..
 
 echo.
