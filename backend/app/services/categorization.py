@@ -266,6 +266,10 @@ def suggest_categories_for_batch(
     Smart batch categorization: groups similar incoming transactions together
     and suggests categories based on past transaction history.
 
+    Transactions are grouped by description similarity AND by direction
+    (debit vs credit), so "Online Banking transfer" debits and credits
+    form separate groups.
+
     Args:
         conn: Database connection
         company_id: Company ID
@@ -282,7 +286,8 @@ def suggest_categories_for_batch(
                     "suggested_category_id": 5,
                     "suggested_category_name": "Travel",
                     "confidence": 0.85,
-                    "match_reason": "Similar to 12 previous transactions categorized as Travel"
+                    "match_reason": "Similar to 12 previous transactions categorized as Travel",
+                    "transaction_type": "Withdrawal"
                 }, ...
             ],
             "ungrouped_indices": [2, 5]
@@ -291,7 +296,7 @@ def suggest_categories_for_batch(
     if not transactions:
         return {"groups": [], "ungrouped_indices": []}
 
-    # ── Step 1: Group incoming transactions by normalized description ──
+    # ── Step 1: Group incoming transactions by normalized description AND direction ──
     groups: Dict[str, Dict[str, Any]] = {}
     index_to_group: Dict[int, str] = {}
 
@@ -302,10 +307,16 @@ def suggest_categories_for_batch(
             # Can't group transactions with no meaningful description
             continue
 
-        # Try to merge into an existing group by similarity
+        # Determine direction: "credit" for positive/zero, "debit" for negative
+        amount = txn.get("amount", 0)
+        direction = "credit" if amount >= 0 else "debit"
+
+        # Try to merge into an existing group by similarity AND same direction
         matched_key = None
         best_sim = 0.0
         for gkey, gdata in groups.items():
+            if gdata["direction"] != direction:
+                continue  # Never merge debits with credits
             sim = _jaccard_similarity(tokens, gdata["tokens"])
             if sim > 0.6 and sim > best_sim:
                 best_sim = sim
@@ -314,7 +325,7 @@ def suggest_categories_for_batch(
         if matched_key:
             groups[matched_key]["indices"].append(i)
         else:
-            gkey = _group_key(desc)
+            gkey = _group_key(desc) + f"_{direction}"
             # Handle hash collisions by appending index
             if gkey in groups:
                 gkey = f"{gkey}_{i}"
@@ -322,6 +333,7 @@ def suggest_categories_for_batch(
                 "tokens": tokens,
                 "sample_description": desc,
                 "indices": [i],
+                "direction": direction,
             }
             index_to_group[i] = gkey
 
@@ -432,6 +444,10 @@ def suggest_categories_for_batch(
                 confidence = conf
                 match_reason = "Matched by vendor/keyword rules"
 
+        # Determine the human-readable transaction type for this group
+        direction = gdata.get("direction", "debit")
+        transaction_type = "Deposit" if direction == "credit" else "Withdrawal"
+
         # Only create a group if we have something useful
         if suggested_id or len(indices) > 1:
             result_groups.append({
@@ -442,6 +458,7 @@ def suggest_categories_for_batch(
                 "suggested_category_name": suggested_name,
                 "confidence": round(confidence, 2),
                 "match_reason": match_reason,
+                "transaction_type": transaction_type,
             })
             grouped_indices.update(indices)
 

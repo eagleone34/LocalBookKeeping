@@ -774,6 +774,16 @@ export default function Inbox() {
                         <span className="text-xs text-gray-500 whitespace-nowrap bg-white/60 px-1.5 py-0.5 rounded">
                           × {visibleTxns.length} transaction{visibleTxns.length !== 1 ? 's' : ''}
                         </span>
+                        {/* Transaction type badge (Withdrawal / Deposit) */}
+                        {group.transaction_type && (
+                          <span className={`text-[11px] px-1.5 py-0.5 rounded-full border whitespace-nowrap font-medium ${
+                            group.transaction_type === 'Deposit'
+                              ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                              : 'bg-red-50 text-red-700 border-red-200'
+                          }`}>
+                            {group.transaction_type}
+                          </span>
+                        )}
                         {/* Mixed category indicator */}
                         {isMixed && (
                           <span className="text-[11px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 border border-amber-200 whitespace-nowrap font-medium">

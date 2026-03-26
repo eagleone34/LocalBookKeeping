@@ -390,6 +390,7 @@ class CategorySuggestionGroup(BaseModel):
     suggested_category_name: Optional[str] = None
     confidence: float = 0.0
     match_reason: str = ""
+    transaction_type: str = ""  # "Withdrawal" or "Deposit"
 
 
 class SuggestCategoriesResponse(BaseModel):

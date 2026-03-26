@@ -133,6 +133,7 @@ def suggest_categories(body: SuggestCategoriesRequest):
             suggested_category_name=g.get("suggested_category_name"),
             confidence=g.get("confidence", 0.0),
             match_reason=g.get("match_reason", ""),
+            transaction_type=g.get("transaction_type", ""),
         )
         for g in result["groups"]
     ]
