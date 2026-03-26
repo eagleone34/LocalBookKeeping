@@ -74,7 +74,8 @@ cd ..
 
 echo.
 echo =========================================
-echo DONE! Share backend\dist\LocalBooks_Setup.exe
+echo DONE - Share backend\dist\LocalBooks_Setup.exe
 echo That is the single file users download and run.
 echo =========================================
 echo Build completed successfully - continuing...
+exit /b 0

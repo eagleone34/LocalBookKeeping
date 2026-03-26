@@ -6,7 +6,7 @@ echo  Your data will be protected throughout.
 echo ==========================================
 echo.
 
-echo [0/4] Pulling latest code from git...
+echo [1/3] Pulling latest code from git...
 echo.
 git pull
 if %ERRORLEVEL% NEQ 0 (
@@ -20,40 +20,9 @@ if %ERRORLEVEL% NEQ 0 (
 )
 
 echo.
-echo [1/4] Installing frontend dependencies...
-echo.
-cd frontend
-call npm install
-if %ERRORLEVEL% NEQ 0 (
-    echo.
-    echo ==========================================
-    echo  NPM INSTALL FAILED.
-    echo ==========================================
-    cd ..
-    pause
-    exit /b 1
-)
-
-echo.
-echo [2/4] Building frontend...
-echo.
-call npm run build
-if %ERRORLEVEL% NEQ 0 (
-    echo.
-    echo ==========================================
-    echo  FRONTEND BUILD FAILED.
-    echo ==========================================
-    cd ..
-    pause
-    exit /b 1
-)
-cd ..
-
-echo.
-echo [3/4] Building full installer...
+echo [2/3] Building everything (frontend + backend + installer)...
 echo.
 call build.bat
-
 if %ERRORLEVEL% NEQ 0 (
     echo.
     echo ==========================================
@@ -65,11 +34,8 @@ if %ERRORLEVEL% NEQ 0 (
 )
 
 echo.
-echo [4/4] Running installer (your company_data is safe)...
+echo [3/3] Running installer (your company_data is safe)...
 echo.
-
-rem  start /wait ensures we block until the installer process exits,
-rem  so %ERRORLEVEL% reflects the installer's own exit code.
 start /wait "" "backend\dist\LocalBooks_Setup.exe"
 
 if %ERRORLEVEL% NEQ 0 (
@@ -84,6 +50,6 @@ if %ERRORLEVEL% NEQ 0 (
 
 echo.
 echo ==========================================
-echo  Update complete! Your data is safe.
+echo  Update complete - your data is safe.
 echo ==========================================
 pause
