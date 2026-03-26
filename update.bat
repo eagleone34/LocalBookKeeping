@@ -1,4 +1,5 @@
 @echo off
+setlocal DisableDelayedExpansion
 echo.
 echo ==========================================
 echo  LocalBooks Updater
