@@ -27,7 +27,9 @@ function formatMoney(val) {
 export default function Accounts() {
   const navigate = useNavigate();
   const [accounts, setAccounts] = useState([]);
-  const [balances, setBalances] = useState({}); // { account_id: balance }
+  // balances keys are strings (JSON always serializes object keys as strings)
+  // We normalize them to strings here so lookups work correctly.
+  const [balances, setBalances] = useState({}); // { "account_id": balance }
   const [showInactive, setShowInactive] = useState(false);
   const [showNewForm, setShowNewForm] = useState(false);
   const [editId, setEditId] = useState(null);
@@ -37,12 +39,21 @@ export default function Accounts() {
   const [deleteError, setDeleteError] = useState(null);
 
   const load = async () => {
-    const [accts, bals] = await Promise.all([
-      getAccounts(showInactive).catch(() => []),
-      getAllAccountBalances().catch(() => ({})),
-    ]);
-    setAccounts(accts);
-    setBalances(bals);
+    try {
+      const [accts, rawBals] = await Promise.all([
+        getAccounts(showInactive).catch(() => []),
+        getAllAccountBalances().catch(() => ({})),
+      ]);
+      setAccounts(accts);
+      // Normalize all keys to strings so balances[String(acc.id)] always works
+      const normalized = {};
+      Object.entries(rawBals).forEach(([k, v]) => {
+        normalized[String(k)] = v;
+      });
+      setBalances(normalized);
+    } catch (e) {
+      console.error(e);
+    }
   };
 
   useEffect(() => { load(); }, [showInactive]);
@@ -114,7 +125,11 @@ export default function Accounts() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Chart of Accounts</h1>
-          <p className="text-gray-500 mt-1">Organize your income, expenses, assets, and liabilities</p>
+          <p className="text-gray-500 mt-1">
+            Organize your income, expenses, assets, and liabilities.
+            Asset &amp; liability accounts show live balances — click the{' '}
+            <ExternalLink className="inline w-3.5 h-3.5 text-blue-500" /> icon to view the ledger and reconcile.
+          </p>
         </div>
         <div className="flex gap-3">
           <label className="flex items-center gap-2 text-sm text-gray-600">
@@ -124,6 +139,20 @@ export default function Accounts() {
           <button onClick={() => { setShowNewForm(true); setEditId(null); setDeleteError(null); }} className="btn-primary">
             <Plus className="w-4 h-4 mr-2" /> New Account
           </button>
+        </div>
+      </div>
+
+      {/* How-to hint banner */}
+      <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 text-sm text-blue-800 flex items-start gap-3">
+        <Scale className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />
+        <div>
+          <span className="font-semibold">How to use Account Ledger &amp; Reconciliation:</span>
+          <ol className="list-decimal list-inside mt-1 space-y-0.5 text-blue-700">
+            <li>Import a PDF bank statement in <strong>Statements</strong> and approve the transactions.</li>
+            <li>Come back here — your <strong>Asset</strong> accounts will show a live balance.</li>
+            <li>Click the <ExternalLink className="inline w-3.5 h-3.5" /> icon on any asset row to open the <strong>Account Ledger</strong> (running balance view).</li>
+            <li>From the ledger, click <strong>Reconcile Account</strong> to start a bank reconciliation.</li>
+          </ol>
         </div>
       </div>
 
@@ -191,6 +220,11 @@ export default function Accounts() {
                 <span className={TYPE_COLORS[type]}>{label}</span>
                 <span className="text-gray-400 text-sm font-normal">({items.length} accounts)</span>
               </h3>
+              {isBalanceType && !isCollapsed && (
+                <span className="text-xs text-gray-400 italic">
+                  Click <ExternalLink className="inline w-3 h-3" /> to view ledger &amp; reconcile
+                </span>
+              )}
             </div>
 
             {!isCollapsed && (
@@ -205,7 +239,10 @@ export default function Accounts() {
                         <th className="text-left py-2 px-2 text-gray-500 font-medium">Name</th>
                         <th className="text-left py-2 px-2 text-gray-500 font-medium">Description</th>
                         {isBalanceType && (
-                          <th className="text-right py-2 px-2 text-gray-500 font-medium w-36">Balance</th>
+                          <th className="text-right py-2 px-2 text-gray-500 font-medium w-36">
+                            Balance
+                            <span className="block text-xs font-normal text-gray-400">(linked txns)</span>
+                          </th>
                         )}
                         <th className="text-left py-2 px-2 text-gray-500 font-medium w-24">Status</th>
                         <th className="text-right py-2 px-2 text-gray-500 font-medium w-48">Actions</th>
@@ -213,7 +250,10 @@ export default function Accounts() {
                     </thead>
                     <tbody>
                       {items.map(acc => {
-                        const balance = balances[acc.id];
+                        // JSON keys are always strings — use String(acc.id) for lookup
+                        const balanceKey = String(acc.id);
+                        const balance = balances[balanceKey];
+                        // hasBalance is true even when balance === 0 (account exists in map)
                         const hasBalance = balance !== undefined;
 
                         return editId === acc.id ? (
@@ -287,7 +327,9 @@ export default function Accounts() {
                                     {formatMoney(balance)}
                                   </span>
                                 ) : (
-                                  <span className="text-gray-300 text-xs">—</span>
+                                  <span className="text-gray-300 text-xs italic">
+                                    no linked txns
+                                  </span>
                                 )}
                               </td>
                             )}
@@ -299,12 +341,14 @@ export default function Accounts() {
                             </td>
                             <td className="py-2 px-2 text-right">
                               <div className="flex justify-end gap-1">
-                                {/* Ledger drill-down for asset/liability accounts that have a balance */}
-                                {isBalanceType && hasBalance && (
+                                {/* Ledger drill-down — show for ALL asset/liability accounts,
+                                    not just those with a balance, so users can navigate even
+                                    when balance is $0 */}
+                                {isBalanceType && (
                                   <button
                                     onClick={() => navigate(`/accounts/${acc.id}/ledger`)}
-                                    className="p-1.5 rounded-lg hover:bg-blue-50 text-gray-400 hover:text-blue-600"
-                                    title="View ledger & transactions"
+                                    className="p-1.5 rounded-lg hover:bg-blue-50 text-blue-400 hover:text-blue-600"
+                                    title="View ledger &amp; reconcile"
                                   >
                                     <ExternalLink className="w-4 h-4" />
                                   </button>
