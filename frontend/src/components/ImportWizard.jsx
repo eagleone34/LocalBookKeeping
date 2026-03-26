@@ -936,7 +936,7 @@ export default function ImportWizard({ onClose, onSuccess, accounts: initialAcco
                         <div
                           key={group.group_key || groupIdx}
                           className={`border rounded-lg transition-all overflow-hidden ${
-                            isApproved ? 'bg-gray-50 border-gray-200 opacity-80' : confidenceBg(group.confidence || 0)
+                            isApproved ? 'bg-gray-50 border-gray-200 opacity-80' : confidenceBg(Math.round((group.confidence || 0) * 100))
                           }`}
                         >
                           {/* Clickable group header */}
@@ -952,7 +952,7 @@ export default function ImportWizard({ onClose, onSuccess, accounts: initialAcco
                                     ? <ChevronDown className="w-4 h-4" />
                                     : <ChevronRight className="w-4 h-4" />}
                                 </span>
-                                <span className={`inline-block w-2 h-2 rounded-full ${isApproved ? 'bg-emerald-400' : confidenceDot(group.confidence || 0)}`}></span>
+                                <span className={`inline-block w-2 h-2 rounded-full ${isApproved ? 'bg-emerald-400' : confidenceDot(Math.round((group.confidence || 0) * 100))}`}></span>
                                 <h5 className="font-medium text-gray-800 text-sm truncate">
                                   {group.sample_description || 'Unnamed group'}
                                 </h5>
@@ -980,13 +980,13 @@ export default function ImportWizard({ onClose, onSuccess, accounts: initialAcco
                               {/* Suggested category & confidence */}
                               <div className="flex items-center gap-2 text-xs mb-2 ml-6">
                                 {group.suggested_category_name && (
-                                  <span className={`font-medium ${isApproved ? 'text-emerald-600' : confidenceColor(group.confidence || 0)}`}>
+                                  <span className={`font-medium ${isApproved ? 'text-emerald-600' : confidenceColor(Math.round((group.confidence || 0) * 100))}`}>
                                     {group.suggested_category_name}
                                   </span>
                                 )}
                                 {group.confidence != null && (
-                                  <span className={`${isApproved ? 'text-gray-400' : confidenceColor(group.confidence || 0)}`}>
-                                    ({group.confidence}% confident)
+                                  <span className={`${isApproved ? 'text-gray-400' : confidenceColor(Math.round((group.confidence || 0) * 100))}`}>
+                                    ({Math.round((group.confidence || 0) * 100)}% confident)
                                   </span>
                                 )}
                                 {group.match_reason && (

@@ -22,7 +22,8 @@ function confidenceBadge(conf) {
   const pct = Math.round((conf || 0) * 100);
   if (pct >= 80) return <span className="badge bg-emerald-100 text-emerald-700">{pct}%</span>;
   if (pct >= 50) return <span className="badge bg-amber-100 text-amber-700">{pct}%</span>;
-  return <span className="badge bg-red-100 text-red-700">{pct}%</span>;
+  if (pct > 0) return <span className="badge bg-red-100 text-red-700">{pct}%</span>;
+  return <span className="badge bg-gray-100 text-gray-500">—</span>;
 }
 
 // Confidence color helpers (adapted from ImportWizard)
@@ -742,7 +743,7 @@ export default function Inbox() {
               return (
                 <div
                   key={key}
-                  className={`border rounded-lg transition-all overflow-hidden ${confidenceBg(group.confidence || 0)}`}
+                  className={`border rounded-lg transition-all overflow-hidden ${confidenceBg(Math.round((group.confidence || 0) * 100))}`}
                 >
                   {/* Group header */}
                   <div
@@ -767,7 +768,7 @@ export default function Inbox() {
                             ? <ChevronDown className="w-4 h-4" />
                             : <ChevronRight className="w-4 h-4" />}
                         </span>
-                        <span className={`inline-block w-2 h-2 rounded-full flex-shrink-0 ${confidenceDot(group.confidence || 0)}`}></span>
+                        <span className={`inline-block w-2 h-2 rounded-full flex-shrink-0 ${confidenceDot(Math.round((group.confidence || 0) * 100))}`}></span>
                         <h5 className="font-medium text-gray-800 text-sm truncate">
                           {group.sample_description || 'Unnamed group'}
                         </h5>
@@ -795,13 +796,13 @@ export default function Inbox() {
                       {/* Suggested category & confidence */}
                       <div className="flex items-center gap-2 text-xs mb-2 ml-14">
                         {group.suggested_category_name && (
-                          <span className={`font-medium ${confidenceColor(group.confidence || 0)}`}>
+                          <span className={`font-medium ${confidenceColor(Math.round((group.confidence || 0) * 100))}`}>
                             {group.suggested_category_name}
                           </span>
                         )}
                         {group.confidence != null && (
-                          <span className={confidenceColor(group.confidence || 0)}>
-                            ({group.confidence}% confident)
+                          <span className={confidenceColor(Math.round((group.confidence || 0) * 100))}>
+                            ({Math.round((group.confidence || 0) * 100)}% confident)
                           </span>
                         )}
                         {group.match_reason && (

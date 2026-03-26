@@ -388,7 +388,7 @@ class CategorySuggestionGroup(BaseModel):
     transaction_indices: List[int]
     suggested_category_id: Optional[int] = None
     suggested_category_name: Optional[str] = None
-    confidence: float = 0.0
+    confidence: float = 0.0  # 0.0 to 1.0 scale (frontend multiplies by 100 for display)
     match_reason: str = ""
     transaction_type: str = ""  # "Withdrawal" or "Deposit"
 

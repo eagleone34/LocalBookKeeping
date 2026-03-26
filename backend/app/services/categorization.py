@@ -82,14 +82,27 @@ def suggest_account(conn: sqlite3.Connection, company_id: int,
 
 def _get_vendor_suggestion(conn: sqlite3.Connection, company_id: int,
                            vendor_name: str) -> Optional[Tuple[int, float]]:
-    """Look up vendor-account mapping with exact match."""
+    """Look up vendor-account mapping with exact match.
+    
+    Confidence scales with hit_count:
+      - 1 hit  → 0.65
+      - 3 hits → 0.75
+      - 5 hits → 0.85
+      - 8+ hits → 0.98 (near-certain — user has consistently categorized this vendor)
+    """
     row = conn.execute(
         "SELECT account_id, hit_count FROM vendor_account_map WHERE company_id=? AND vendor_name=?",
         (company_id, vendor_name),
     ).fetchone()
     if row:
         hits = int(row["hit_count"])
-        confidence = min(0.95, 0.6 + (hits * 0.05))
+        if hits >= 8:
+            # Vendor has been consistently categorized many times — near certain
+            confidence = 0.98
+        elif hits >= 5:
+            confidence = min(0.95, 0.70 + (hits * 0.05))
+        else:
+            confidence = min(0.90, 0.60 + (hits * 0.05))
         return int(row["account_id"]), confidence
     return None
 
@@ -443,6 +456,24 @@ def suggest_categories_for_batch(
                 suggested_name = acct["name"] if acct else None
                 confidence = conf
                 match_reason = "Matched by vendor/keyword rules"
+
+        # Boost confidence if vendor memory strongly agrees with the suggestion
+        if suggested_id:
+            sample_desc = gdata["sample_description"]
+            vendor_guess = _extract_vendor(sample_desc)
+            if vendor_guess:
+                vendor_suggestion = _get_vendor_suggestion(conn, company_id, vendor_guess)
+                if vendor_suggestion:
+                    vendor_acct_id, vendor_conf = vendor_suggestion
+                    if vendor_acct_id == suggested_id and vendor_conf > confidence:
+                        # Vendor memory confirms the suggestion — use the higher confidence
+                        confidence = vendor_conf
+                        vendor_row = conn.execute(
+                            "SELECT hit_count FROM vendor_account_map WHERE company_id=? AND vendor_name=?",
+                            (company_id, vendor_guess),
+                        ).fetchone()
+                        hit_count = int(vendor_row["hit_count"]) if vendor_row else 0
+                        match_reason = f"Vendor '{vendor_guess}' consistently categorized here ({hit_count} times)"
 
         # Determine the human-readable transaction type for this group
         direction = gdata.get("direction", "debit")
