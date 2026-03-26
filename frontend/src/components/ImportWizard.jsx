@@ -1212,7 +1212,7 @@ export default function ImportWizard({ onClose, onSuccess, accounts: initialAcco
                   disabled={loadingCategories}
                   className="btn-primary"
                 >
-                  Preview & Import <ChevronRight className="w-4 h-4 ml-1" />
+                  Preview &amp; Import <ChevronRight className="w-4 h-4 ml-1" />
                 </button>
               </div>
             )}

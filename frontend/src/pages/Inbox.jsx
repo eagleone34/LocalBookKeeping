@@ -1025,7 +1025,7 @@ export default function Inbox() {
             <div className="flex flex-col items-center gap-2">
               <Upload className="w-10 h-10 text-gray-400" />
               <p className="text-gray-600 font-medium text-lg">Import PDF Statements</p>
-              <p className="text-gray-400 text-sm max-w-[250px] mx-auto">Drag & drop PDF bank statements here. Auto-categorized and checked for duplicates.</p>
+              <p className="text-gray-400 text-sm max-w-[250px] mx-auto">Drag &amp; drop PDF bank statements here. Auto-categorized and checked for duplicates.</p>
             </div>
           )}
         </div>
