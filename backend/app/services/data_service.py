@@ -66,16 +66,15 @@ _ACCOUNT_CODE_BASES = {
 
 
 def _next_account_code(conn: sqlite3.Connection, company_id: int, acct_type: str) -> str:
-    """Generate the next available numeric account code for the given type and company."""
     base = _ACCOUNT_CODE_BASES.get(acct_type, 5000)
-    range_end = base + 999  # e.g. 5000-5999
+    range_end = base + 999
 
     rows = conn.execute(
         "SELECT code FROM accounts WHERE company_id=? AND type=? AND code IS NOT NULL AND code != ''",
         (company_id, acct_type),
     ).fetchall()
 
-    max_code = base - 10  # so first generated code will be `base` itself
+    max_code = base - 10
     for row in rows:
         try:
             val = int(row["code"])
@@ -103,7 +102,7 @@ def get_account(conn: sqlite3.Connection, account_id: int) -> Optional[Dict]:
 def create_account(conn: sqlite3.Connection, company_id: int, name: str, acct_type: str,
                    parent_id: Optional[int] = None, code: Optional[str] = None,
                    description: Optional[str] = None) -> int:
-    if not code:  # None or empty string
+    if not code:
         code = _next_account_code(conn, company_id, acct_type)
     now = _now()
     cur = conn.execute(
@@ -142,15 +141,78 @@ def restore_account(conn: sqlite3.Connection, account_id: int) -> None:
 
 
 def count_account_transactions(conn: sqlite3.Connection, account_id: int) -> int:
-    """Return the number of transactions linked to this account."""
     row = conn.execute("SELECT COUNT(*) as cnt FROM transactions WHERE account_id=?", (account_id,)).fetchone()
     return int(row["cnt"])
 
 
 def delete_account(conn: sqlite3.Connection, account_id: int) -> None:
-    """Delete an account. Caller must verify no transactions exist first."""
     conn.execute("DELETE FROM accounts WHERE id=?", (account_id,))
     conn.commit()
+
+
+# ── Account Balance & Ledger ──────────────────────────────────────────────────
+
+def get_account_balance(conn: sqlite3.Connection, company_id: int, account_id: int) -> float:
+    """
+    Return the current balance of an asset/liability account.
+    Balance = SUM of all transaction amounts where bank_account_id links to this ledger account.
+    """
+    row = conn.execute("""
+        SELECT COALESCE(SUM(t.amount), 0) AS balance
+        FROM transactions t
+        JOIN bank_accounts ba ON t.bank_account_id = ba.id
+        WHERE ba.ledger_account_id = ? AND t.company_id = ?
+    """, (account_id, company_id)).fetchone()
+    return float(row["balance"]) if row else 0.0
+
+
+def get_account_balances_for_company(conn: sqlite3.Connection, company_id: int) -> Dict[int, float]:
+    """
+    Return a dict of {ledger_account_id: balance} for all bank-linked accounts.
+    """
+    rows = conn.execute("""
+        SELECT ba.ledger_account_id, COALESCE(SUM(t.amount), 0) AS balance
+        FROM bank_accounts ba
+        LEFT JOIN transactions t ON t.bank_account_id = ba.id AND t.company_id = ?
+        WHERE ba.company_id = ? AND ba.ledger_account_id IS NOT NULL
+        GROUP BY ba.ledger_account_id
+    """, (company_id, company_id)).fetchall()
+    return {int(r["ledger_account_id"]): float(r["balance"]) for r in rows}
+
+
+def get_account_ledger(conn: sqlite3.Connection, company_id: int, account_id: int,
+                       date_from: Optional[str] = None, date_to: Optional[str] = None) -> List[Dict]:
+    """
+    Return all transactions for a ledger account (via bank_account link),
+    sorted oldest→newest, with a running balance column.
+    """
+    sql = """
+        SELECT t.id, t.txn_date, t.amount, t.description, t.source,
+               t.is_reconciled, t.reconciliation_id, t.bank_account_id,
+               v.name AS vendor_name
+        FROM transactions t
+        JOIN bank_accounts ba ON t.bank_account_id = ba.id
+        LEFT JOIN vendors v ON t.vendor_id = v.id
+        WHERE ba.ledger_account_id = ? AND t.company_id = ?
+    """
+    params: list = [account_id, company_id]
+    if date_from:
+        sql += " AND t.txn_date >= ?"
+        params.append(date_from)
+    if date_to:
+        sql += " AND t.txn_date <= ?"
+        params.append(date_to)
+    sql += " ORDER BY t.txn_date ASC, t.id ASC"
+
+    rows = [dict(r) for r in conn.execute(sql, params).fetchall()]
+
+    # Compute running balance
+    running = 0.0
+    for r in rows:
+        running += r["amount"]
+        r["running_balance"] = round(running, 2)
+
+    return rows
 
 
 # ═══════════════════════════════════════════════════════
@@ -199,8 +261,6 @@ def list_transactions(conn: sqlite3.Connection, company_id: int,
         WHERE t.company_id = ?
     """
     params: list = [company_id]
-    # Use category_id if provided (new naming), fallback to account_id for backward compatibility
-    # Both map to t.account_id in the database (COA category)
     filter_account_id = category_id if category_id else account_id
     if filter_account_id:
         sql += " AND t.account_id=?"
@@ -244,12 +304,11 @@ def create_transaction(conn: sqlite3.Connection, company_id: int,
     now = _now()
     cur = conn.execute(
         """INSERT INTO transactions
-           (company_id, account_id, vendor_id, txn_date, description, memo, amount, is_posted, source, source_doc_id, bank_account_id, created_at, updated_at)
-           VALUES (?,?,?,?,?,?,?,1,?,?,?,?,?)""",
+           (company_id, account_id, vendor_id, txn_date, description, memo, amount, is_posted, source, source_doc_id, bank_account_id, is_reconciled, created_at, updated_at)
+           VALUES (?,?,?,?,?,?,?,1,?,?,?,0,?,?)""",
         (company_id, account_id, vendor_id, txn_date, description, memo, amount, source, source_doc_id, bank_account_id, now, now),
     )
     conn.commit()
-    # Update vendor-account mapping for smart categorization
     if vendor_name:
         _update_vendor_account_map(conn, company_id, vendor_name, account_id)
     return int(cur.lastrowid)
@@ -368,25 +427,13 @@ def list_documents(conn: sqlite3.Connection, company_id: int) -> List[Dict]:
 
 
 def delete_document(conn: sqlite3.Connection, doc_id: int) -> None:
-    """
-    Delete a document and all its associated data:
-    1. Associated staging transactions (document_transactions)
-    2. Associated posted transactions (ledger)
-    3. The document record itself
-    4. The actual file on disk (best-effort — a missing or unreadable file is not an error)
-
-    All DB operations are wrapped in a transaction with rollback on failure so the
-    database is never left in a partially-deleted state.
-    """
     doc = conn.execute("SELECT file_path FROM documents WHERE id=?", (doc_id,)).fetchone()
     if not doc:
         return
 
     file_path = doc["file_path"]
 
-    # ── DB deletions: all-or-nothing ─────────────────────────────────────────
     try:
-        # Child rows first to satisfy any FK constraints
         conn.execute("DELETE FROM document_transactions WHERE document_id=?", (doc_id,))
         conn.execute("DELETE FROM transactions WHERE source_doc_id=?", (doc_id,))
         conn.execute("DELETE FROM documents WHERE id=?", (doc_id,))
@@ -395,7 +442,6 @@ def delete_document(conn: sqlite3.Connection, doc_id: int) -> None:
         conn.rollback()
         raise
 
-    # ── File deletion: best-effort after successful DB commit ─────────────────
     if file_path and file_path != "csv_import":
         try:
             os.remove(file_path)
@@ -404,7 +450,6 @@ def delete_document(conn: sqlite3.Connection, doc_id: int) -> None:
 
 
 def delete_doc_transaction(conn: sqlite3.Connection, dt_id: int) -> None:
-    """Delete a single staging transaction from the inbox."""
     conn.execute("DELETE FROM document_transactions WHERE id=?", (dt_id,))
     conn.commit()
 
@@ -451,7 +496,6 @@ def list_doc_transactions(conn: sqlite3.Connection, doc_id: Optional[int] = None
         sql += " AND dt.document_id=?"
         params.append(doc_id)
     if status:
-        # Support special 'duplicate' filter that matches is_duplicate flag
         if status == "duplicate":
             sql += " AND dt.is_duplicate=1"
         else:
@@ -520,7 +564,7 @@ def delete_rule(conn: sqlite3.Connection, rule_id: int) -> None:
 
 
 # ═══════════════════════════════════════════════════════
-#  VENDOR-ACCOUNT MAP (Smart categorization memory)
+#  VENDOR-ACCOUNT MAP
 # ═══════════════════════════════════════════════════════
 
 def _update_vendor_account_map(conn: sqlite3.Connection, company_id: int,
@@ -579,14 +623,6 @@ def budget_vs_actual(conn: sqlite3.Connection, company_id: int,
                      month_from: Optional[str] = None,
                      month_to: Optional[str] = None,
                      account_id: Optional[int] = None) -> List[Dict]:
-    """One row per account, budgeted/actual/variance summed across month_from..month_to.
-
-    Budget totals and actual totals are aggregated independently by account,
-    then joined on account_id only.  This avoids the old per-month JOIN that
-    produced $0 actuals whenever budget months didn't line up with transaction
-    months.
-    """
-    # -- budget_totals CTE --------------------------------------------------
     budget_sql = """
         WITH budget_totals AS (
             SELECT account_id,
@@ -607,7 +643,6 @@ def budget_vs_actual(conn: sqlite3.Connection, company_id: int,
         params.append(account_id)
     budget_sql += "\n            GROUP BY account_id\n        ),"
 
-    # -- actual_totals CTE -------------------------------------------------
     actual_sql = """
         actual_totals AS (
             SELECT account_id,
@@ -628,7 +663,6 @@ def budget_vs_actual(conn: sqlite3.Connection, company_id: int,
         params.append(account_id)
     actual_sql += "\n            GROUP BY account_id\n        )"
 
-    # -- Final SELECT -------------------------------------------------------
     final_sql = """
         SELECT bt.account_id,
                a.name  AS account_name,
@@ -659,28 +693,8 @@ def budget_summary_by_period(
     end_date: Optional[str] = None,
     account_id: Optional[int] = None,
 ) -> List[Dict]:
-    """Return per-expense-category budget summary rows for the Budget page.
-
-    Columns returned:
-    - ``account_id``  / ``account_name``
-    - ``user_budget`` — the MOST RECENT monthly budget amount the user has set
-      for this category.  This value is **not** filtered by the date range so
-      the user always sees their standing monthly target regardless of what
-      period they are inspecting.
-    - ``actual`` — total absolute spend in ``[start_date, end_date]`` divided
-      by the number of calendar months spanned by that period.  Formula::
-
-          actual = SUM(ABS(amount_in_period)) / num_months_in_period
-
-    - ``variance`` = user_budget − actual  (positive means under budget).
-
-    Only expense-type accounts that have at least one budget entry OR at least
-    one transaction in the selected period are included.
-    """
     from datetime import date as _date
 
-    # ── Compute number of calendar months in the selected period ──────────────
-    # Default to 1 so we never divide by zero.
     num_months: float = 1.0
     if start_date and end_date:
         try:
@@ -691,9 +705,6 @@ def budget_summary_by_period(
         except (ValueError, TypeError):
             num_months = 1.0
     else:
-        # All Time: derive month count from the earliest transaction in this
-        # company up to today.  This makes "Actual (monthly avg)" meaningful
-        # rather than collapsing to a raw all-time total ÷ 1.
         earliest_row = conn.execute(
             "SELECT MIN(txn_date) AS earliest FROM transactions WHERE company_id=?",
             (company_id,),
@@ -708,10 +719,7 @@ def budget_summary_by_period(
             except (ValueError, TypeError):
                 num_months = 1.0
 
-    # ── Build optional filter fragments ──────────────────────────────────────
-    # We keep separate param lists so the ? placeholder order exactly matches
-    # the position of each CTE in the final SQL string.
-    budget_params: list = [company_id, company_id]   # outer WHERE + inner correlated sub
+    budget_params: list = [company_id, company_id]
     actual_params: list = [company_id]
     final_params: list = [company_id]
 
@@ -737,9 +745,6 @@ def budget_summary_by_period(
 
     sql = f"""
         WITH
-        -- Most-recent monthly budget per expense account (NOT date-filtered).
-        -- Uses correlated MAX(month) sub-query for broad SQLite compatibility
-        -- (avoids ROW_NUMBER() window function which requires SQLite >= 3.25).
         user_budgets AS (
             SELECT b.account_id,
                    b.amount AS user_budget
@@ -752,7 +757,6 @@ def budget_summary_by_period(
                     AND  b2.account_id = b.account_id
               ){budget_acct_filter}
         ),
-        -- Actual spend in the selected date range (expense accounts only).
         period_actuals AS (
             SELECT t.account_id,
                    SUM(ABS(t.amount)) AS total_spend
@@ -779,13 +783,6 @@ def budget_summary_by_period(
         ORDER BY a.name
     """
 
-    # Parameter order must match the ?-placeholder positions in the SQL above:
-    #  1.  user_budgets CTE outer WHERE : company_id
-    #  2.  user_budgets CTE inner WHERE : company_id (+ optional account_id)
-    #  3.  period_actuals CTE           : company_id (+ optional dates + optional account_id)
-    #  4.  SELECT / actual expression   : num_months
-    #  5.  SELECT / variance expression : num_months
-    #  6.  Final outer WHERE            : company_id (+ optional account_id)
     all_params = (
         budget_params
         + actual_params
@@ -878,27 +875,9 @@ def monthly_trend(conn: sqlite3.Connection, company_id: int, months: int = 12, b
 
 
 def balance_sheet(conn: sqlite3.Connection, company_id: int) -> List[Dict]:
-    """
-    Return a balance sheet following proper accounting equation: Assets = Liabilities + Equity
-
-    Data sources:
-    1. Asset accounts: Balances computed from transactions flowing through linked bank accounts
-    2. Liability accounts: Balances computed from transactions flowing through linked bank accounts
-    3. Direct asset/liability/equity transactions (manual journal entries where account_id is asset/liability/equity)
-    4. Retained Earnings: Net Income (Income - Expenses) accumulated over time, shown as equity
-
-    Key insight: In this application, transactions.account_id points to COA categories
-    (income/expense accounts), NOT to bank/asset/liability accounts. The link to
-    asset/liability accounts is: transactions.bank_account_id → bank_accounts.ledger_account_id → accounts.
-
-    The balance sheet must always balance: Total Assets = Total Liabilities + Total Equity
-    """
     rows = []
     seen_account_ids = set()
 
-    # ── 1. Asset/Liability balances from bank account transactions ──
-    # Each bank_account links to a ledger account (asset or liability) via ledger_account_id.
-    # A bank account's balance = sum of all transaction amounts flowing through it.
     bank_balances = conn.execute("""
         SELECT a.id AS account_id, a.type, a.name AS account_name,
                COALESCE(SUM(t.amount), 0) AS balance
@@ -915,9 +894,6 @@ def balance_sheet(conn: sqlite3.Connection, company_id: int) -> List[Dict]:
         seen_account_ids.add(r.pop("account_id"))
         rows.append(r)
 
-    # ── 2. Direct asset/liability/equity transactions ──
-    # Catches manual journal entries where transactions.account_id directly
-    # points to an asset, liability, or equity account.
     direct_balances = conn.execute("""
         SELECT a.id AS account_id, a.type, a.name AS account_name, SUM(t.amount) AS balance
         FROM transactions t
@@ -931,7 +907,6 @@ def balance_sheet(conn: sqlite3.Connection, company_id: int) -> List[Dict]:
         r = dict(r)
         acct_id = r.pop("account_id")
         if acct_id in seen_account_ids:
-            # Merge with existing bank-account-derived balance
             for existing in rows:
                 if existing["account_name"] == r["account_name"] and existing["type"] == r["type"]:
                     existing["balance"] = round(existing["balance"] + r["balance"], 2)
@@ -940,13 +915,9 @@ def balance_sheet(conn: sqlite3.Connection, company_id: int) -> List[Dict]:
             seen_account_ids.add(acct_id)
             rows.append(r)
 
-    # Round all balances
     for r in rows:
         r["balance"] = round(r["balance"], 2)
 
-    # ── 3. Retained Earnings from income/expense operations ──
-    # Net income = total income + total expenses (expenses are stored as negatives)
-    # Retained Earnings is part of Equity
     net = conn.execute("""
         SELECT
             COALESCE(SUM(CASE WHEN a.type='income'  THEN t.amount ELSE 0 END), 0) AS total_income,
@@ -957,7 +928,7 @@ def balance_sheet(conn: sqlite3.Connection, company_id: int) -> List[Dict]:
     """, (company_id,)).fetchone()
 
     if net:
-        retained = float(net["total_income"]) + float(net["total_expense"])  # expenses are negative
+        retained = float(net["total_income"]) + float(net["total_expense"])
         if retained != 0:
             rows.append({
                 "type": "equity",
@@ -965,8 +936,6 @@ def balance_sheet(conn: sqlite3.Connection, company_id: int) -> List[Dict]:
                 "balance": round(retained, 2),
             })
 
-    # ── 4. Validation: Accounting Equation must balance ──
-    # Assets = Liabilities + Equity
     total_assets = sum(r["balance"] for r in rows if r["type"] == "asset")
     total_liabilities = sum(r["balance"] for r in rows if r["type"] == "liability")
     total_equity = sum(r["balance"] for r in rows if r["type"] == "equity")
@@ -981,11 +950,6 @@ def balance_sheet(conn: sqlite3.Connection, company_id: int) -> List[Dict]:
             f"BALANCE SHEET IMBALANCE: Assets (${total_assets:,.2f}) != "
             f"Liabilities (${total_liabilities:,.2f}) + Equity (${total_equity:,.2f}). "
             f"Difference: ${balance_check:,.2f}"
-        )
-    else:
-        logger.info(
-            f"Balance sheet balanced: Assets=${total_assets:,.2f}, "
-            f"Liabilities=${total_liabilities:,.2f}, Equity=${total_equity:,.2f}"
         )
 
     return rows
@@ -1027,14 +991,13 @@ def _audit(conn: sqlite3.Connection, company_id: int, entity_type: str,
 
 
 # ═══════════════════════════════════════════════════════
-#  BANK ACCOUNTS (learned from statements)
+#  BANK ACCOUNTS
 # ═══════════════════════════════════════════════════════
 
 def upsert_bank_account(conn: sqlite3.Connection, company_id: int,
                         bank_name: str, last_four: str,
                         full_number: str = "", nickname: str = "",
                         ledger_account_id: Optional[int] = None) -> int:
-    """Find or create a bank account. Returns the bank_account id."""
     if not bank_name or not last_four:
         return 0
     now = _now()
@@ -1043,7 +1006,6 @@ def upsert_bank_account(conn: sqlite3.Connection, company_id: int,
         (company_id, bank_name, last_four),
     ).fetchone()
     if row:
-        # Update ledger mapping if provided and not already set
         if ledger_account_id and not row["ledger_account_id"]:
             conn.execute(
                 "UPDATE bank_accounts SET ledger_account_id=?, updated_at=? WHERE id=?",
@@ -1073,22 +1035,16 @@ def list_bank_accounts(conn: sqlite3.Connection, company_id: int) -> List[Dict]:
 
 
 def ensure_bank_ledger_account(conn: sqlite3.Connection, bank_account_id: int) -> int:
-    """Ensure a bank account has a linked ledger account (Asset/Liability). Returns ledger_account_id."""
     ba = get_bank_account(conn, bank_account_id)
     if not ba:
         return 0
     if ba.get("ledger_account_id"):
         return int(ba["ledger_account_id"])
 
-    # Create a new Asset account for this bank account
     company_id = ba["company_id"]
     name = f"{ba['bank_name']} - {ba['last_four']}"
-    # Default to 'asset' for bank accounts. If it's a credit card, might be 'liability'
-    # but 'asset' is a safe default for now as most imports are checking/savings.
-    # In a full app, we'd guess based on bank name or user input.
     acct_type = "asset"
 
-    # Check if an account with this name already exists for the company
     existing = conn.execute(
         "SELECT id FROM accounts WHERE company_id=? AND name=? AND type=?",
         (company_id, name, acct_type)
@@ -1099,13 +1055,11 @@ def ensure_bank_ledger_account(conn: sqlite3.Connection, bank_account_id: int) -
     else:
         ledger_id = create_account(conn, company_id, name, acct_type)
 
-    # Link it back to the bank account
     update_bank_account(conn, bank_account_id, ledger_account_id=ledger_id)
     return ledger_id
 
 
 def get_or_create_bank_for_ledger(conn: sqlite3.Connection, company_id: int, ledger_account_id: int) -> int:
-    """Find a bank account linked to this ledger account, or create a dummy one just for mapping."""
     row = conn.execute("SELECT id FROM bank_accounts WHERE company_id=? AND ledger_account_id=?", (company_id, ledger_account_id)).fetchone()
     if row:
         return int(row["id"])
@@ -1140,12 +1094,135 @@ def update_bank_account(conn: sqlite3.Connection, bank_account_id: int, **kwargs
 
 def find_bank_account_by_last_four(conn: sqlite3.Connection, company_id: int,
                                     bank_name: str, last_four: str) -> Optional[Dict]:
-    """Look up a bank account by bank name + last 4 digits."""
     row = conn.execute(
         "SELECT ba.*, a.name AS ledger_account_name FROM bank_accounts ba LEFT JOIN accounts a ON ba.ledger_account_id = a.id WHERE ba.company_id=? AND ba.bank_name=? AND ba.last_four=?",
         (company_id, bank_name, last_four),
     ).fetchone()
     return dict(row) if row else None
+
+
+# ═══════════════════════════════════════════════════════
+#  RECONCILIATION
+# ═══════════════════════════════════════════════════════
+
+def get_last_reconciliation(conn: sqlite3.Connection, company_id: int, bank_account_id: int) -> Optional[Dict]:
+    """Return the most recent reconciliation for a bank account."""
+    row = conn.execute("""
+        SELECT * FROM reconciliations
+        WHERE company_id=? AND bank_account_id=?
+        ORDER BY reconciled_date DESC, id DESC
+        LIMIT 1
+    """, (company_id, bank_account_id)).fetchone()
+    return dict(row) if row else None
+
+
+def get_reconciliation_status(conn: sqlite3.Connection, company_id: int, bank_account_id: int) -> Dict:
+    """
+    Return reconciliation status for a bank account:
+    - last reconciled date & balance
+    - current LocalBooks balance
+    - list of unreconciled transactions
+    """
+    ba = get_bank_account(conn, bank_account_id)
+    if not ba:
+        return {}
+
+    last_rec = get_last_reconciliation(conn, company_id, bank_account_id)
+
+    # Current balance (all transactions)
+    balance_row = conn.execute("""
+        SELECT COALESCE(SUM(amount), 0) AS balance
+        FROM transactions
+        WHERE company_id=? AND bank_account_id=?
+    """, (company_id, bank_account_id)).fetchone()
+    current_balance = float(balance_row["balance"]) if balance_row else 0.0
+
+    # Unreconciled transactions
+    unrec_rows = conn.execute("""
+        SELECT t.id, t.txn_date, t.amount, t.description, t.source,
+               t.is_reconciled, t.reconciliation_id, t.bank_account_id,
+               v.name AS vendor_name
+        FROM transactions t
+        LEFT JOIN vendors v ON t.vendor_id = v.id
+        WHERE t.company_id=? AND t.bank_account_id=? AND t.is_reconciled=0
+        ORDER BY t.txn_date ASC, t.id ASC
+    """, (company_id, bank_account_id)).fetchall()
+
+    # Compute running balance for unreconciled txns starting from last reconciled balance
+    start_balance = float(last_rec["localbooks_balance"]) if last_rec else 0.0
+    running = start_balance
+    unreconciled = []
+    for r in unrec_rows:
+        row_dict = dict(r)
+        running += row_dict["amount"]
+        row_dict["running_balance"] = round(running, 2)
+        unreconciled.append(row_dict)
+
+    return {
+        "bank_account_id": bank_account_id,
+        "bank_name": ba["bank_name"],
+        "last_four": ba["last_four"],
+        "last_reconciled_date": last_rec["reconciled_date"] if last_rec else None,
+        "last_reconciled_balance": float(last_rec["statement_balance"]) if last_rec else None,
+        "localbooks_balance_today": round(current_balance, 2),
+        "unreconciled_count": len(unreconciled),
+        "unreconciled_transactions": unreconciled,
+    }
+
+
+def get_localbooks_balance_as_of(conn: sqlite3.Connection, company_id: int,
+                                  bank_account_id: int, as_of_date: str) -> float:
+    """Return the LocalBooks balance for a bank account as of a specific date."""
+    row = conn.execute("""
+        SELECT COALESCE(SUM(amount), 0) AS balance
+        FROM transactions
+        WHERE company_id=? AND bank_account_id=? AND txn_date <= ?
+    """, (company_id, bank_account_id, as_of_date)).fetchone()
+    return float(row["balance"]) if row else 0.0
+
+
+def save_reconciliation(conn: sqlite3.Connection, company_id: int, bank_account_id: int,
+                        reconciled_date: str, statement_balance: float,
+                        localbooks_balance: float, transaction_ids: List[int],
+                        notes: Optional[str] = None) -> int:
+    """
+    Save a reconciliation record and mark the given transactions as reconciled.
+    Returns the new reconciliation ID.
+    """
+    difference = round(statement_balance - localbooks_balance, 2)
+    status = "reconciled" if abs(difference) < 0.01 else "discrepancy"
+    now = _now()
+
+    cur = conn.execute("""
+        INSERT INTO reconciliations
+            (company_id, bank_account_id, reconciled_date, statement_balance,
+             localbooks_balance, difference, status, notes, created_at)
+        VALUES (?,?,?,?,?,?,?,?,?)
+    """, (company_id, bank_account_id, reconciled_date, statement_balance,
+          localbooks_balance, difference, status, notes, now))
+    rec_id = int(cur.lastrowid)
+
+    # Mark transactions as reconciled
+    if transaction_ids:
+        placeholders = ",".join("?" * len(transaction_ids))
+        conn.execute(
+            f"UPDATE transactions SET is_reconciled=1, reconciliation_id=?, updated_at=? WHERE id IN ({placeholders})",
+            [rec_id, now] + transaction_ids,
+        )
+
+    conn.commit()
+    return rec_id
+
+
+def list_reconciliations(conn: sqlite3.Connection, company_id: int,
+                         bank_account_id: Optional[int] = None) -> List[Dict]:
+    sql = "SELECT * FROM reconciliations WHERE company_id=?"
+    params: list = [company_id]
+    if bank_account_id:
+        sql += " AND bank_account_id=?"
+        params.append(bank_account_id)
+    sql += " ORDER BY reconciled_date DESC, id DESC"
+    return [dict(r) for r in conn.execute(sql, params).fetchall()]
 
 
 # ═══════════════════════════════════════════════════════
@@ -1155,11 +1232,6 @@ def find_bank_account_by_last_four(conn: sqlite3.Connection, company_id: int,
 def find_duplicate_transaction(conn: sqlite3.Connection, company_id: int,
                                 txn_date: str, amount: float,
                                 description: str = "") -> Optional[Dict]:
-    """
-    Check if a transaction with the same date, amount, and similar description
-    already exists in the ledger. Returns the existing transaction if found.
-    """
-    # Exact match on date + amount
     sql = """
         SELECT t.*, v.name AS vendor_name, a.name AS account_name
         FROM transactions t
@@ -1173,18 +1245,14 @@ def find_duplicate_transaction(conn: sqlite3.Connection, company_id: int,
     if not rows:
         return None
 
-    # If description provided, check for similarity
     if description:
         desc_lower = description.lower().strip()
         for row in rows:
             existing_desc = (row.get("description") or "").lower().strip()
-            # Exact match
             if existing_desc == desc_lower:
                 return row
-            # Partial match (one contains the other or >60% overlap)
             if desc_lower in existing_desc or existing_desc in desc_lower:
                 return row
-            # Word overlap check
             words_new = set(desc_lower.split())
             words_old = set(existing_desc.split())
             if words_new and words_old:
@@ -1192,16 +1260,12 @@ def find_duplicate_transaction(conn: sqlite3.Connection, company_id: int,
                 if overlap > 0.5:
                     return row
 
-    # If no description or no desc match, return first date+amount match
     return rows[0]
 
 
 def check_doc_transaction_duplicate(conn: sqlite3.Connection, company_id: int,
                                      txn_date: str, amount: float,
                                      description: str = "") -> Tuple[bool, Optional[int]]:
-    """
-    Returns (is_duplicate, existing_txn_id).
-    """
     dup = find_duplicate_transaction(conn, company_id, txn_date, amount, description)
     if dup:
         return True, int(dup["id"])
@@ -1213,7 +1277,6 @@ def check_doc_transaction_duplicate(conn: sqlite3.Connection, company_id: int,
 # ═══════════════════════════════════════════════════════
 
 def backup_database(conn: sqlite3.Connection, backup_path: str) -> None:
-    """Create a full backup of the database."""
     import shutil
     db_path = conn.execute("PRAGMA database_list").fetchone()["file"]
     if db_path:

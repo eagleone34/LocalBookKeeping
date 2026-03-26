@@ -40,6 +40,17 @@ export const deleteAccount = (id) =>
   request(`/api/accounts/${id}`, { method: 'DELETE' });
 export const getAccountTransactionCount = (id) =>
   request(`/api/accounts/${id}/transaction-count`);
+export const getAccountBalance = (id) =>
+  request(`/api/accounts/${id}/balance`);
+export const getAllAccountBalances = () =>
+  request('/api/accounts/balances/all');
+export const getAccountLedger = (id, dateFrom, dateTo) => {
+  const qs = new URLSearchParams();
+  if (dateFrom) qs.set('date_from', dateFrom);
+  if (dateTo) qs.set('date_to', dateTo);
+  const q = qs.toString();
+  return request(`/api/accounts/${id}/ledger${q ? '?' + q : ''}`);
+};
 
 // Transactions
 export const getTransactions = (params = {}) => {
@@ -66,9 +77,6 @@ export const upsertBudget = (data) =>
 export const deleteBudget = (id) =>
   request(`/api/budgets/${id}`, { method: 'DELETE' });
 
-/**
- * GET /api/budgets/summary
- */
 export const getBudgetSummary = (startDate, endDate, accountId) => {
   const qs = new URLSearchParams();
   if (startDate) qs.set('start_date', startDate);
@@ -186,3 +194,13 @@ export const importMappedCsv = (data) =>
 // Smart categorization
 export const suggestCategories = (data) =>
   request('/api/transactions/suggest-categories', { method: 'POST', body: JSON.stringify(data) });
+
+// Reconciliation
+export const getReconciliationStatus = (bankAccountId) =>
+  request(`/api/reconciliation/${bankAccountId}/status`);
+export const getBalanceAsOf = (bankAccountId, date) =>
+  request(`/api/reconciliation/${bankAccountId}/balance-as-of?date=${date}`);
+export const saveReconciliation = (bankAccountId, data) =>
+  request(`/api/reconciliation/${bankAccountId}`, { method: 'POST', body: JSON.stringify(data) });
+export const getReconciliationHistory = (bankAccountId) =>
+  request(`/api/reconciliation/${bankAccountId}/history`);

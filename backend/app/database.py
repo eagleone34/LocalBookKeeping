@@ -49,24 +49,27 @@ CREATE TABLE IF NOT EXISTS vendors (
 
 -- Transactions (the core ledger)
 CREATE TABLE IF NOT EXISTS transactions (
-    id          INTEGER PRIMARY KEY AUTOINCREMENT,
-    company_id  INTEGER NOT NULL REFERENCES company(id),
-    account_id  INTEGER NOT NULL REFERENCES accounts(id),
-    vendor_id   INTEGER REFERENCES vendors(id),
-    txn_date    TEXT NOT NULL,
-    description TEXT,
-    memo        TEXT,
-    amount      REAL NOT NULL,
-    is_posted   INTEGER NOT NULL DEFAULT 1,
-    source      TEXT NOT NULL DEFAULT 'manual',
-    source_doc_id INTEGER REFERENCES documents(id),
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    company_id      INTEGER NOT NULL REFERENCES company(id),
+    account_id      INTEGER NOT NULL REFERENCES accounts(id),
+    vendor_id       INTEGER REFERENCES vendors(id),
+    txn_date        TEXT NOT NULL,
+    description     TEXT,
+    memo            TEXT,
+    amount          REAL NOT NULL,
+    is_posted       INTEGER NOT NULL DEFAULT 1,
+    source          TEXT NOT NULL DEFAULT 'manual',
+    source_doc_id   INTEGER REFERENCES documents(id),
     bank_account_id INTEGER REFERENCES bank_accounts(id),
-    created_at  TEXT NOT NULL,
-    updated_at  TEXT NOT NULL
+    is_reconciled   INTEGER NOT NULL DEFAULT 0,
+    reconciliation_id INTEGER REFERENCES reconciliations(id),
+    created_at      TEXT NOT NULL,
+    updated_at      TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_txn_company_date ON transactions(company_id, txn_date);
 CREATE INDEX IF NOT EXISTS idx_txn_account ON transactions(account_id);
 CREATE INDEX IF NOT EXISTS idx_txn_vendor ON transactions(vendor_id);
+CREATE INDEX IF NOT EXISTS idx_txn_bank_account ON transactions(bank_account_id);
 
 -- Monthly Budgets
 CREATE TABLE IF NOT EXISTS budgets (
@@ -113,6 +116,7 @@ CREATE TABLE IF NOT EXISTS document_transactions (
     is_duplicate        INTEGER NOT NULL DEFAULT 0,
     duplicate_of_txn_id INTEGER,
     bank_account_id     INTEGER REFERENCES bank_accounts(id),
+    category_id         INTEGER REFERENCES accounts(id),
     created_at          TEXT NOT NULL
 );
 
@@ -152,6 +156,21 @@ CREATE TABLE IF NOT EXISTS bank_accounts (
     updated_at  TEXT NOT NULL,
     UNIQUE(company_id, bank_name, last_four)
 );
+
+-- Bank reconciliations
+CREATE TABLE IF NOT EXISTS reconciliations (
+    id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+    company_id          INTEGER NOT NULL REFERENCES company(id),
+    bank_account_id     INTEGER NOT NULL REFERENCES bank_accounts(id),
+    reconciled_date     TEXT NOT NULL,
+    statement_balance   REAL NOT NULL,
+    localbooks_balance  REAL NOT NULL,
+    difference          REAL NOT NULL,
+    status              TEXT NOT NULL DEFAULT 'reconciled' CHECK(status IN ('reconciled','discrepancy')),
+    notes               TEXT,
+    created_at          TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_reconciliations_bank ON reconciliations(bank_account_id);
 
 -- Audit trail
 CREATE TABLE IF NOT EXISTS audit_log (
@@ -194,6 +213,8 @@ def _migrate(conn: sqlite3.Connection) -> None:
     migrations = [
         ("transactions", "bank_account_id", "ALTER TABLE transactions ADD COLUMN bank_account_id INTEGER REFERENCES bank_accounts(id)"),
         ("transactions", "category_id", "ALTER TABLE transactions ADD COLUMN category_id INTEGER REFERENCES accounts(id)"),
+        ("transactions", "is_reconciled", "ALTER TABLE transactions ADD COLUMN is_reconciled INTEGER NOT NULL DEFAULT 0"),
+        ("transactions", "reconciliation_id", "ALTER TABLE transactions ADD COLUMN reconciliation_id INTEGER REFERENCES reconciliations(id)"),
         ("document_transactions", "is_duplicate", "ALTER TABLE document_transactions ADD COLUMN is_duplicate INTEGER NOT NULL DEFAULT 0"),
         ("document_transactions", "duplicate_of_txn_id", "ALTER TABLE document_transactions ADD COLUMN duplicate_of_txn_id INTEGER"),
         ("document_transactions", "bank_account_id", "ALTER TABLE document_transactions ADD COLUMN bank_account_id INTEGER REFERENCES bank_accounts(id)"),
@@ -210,77 +231,92 @@ def _migrate(conn: sqlite3.Connection) -> None:
                 conn.commit()
         except Exception:
             pass
-    
-        # --- Backfill blank account codes ---
-        try:
-            blank_count = conn.execute(
-                "SELECT COUNT(*) FROM accounts WHERE code IS NULL OR code = ''"
-            ).fetchone()[0]
-            if blank_count > 0:
-                code_bases = {
-                    "asset": 1000,
-                    "liability": 2000,
-                    "equity": 3000,
-                    "income": 4000,
-                    "expense": 5000,
-                }
-    
-                company_ids = [
-                    r[0] for r in conn.execute("SELECT DISTINCT company_id FROM accounts").fetchall()
-                ]
-    
-                for cid in company_ids:
-                    blanks = conn.execute(
-                        "SELECT id, type FROM accounts WHERE company_id=? AND (code IS NULL OR code = '')",
-                        (cid,),
-                    ).fetchall()
-                    if not blanks:
-                        continue
-    
-                    for acct_id, acct_type in blanks:
-                        base = code_bases.get(acct_type, 5000)
-                        range_end = base + 999
-    
-                        rows = conn.execute(
-                            "SELECT code FROM accounts WHERE company_id=? AND type=? AND code IS NOT NULL AND code != ''",
-                            (cid, acct_type),
-                        ).fetchall()
-    
-                        max_code = base - 10
-                        for row in rows:
-                            try:
-                                val = int(row[0])
-                                if base <= val <= range_end and val > max_code:
-                                    max_code = val
-                            except (ValueError, TypeError):
-                                continue
-    
-                        new_code = str(max_code + 10)
-                        now = datetime.utcnow().isoformat()
-                        conn.execute(
-                            "UPDATE accounts SET code=?, updated_at=? WHERE id=?",
-                            (new_code, now, acct_id),
-                        )
-    
-                conn.commit()
-        except Exception:
-            pass
 
-    # ═══════════════════════════════════════════════════════
-    #  Data Migration: Copy account_id to category_id for existing records
-    #  This ensures backward compatibility with the new Account/Category separation
-    # ═══════════════════════════════════════════════════════
+    # Ensure reconciliations table exists (for older DBs that predate it)
     try:
-        # Check if we need to migrate transactions
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS reconciliations (
+                id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+                company_id          INTEGER NOT NULL REFERENCES company(id),
+                bank_account_id     INTEGER NOT NULL REFERENCES bank_accounts(id),
+                reconciled_date     TEXT NOT NULL,
+                statement_balance   REAL NOT NULL,
+                localbooks_balance  REAL NOT NULL,
+                difference          REAL NOT NULL,
+                status              TEXT NOT NULL DEFAULT 'reconciled',
+                notes               TEXT,
+                created_at          TEXT NOT NULL
+            )
+        """)
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_reconciliations_bank ON reconciliations(bank_account_id)")
+        conn.commit()
+    except Exception:
+        pass
+
+    # --- Backfill blank account codes ---
+    try:
+        blank_count = conn.execute(
+            "SELECT COUNT(*) FROM accounts WHERE code IS NULL OR code = ''"
+        ).fetchone()[0]
+        if blank_count > 0:
+            code_bases = {
+                "asset": 1000,
+                "liability": 2000,
+                "equity": 3000,
+                "income": 4000,
+                "expense": 5000,
+            }
+
+            company_ids = [
+                r[0] for r in conn.execute("SELECT DISTINCT company_id FROM accounts").fetchall()
+            ]
+
+            for cid in company_ids:
+                blanks = conn.execute(
+                    "SELECT id, type FROM accounts WHERE company_id=? AND (code IS NULL OR code = '')",
+                    (cid,),
+                ).fetchall()
+                if not blanks:
+                    continue
+
+                for acct_id, acct_type in blanks:
+                    base = code_bases.get(acct_type, 5000)
+                    range_end = base + 999
+
+                    rows = conn.execute(
+                        "SELECT code FROM accounts WHERE company_id=? AND type=? AND code IS NOT NULL AND code != ''",
+                        (cid, acct_type),
+                    ).fetchall()
+
+                    max_code = base - 10
+                    for row in rows:
+                        try:
+                            val = int(row[0])
+                            if base <= val <= range_end and val > max_code:
+                                max_code = val
+                        except (ValueError, TypeError):
+                            continue
+
+                    new_code = str(max_code + 10)
+                    now = datetime.utcnow().isoformat()
+                    conn.execute(
+                        "UPDATE accounts SET code=?, updated_at=? WHERE id=?",
+                        (new_code, now, acct_id),
+                    )
+
+            conn.commit()
+    except Exception:
+        pass
+
+    # Data Migration: Copy account_id to category_id for existing records
+    try:
         cols = [r[1] for r in conn.execute("PRAGMA table_info(transactions)").fetchall()]
         if "category_id" in cols:
-            # Migrate transactions: copy account_id to category_id where category_id is NULL
             conn.execute("""
                 UPDATE transactions
                 SET category_id = account_id
                 WHERE category_id IS NULL AND account_id IS NOT NULL
             """)
-            # Migrate document_transactions: copy suggested_account_id to category_id
             conn.execute("""
                 UPDATE document_transactions
                 SET category_id = suggested_account_id

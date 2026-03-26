@@ -1,16 +1,33 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   getAccounts, createAccount, updateAccount, archiveAccount,
   restoreAccount, deleteAccount, getAccountTransactionCount,
+  getAllAccountBalances,
 } from '../api/client';
-import { Plus, Archive, RotateCcw, Edit2, X, Check, Trash2, ChevronDown, ChevronRight } from 'lucide-react';
+import {
+  Plus, Archive, RotateCcw, Edit2, X, Check, Trash2,
+  ChevronDown, ChevronRight, ExternalLink, Scale,
+} from 'lucide-react';
 import GroupedAccountSelect from '../components/GroupedAccountSelect';
 
 const TYPES = ['income', 'expense', 'asset', 'liability'];
-const TYPE_COLORS = { income: 'badge-income', expense: 'badge-expense', asset: 'badge-asset', liability: 'badge-liability' };
+const TYPE_COLORS = {
+  income: 'badge-income',
+  expense: 'badge-expense',
+  asset: 'badge-asset',
+  liability: 'badge-liability',
+};
+
+function formatMoney(val) {
+  if (val === undefined || val === null) return null;
+  return new Intl.NumberFormat('en-CA', { style: 'currency', currency: 'USD' }).format(val);
+}
 
 export default function Accounts() {
+  const navigate = useNavigate();
   const [accounts, setAccounts] = useState([]);
+  const [balances, setBalances] = useState({}); // { account_id: balance }
   const [showInactive, setShowInactive] = useState(false);
   const [showNewForm, setShowNewForm] = useState(false);
   const [editId, setEditId] = useState(null);
@@ -19,10 +36,17 @@ export default function Accounts() {
   const [collapsedTypes, setCollapsedTypes] = useState(new Set());
   const [deleteError, setDeleteError] = useState(null);
 
-  const load = () => getAccounts(showInactive).then(setAccounts).catch(console.error);
+  const load = async () => {
+    const [accts, bals] = await Promise.all([
+      getAccounts(showInactive).catch(() => []),
+      getAllAccountBalances().catch(() => ({})),
+    ]);
+    setAccounts(accts);
+    setBalances(bals);
+  };
+
   useEffect(() => { load(); }, [showInactive]);
 
-  // ─── Create new account ───
   const handleCreateSubmit = async (e) => {
     e.preventDefault();
     await createAccount(newForm);
@@ -31,7 +55,6 @@ export default function Accounts() {
     load();
   };
 
-  // ─── Start inline editing ───
   const startEdit = (acc) => {
     setEditId(acc.id);
     setEditForm({
@@ -57,7 +80,6 @@ export default function Accounts() {
     load();
   };
 
-  // ─── Delete with transaction check ───
   const handleDelete = async (acc) => {
     setDeleteError(null);
     try {
@@ -74,7 +96,6 @@ export default function Accounts() {
     }
   };
 
-  // ─── Collapse/expand type groups ───
   const toggleType = (type) => {
     const next = new Set(collapsedTypes);
     next.has(type) ? next.delete(type) : next.add(type);
@@ -114,7 +135,7 @@ export default function Accounts() {
         </div>
       )}
 
-      {/* New Account Form (top-level, only for creating) */}
+      {/* New Account Form */}
       {showNewForm && (
         <div className="card border-2 border-primary-200 bg-primary-50/30">
           <h3 className="text-lg font-semibold mb-4 text-primary-700">New Account</h3>
@@ -154,6 +175,8 @@ export default function Accounts() {
       {/* Accounts grouped by type */}
       {grouped.map(({ type, label, items }) => {
         const isCollapsed = collapsedTypes.has(type);
+        const isBalanceType = type === 'asset' || type === 'liability';
+
         return (
           <div key={type} className="card">
             <div
@@ -181,13 +204,19 @@ export default function Accounts() {
                         <th className="text-left py-2 px-2 text-gray-500 font-medium w-20">Code</th>
                         <th className="text-left py-2 px-2 text-gray-500 font-medium">Name</th>
                         <th className="text-left py-2 px-2 text-gray-500 font-medium">Description</th>
+                        {isBalanceType && (
+                          <th className="text-right py-2 px-2 text-gray-500 font-medium w-36">Balance</th>
+                        )}
                         <th className="text-left py-2 px-2 text-gray-500 font-medium w-24">Status</th>
-                        <th className="text-right py-2 px-2 text-gray-500 font-medium w-36">Actions</th>
+                        <th className="text-right py-2 px-2 text-gray-500 font-medium w-48">Actions</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {items.map(acc => (
-                        editId === acc.id ? (
+                      {items.map(acc => {
+                        const balance = balances[acc.id];
+                        const hasBalance = balance !== undefined;
+
+                        return editId === acc.id ? (
                           /* ═══ INLINE EDIT ROW ═══ */
                           <tr key={acc.id} className="border-b border-primary-100 bg-primary-50/40">
                             <td className="py-2 px-2">
@@ -215,6 +244,7 @@ export default function Accounts() {
                                 placeholder="Description"
                               />
                             </td>
+                            {isBalanceType && <td className="py-2 px-2" />}
                             <td className="py-2 px-2">
                               <select
                                 value={editForm.type}
@@ -226,18 +256,10 @@ export default function Accounts() {
                             </td>
                             <td className="py-2 px-2 text-right">
                               <div className="flex justify-end gap-1">
-                                <button
-                                  onClick={saveEdit}
-                                  className="p-1.5 rounded-lg bg-emerald-100 hover:bg-emerald-200 text-emerald-700"
-                                  title="Save"
-                                >
+                                <button onClick={saveEdit} className="p-1.5 rounded-lg bg-emerald-100 hover:bg-emerald-200 text-emerald-700" title="Save">
                                   <Check className="w-4 h-4" />
                                 </button>
-                                <button
-                                  onClick={cancelEdit}
-                                  className="p-1.5 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-500"
-                                  title="Cancel"
-                                >
+                                <button onClick={cancelEdit} className="p-1.5 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-500" title="Cancel">
                                   <X className="w-4 h-4" />
                                 </button>
                               </div>
@@ -252,6 +274,23 @@ export default function Accounts() {
                               {acc.name}
                             </td>
                             <td className="py-2 px-2 text-gray-500 max-w-xs truncate">{acc.description || '-'}</td>
+                            {isBalanceType && (
+                              <td className="py-2 px-2 text-right">
+                                {hasBalance ? (
+                                  <span
+                                    className={`font-semibold text-sm ${
+                                      type === 'asset'
+                                        ? balance >= 0 ? 'text-emerald-600' : 'text-red-600'
+                                        : balance <= 0 ? 'text-amber-600' : 'text-gray-600'
+                                    }`}
+                                  >
+                                    {formatMoney(balance)}
+                                  </span>
+                                ) : (
+                                  <span className="text-gray-300 text-xs">—</span>
+                                )}
+                              </td>
+                            )}
                             <td className="py-2 px-2">
                               {acc.is_active
                                 ? <span className="badge bg-emerald-100 text-emerald-700">Active</span>
@@ -260,6 +299,16 @@ export default function Accounts() {
                             </td>
                             <td className="py-2 px-2 text-right">
                               <div className="flex justify-end gap-1">
+                                {/* Ledger drill-down for asset/liability accounts that have a balance */}
+                                {isBalanceType && hasBalance && (
+                                  <button
+                                    onClick={() => navigate(`/accounts/${acc.id}/ledger`)}
+                                    className="p-1.5 rounded-lg hover:bg-blue-50 text-gray-400 hover:text-blue-600"
+                                    title="View ledger & transactions"
+                                  >
+                                    <ExternalLink className="w-4 h-4" />
+                                  </button>
+                                )}
                                 <button
                                   onClick={() => startEdit(acc)}
                                   className="p-1.5 rounded-lg hover:bg-blue-50 text-gray-400 hover:text-blue-600"
@@ -294,8 +343,8 @@ export default function Accounts() {
                               </div>
                             </td>
                           </tr>
-                        )
-                      ))}
+                        );
+                      })}
                     </tbody>
                   </table>
                 )}

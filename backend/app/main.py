@@ -1,9 +1,6 @@
 r"""
 LocalBooks - Main FastAPI Application.
 Local-first bookkeeping for small businesses.
-
-NOTE: This exe is always run from its installed location (Documents\LocalBooks\).
-The installer (LocalBooks_Setup.exe) handles installation and shortcut creation.
 """
 from __future__ import annotations
 
@@ -21,20 +18,17 @@ APP_URL = "http://127.0.0.1:8000"
 
 
 def _is_server_running() -> bool:
-    """Check if the LocalBooks server is already listening on port 8000."""
     try:
         with socket.create_connection(("127.0.0.1", 8000), timeout=1.0):
             return True
     except OSError:
         return False
 
-# Silence stdout/stderr in noconsole exe so uvicorn doesn't crash
 if sys.stdout is None:
     sys.stdout = open(os.devnull, "w")
 if sys.stderr is None:
     sys.stderr = open(os.devnull, "w")
 
-# Crash log
 LOG_FILE = Path.home() / "Documents" / "LocalBooks" / "localbooks.log"
 
 
@@ -59,17 +53,12 @@ def show_error(title: str, msg: str):
 log("=== LocalBooks starting ===")
 log(f"exe: {sys.executable}")
 
-# ── Data directories ──
 if getattr(sys, 'frozen', False):
-    # Running as a packaged exe from Documents\LocalBooks\
     INSTALL_DIR = Path(sys.executable).parent
     DATA_DIR = INSTALL_DIR / "company_data"
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     DB_PATH = DATA_DIR / "ledgerlocal.db"
 
-    # On first run (no existing DB), copy the bundled golden-copy DB.
-    # The installer (bootstrapper.py) protects company_data/ during updates, so this
-    # branch should only fire on a genuine first-run on a fresh machine.
     bundled_db = Path(sys._MEIPASS) / "company_data" / "ledgerlocal.db"
     if DB_PATH.exists():
         log(f"[DATA SAFE] Using existing database at {DB_PATH} ({DB_PATH.stat().st_size} bytes)")
@@ -82,7 +71,6 @@ if getattr(sys, 'frozen', False):
 
     FRONTEND_DIST = Path(sys._MEIPASS) / "frontend" / "dist"
 else:
-    # Dev mode
     DATA_DIR = Path(__file__).resolve().parent.parent / "company_data"
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     DB_PATH = DATA_DIR / "ledgerlocal.db"
@@ -91,7 +79,6 @@ else:
 log(f"DB_PATH: {DB_PATH}")
 log(f"FRONTEND_DIST: {FRONTEND_DIST}")
 
-# ── Imports ──
 try:
     import uvicorn
     from fastapi import FastAPI, Request
@@ -110,19 +97,18 @@ try:
     from app.services.seed_data import seed_demo_data, seed_default_accounts
     from app.services.update_service import check_for_updates
     from app.routers import accounts, transactions, budgets, reports, documents, settings
+    from app.routers import reconciliation
     log("App modules OK")
 except Exception:
     show_error("LocalBooks - Import Error", traceback.format_exc())
     sys.exit(1)
 
-# ── DB ──
 try:
     conn = connect(str(DB_PATH))
     init_schema(conn)
     company_id = ensure_company(conn, "Demo Company", "USD")
     seed_demo_data(conn, company_id)
 
-    # ── Retrofix: ensure ALL companies have default accounts & bank accounts ──
     all_companies = conn.execute("SELECT id FROM company ORDER BY id").fetchall()
     for row in all_companies:
         cid = row["id"]
@@ -135,7 +121,6 @@ except Exception:
     show_error("LocalBooks - Database Error", traceback.format_exc())
     sys.exit(1)
 
-# ── App ──
 app = FastAPI(title="LocalBooks", version="1.0.0")
 
 app.add_middleware(
@@ -159,6 +144,7 @@ app.include_router(budgets.router)
 app.include_router(reports.router)
 app.include_router(documents.router)
 app.include_router(settings.router)
+app.include_router(reconciliation.router)
 
 @app.get("/api/health")
 def health():
@@ -200,24 +186,16 @@ def _auto_shutdown_monitor():
     while True:
         time.sleep(5)
         now = time.time()
-
-        # If the loop took abnormally long to return (e.g., PC was asleep),
-        # we skip this shutdown check cycle to give the frontend a chance to hit the heartbeat api.
         if now - last_check > 10.0:
             last_check = now
             continue
-
         if now - _last_heartbeat > 30.0:
             log("No heartbeat received for 30 seconds. Shutting down LocalBooks background process.")
             os._exit(0)
-
         last_check = now
 
 
 if __name__ == "__main__":
-    # ── Single-instance guard ──
-    # If the server is already running (e.g. user clicked the exe again after
-    # closing the browser tab), just open the browser and exit cleanly.
     if _is_server_running():
         log("Server already running – opening browser.")
         webbrowser.open(APP_URL)

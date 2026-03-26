@@ -3,6 +3,8 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import Layout from './components/Layout';
 import Dashboard from './pages/Dashboard';
 import Accounts from './pages/Accounts';
+import AccountLedger from './pages/AccountLedger';
+import Reconciliation from './pages/Reconciliation';
 import Transactions from './pages/Transactions';
 import Budgets from './pages/Budgets';
 import Reports from './pages/Reports';
@@ -11,7 +13,6 @@ import SettingsPage from './pages/Settings';
 
 export default function App() {
   useEffect(() => {
-    // Ping the backend every 5 seconds so it knows the app is still open
     const id = setInterval(() => {
       fetch('/api/heartbeat').catch(() => {});
     }, 5000);
@@ -24,6 +25,8 @@ export default function App() {
         <Route element={<Layout />}>
           <Route path="/" element={<Dashboard />} />
           <Route path="/accounts" element={<Accounts />} />
+          <Route path="/accounts/:accountId/ledger" element={<AccountLedger />} />
+          <Route path="/reconciliation/:bankAccountId" element={<Reconciliation />} />
           <Route path="/transactions" element={<Transactions />} />
           <Route path="/budgets" element={<Budgets />} />
           <Route path="/reports" element={<Reports />} />

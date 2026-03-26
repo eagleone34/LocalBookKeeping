@@ -64,9 +64,7 @@ class VendorOut(BaseModel):
 
 # ── Transactions ─────────────────────────────────────
 class TransactionCreate(BaseModel):
-    # account_id is deprecated, use category_id for COA category
     account_id: Optional[int] = None
-    # category_id is the COA classification (expense/income account)
     category_id: Optional[int] = None
     vendor_name: Optional[str] = None
     txn_date: str
@@ -74,12 +72,10 @@ class TransactionCreate(BaseModel):
     memo: Optional[str] = None
     amount: float
     source: str = "manual"
-    # bank_account_id is the source bank account (required for Account/Category separation)
     bank_account_id: Optional[int] = None
 
 
 class TransactionUpdate(BaseModel):
-    # account_id is deprecated, use category_id for COA category
     account_id: Optional[int] = None
     category_id: Optional[int] = None
     vendor_name: Optional[str] = None
@@ -92,11 +88,9 @@ class TransactionUpdate(BaseModel):
 
 class TransactionOut(BaseModel):
     id: int
-    # account_id and account_name are deprecated, kept for backward compatibility
     account_id: int
     account_name: str = ""
     account_type: str = ""
-    # category_id, category_name, category_type are the new COA classification fields
     category_id: Optional[int] = None
     category_name: Optional[str] = None
     category_type: Optional[str] = None
@@ -111,6 +105,8 @@ class TransactionOut(BaseModel):
     source_doc_id: Optional[int] = None
     bank_account_id: Optional[int] = None
     bank_account_name: Optional[str] = None
+    is_reconciled: bool = False
+    reconciliation_id: Optional[int] = None
     created_at: str
     updated_at: str
 
@@ -120,10 +116,36 @@ class BulkRecategorize(BaseModel):
     category_id: int
 
 
+# ── Ledger (Account drill-down with running balance) ──
+class LedgerRow(BaseModel):
+    id: int
+    txn_date: str
+    vendor_name: Optional[str]
+    description: Optional[str]
+    amount: float
+    running_balance: float
+    is_reconciled: bool = False
+    reconciliation_id: Optional[int] = None
+    source: str = "manual"
+    bank_account_id: Optional[int] = None
+
+
+class AccountBalanceOut(BaseModel):
+    account_id: int
+    account_name: str
+    account_type: str
+    balance: float
+    bank_account_id: Optional[int] = None
+    bank_name: Optional[str] = None
+    last_four: Optional[str] = None
+    last_reconciled_date: Optional[str] = None
+    last_reconciled_balance: Optional[float] = None
+
+
 # ── Budgets ──────────────────────────────────────────
 class BudgetUpsert(BaseModel):
     account_id: int
-    month: Optional[str] = None  # "YYYY-MM" - defaults to current month if not provided
+    month: Optional[str] = None
     amount: float
     notes: Optional[str] = None
 
@@ -141,16 +163,6 @@ class BudgetOut(BaseModel):
 
 
 class BudgetSummaryRow(BaseModel):
-    """Per-category row returned by GET /api/budgets/summary.
-
-    ``user_budget`` is the most-recent monthly budget amount the user has set
-    for this category — it is NOT filtered by the date-range query params.
-
-    ``actual`` is the monthly-normalised actual spend: total spend in the
-    requested period divided by the number of calendar months that period spans.
-
-    ``variance`` = user_budget - actual  (positive → under budget).
-    """
     account_id: int
     account_name: str
     user_budget: float = 0.0
@@ -180,11 +192,8 @@ class MappedTransactionIn(BaseModel):
 
 class BulkImportRequest(BaseModel):
     filename: str
-    # bank_account_id is the source bank account for imported transactions (REQUIRED)
     bank_account_id: Optional[int] = None
-    # category_id is the default category for auto-categorization (optional)
     category_id: Optional[int] = None
-    # Deprecated: ledger_account_id was used to auto-create/link bank account
     ledger_account_id: Optional[int] = None
     bank_name: Optional[str] = None
     account_last_four: Optional[str] = None
@@ -198,18 +207,14 @@ class DocTransactionOut(BaseModel):
     description: Optional[str]
     amount: Optional[float]
     vendor_name: Optional[str]
-    # suggested_account_id is deprecated, use suggested_category_id
     suggested_account_id: Optional[int] = None
     suggested_account_name: Optional[str] = None
-    # suggested_category_id is the new COA classification field
     suggested_category_id: Optional[int] = None
     suggested_category_name: Optional[str] = None
     confidence: float
     status: str
-    # user_account_id is deprecated, use user_category_id
     user_account_id: Optional[int] = None
     user_account_name: Optional[str] = None
-    # user_category_id is the new COA classification field
     user_category_id: Optional[int] = None
     user_category_name: Optional[str] = None
     is_duplicate: bool = False
@@ -220,18 +225,14 @@ class DocTransactionOut(BaseModel):
 
 class DocTransactionAction(BaseModel):
     action: str = Field(..., pattern="^(approve|reject|revert)$")
-    # account_id is deprecated, use category_id
     account_id: Optional[int] = None
-    # category_id is the COA classification override
     category_id: Optional[int] = None
 
 
 class BulkDocTransactionAction(BaseModel):
     ids: List[int]
     action: str = Field(..., pattern="^(approve|reject|revert)$")
-    # account_id is deprecated, use category_id
     account_id: Optional[int] = None
-    # category_id is the COA classification override
     category_id: Optional[int] = None
 
 
@@ -335,6 +336,38 @@ class BankAccountOut(BaseModel):
     ledger_account_name: Optional[str] = None
     created_at: str
     updated_at: str
+
+
+# ── Reconciliation ───────────────────────────────────
+class ReconciliationCreate(BaseModel):
+    statement_date: str          # YYYY-MM-DD
+    statement_balance: float
+    notes: Optional[str] = None
+    transaction_ids: List[int] = []   # IDs of transactions to mark as reconciled
+
+
+class ReconciliationOut(BaseModel):
+    id: int
+    company_id: int
+    bank_account_id: int
+    reconciled_date: str
+    statement_balance: float
+    localbooks_balance: float
+    difference: float
+    status: str
+    notes: Optional[str]
+    created_at: str
+
+
+class ReconciliationStatusOut(BaseModel):
+    bank_account_id: int
+    bank_name: str
+    last_four: str
+    last_reconciled_date: Optional[str]
+    last_reconciled_balance: Optional[float]
+    localbooks_balance_today: float
+    unreconciled_count: int
+    unreconciled_transactions: List[LedgerRow]
 
 
 # ── Category Suggestion ──────────────────────────────

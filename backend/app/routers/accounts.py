@@ -1,5 +1,5 @@
 """
-Accounts API endpoints.
+Accounts API endpoints — including balance, ledger drill-down, and bank account management.
 """
 from __future__ import annotations
 
@@ -7,7 +7,11 @@ from typing import List, Optional
 
 from fastapi import APIRouter, HTTPException
 
-from app.models import AccountCreate, AccountOut, AccountUpdate, BankAccountCreate, BankAccountOut
+from app.models import (
+    AccountCreate, AccountOut, AccountUpdate,
+    BankAccountCreate, BankAccountOut,
+    AccountBalanceOut, LedgerRow,
+)
 from app.main_state import get_conn, get_live_conn, get_company_id
 from app.services import data_service as ds
 
@@ -54,7 +58,6 @@ def restore_account(account_id: int):
 
 @router.delete("/{account_id}")
 def delete_account(account_id: int):
-    """Delete account only if it has zero transactions."""
     txn_count = ds.count_account_transactions(get_live_conn(), account_id)
     if txn_count > 0:
         raise HTTPException(
@@ -71,35 +74,120 @@ def delete_account(account_id: int):
 
 @router.get("/{account_id}/transaction-count")
 def account_transaction_count(account_id: int):
-    """Return how many transactions reference this account."""
     count = ds.count_account_transactions(get_conn(), account_id)
     return {"account_id": account_id, "count": count}
 
 
-# ═══════════════════════════════════════════════════════
-#  BANK ACCOUNTS (Account ↔ COA linking)
-# ═══════════════════════════════════════════════════════
+# ── Balance ───────────────────────────────────────────────────────────────────
+
+@router.get("/{account_id}/balance", response_model=AccountBalanceOut)
+def get_account_balance(account_id: int):
+    """
+    Return the current balance for an asset/liability account.
+    Balance is computed from all transactions linked via bank_account → ledger_account.
+    Also returns last reconciliation info if available.
+    """
+    conn = get_conn()
+    company_id = get_company_id()
+
+    acc = ds.get_account(conn, account_id)
+    if not acc:
+        raise HTTPException(404, "Account not found")
+
+    balance = ds.get_account_balance(conn, company_id, account_id)
+
+    # Find linked bank account (if any)
+    ba_row = conn.execute(
+        "SELECT * FROM bank_accounts WHERE company_id=? AND ledger_account_id=? LIMIT 1",
+        (company_id, account_id),
+    ).fetchone()
+
+    last_rec = None
+    bank_account_id = None
+    bank_name = None
+    last_four = None
+
+    if ba_row:
+        bank_account_id = int(ba_row["id"])
+        bank_name = ba_row["bank_name"]
+        last_four = ba_row["last_four"]
+        last_rec = ds.get_last_reconciliation(conn, company_id, bank_account_id)
+
+    return AccountBalanceOut(
+        account_id=account_id,
+        account_name=acc["name"],
+        account_type=acc["type"],
+        balance=round(balance, 2),
+        bank_account_id=bank_account_id,
+        bank_name=bank_name,
+        last_four=last_four,
+        last_reconciled_date=last_rec["reconciled_date"] if last_rec else None,
+        last_reconciled_balance=float(last_rec["statement_balance"]) if last_rec else None,
+    )
+
+
+@router.get("/balances/all")
+def get_all_account_balances():
+    """
+    Return balances for all asset/liability accounts that have a linked bank account.
+    Used by the Accounts page to show balances inline.
+    """
+    conn = get_conn()
+    company_id = get_company_id()
+    balance_map = ds.get_account_balances_for_company(conn, company_id)
+    return balance_map
+
+
+# ── Ledger (drill-down) ───────────────────────────────────────────────────────
+
+@router.get("/{account_id}/ledger", response_model=List[LedgerRow])
+def get_account_ledger(
+    account_id: int,
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+):
+    """
+    Return all transactions for a ledger account with running balance.
+    Sorted oldest → newest.
+    """
+    conn = get_conn()
+    company_id = get_company_id()
+
+    acc = ds.get_account(conn, account_id)
+    if not acc:
+        raise HTTPException(404, "Account not found")
+
+    rows = ds.get_account_ledger(conn, company_id, account_id, date_from, date_to)
+    return [
+        LedgerRow(
+            id=r["id"],
+            txn_date=r["txn_date"],
+            vendor_name=r.get("vendor_name"),
+            description=r.get("description"),
+            amount=r["amount"],
+            running_balance=r["running_balance"],
+            is_reconciled=bool(r.get("is_reconciled", 0)),
+            reconciliation_id=r.get("reconciliation_id"),
+            source=r.get("source", "manual"),
+            bank_account_id=r.get("bank_account_id"),
+        )
+        for r in rows
+    ]
+
+
+# ── Bank Accounts ─────────────────────────────────────────────────────────────
 
 @router.get("/bank-accounts", response_model=List[BankAccountOut])
 def list_bank_accounts():
-    """Return all bank accounts with their linked COA account info."""
     rows = ds.list_bank_accounts(get_conn(), get_company_id())
     return [_bank_to_out(r) for r in rows]
 
 
 @router.post("/bank-accounts", response_model=BankAccountOut, status_code=201)
 def create_bank_account(body: BankAccountCreate):
-    """
-    Create a bank account AND automatically create a corresponding COA account
-    if one doesn't already exist.
-
-    - checking/savings → asset COA account
-    - credit_card → liability COA account
-    """
     conn = get_live_conn()
     company_id = get_company_id()
 
-    # Determine COA account type based on bank account type
     if body.account_type == "credit_card":
         coa_type = "liability"
         label = "Credit Card"
@@ -110,11 +198,9 @@ def create_bank_account(body: BankAccountCreate):
         coa_type = "asset"
         label = "Checking"
 
-    # Build a descriptive COA account name: "Chase Checking ****1234"
     masked = f"****{body.last_four}" if body.last_four else ""
     coa_name = f"{body.bank_name} {label} {masked}".strip()
 
-    # Check if a COA account with this name already exists
     existing_coa = conn.execute(
         "SELECT id FROM accounts WHERE company_id=? AND name=? AND type=?",
         (company_id, coa_name, coa_type),
@@ -123,13 +209,11 @@ def create_bank_account(body: BankAccountCreate):
     if existing_coa:
         ledger_account_id = int(existing_coa["id"])
     else:
-        # Create the COA account
         ledger_account_id = ds.create_account(
             conn, company_id, coa_name, coa_type,
             description=f"Auto-created for {body.bank_name} {body.last_four}",
         )
 
-    # Create (or find) the bank account, linked to the COA account
     bank_id = ds.upsert_bank_account(
         conn, company_id,
         bank_name=body.bank_name,
@@ -139,13 +223,10 @@ def create_bank_account(body: BankAccountCreate):
         ledger_account_id=ledger_account_id,
     )
 
-    # If the bank account already existed but had no ledger link, update it
     ba = ds.get_bank_account(conn, bank_id)
     if ba and not ba.get("ledger_account_id"):
         ds.update_bank_account(conn, bank_id, ledger_account_id=ledger_account_id)
-        ba = ds.get_bank_account(conn, bank_id)
 
-    # Return full bank account info with ledger account name
     row = ds.find_bank_account_by_last_four(conn, company_id, body.bank_name, body.last_four)
     if not row:
         raise HTTPException(500, "Bank account created but not found")
@@ -154,10 +235,11 @@ def create_bank_account(body: BankAccountCreate):
 
 @router.put("/bank-accounts/{bank_account_id}")
 def update_bank_account(bank_account_id: int, body: dict):
-    """Update bank account fields (e.g., link a ledger account)."""
     ds.update_bank_account(get_live_conn(), bank_account_id, **body)
     return {"ok": True}
 
+
+# ── Helpers ───────────────────────────────────────────────────────────────────
 
 def _to_out(row: dict) -> AccountOut:
     return AccountOut(
