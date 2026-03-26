@@ -18,112 +18,10 @@ from app.services import data_service as ds
 router = APIRouter(prefix="/api/accounts", tags=["accounts"])
 
 
-@router.get("", response_model=List[AccountOut])
-def list_accounts(include_inactive: bool = False):
-    rows = ds.list_accounts(get_conn(), get_company_id(), include_inactive)
-    return [_to_out(r) for r in rows]
-
-
-@router.post("", response_model=AccountOut, status_code=201)
-def create_account(body: AccountCreate):
-    aid = ds.create_account(
-        get_live_conn(), get_company_id(), body.name, body.type,
-        body.parent_id, body.code, body.description,
-    )
-    row = ds.get_account(get_live_conn(), aid)
-    return _to_out(row)
-
-
-@router.put("/{account_id}", response_model=AccountOut)
-def update_account(account_id: int, body: AccountUpdate):
-    kwargs = body.model_dump(exclude_none=True)
-    ds.update_account(get_live_conn(), account_id, **kwargs)
-    row = ds.get_account(get_live_conn(), account_id)
-    if not row:
-        raise HTTPException(404, "Account not found")
-    return _to_out(row)
-
-
-@router.post("/{account_id}/archive")
-def archive_account(account_id: int):
-    ds.archive_account(get_live_conn(), account_id)
-    return {"ok": True}
-
-
-@router.post("/{account_id}/restore")
-def restore_account(account_id: int):
-    ds.restore_account(get_live_conn(), account_id)
-    return {"ok": True}
-
-
-@router.delete("/{account_id}")
-def delete_account(account_id: int):
-    txn_count = ds.count_account_transactions(get_live_conn(), account_id)
-    if txn_count > 0:
-        raise HTTPException(
-            400,
-            f"Cannot delete account: it has {txn_count} transaction(s). "
-            "Remove or re-categorize them first, or archive the account instead.",
-        )
-    acc = ds.get_account(get_live_conn(), account_id)
-    if not acc:
-        raise HTTPException(404, "Account not found")
-    ds.delete_account(get_live_conn(), account_id)
-    return {"ok": True, "message": f"Account '{acc['name']}' deleted"}
-
-
-@router.get("/{account_id}/transaction-count")
-def account_transaction_count(account_id: int):
-    count = ds.count_account_transactions(get_conn(), account_id)
-    return {"account_id": account_id, "count": count}
-
-
-# ── Balance ───────────────────────────────────────────────────────────────────
-
-@router.get("/{account_id}/balance", response_model=AccountBalanceOut)
-def get_account_balance(account_id: int):
-    """
-    Return the current balance for an asset/liability account.
-    Balance is computed from all transactions linked via bank_account → ledger_account.
-    Also returns last reconciliation info if available.
-    """
-    conn = get_conn()
-    company_id = get_company_id()
-
-    acc = ds.get_account(conn, account_id)
-    if not acc:
-        raise HTTPException(404, "Account not found")
-
-    balance = ds.get_account_balance(conn, company_id, account_id)
-
-    # Find linked bank account (if any)
-    ba_row = conn.execute(
-        "SELECT * FROM bank_accounts WHERE company_id=? AND ledger_account_id=? LIMIT 1",
-        (company_id, account_id),
-    ).fetchone()
-
-    last_rec = None
-    bank_account_id = None
-    bank_name = None
-    last_four = None
-
-    if ba_row:
-        bank_account_id = int(ba_row["id"])
-        bank_name = ba_row["bank_name"]
-        last_four = ba_row["last_four"]
-        last_rec = ds.get_last_reconciliation(conn, company_id, bank_account_id)
-
-    return AccountBalanceOut(
-        account_id=account_id,
-        account_name=acc["name"],
-        account_type=acc["type"],
-        balance=round(balance, 2),
-        bank_account_id=bank_account_id,
-        bank_name=bank_name,
-        last_four=last_four,
-        last_reconciled_date=last_rec["reconciled_date"] if last_rec else None,
-        last_reconciled_balance=float(last_rec["statement_balance"]) if last_rec else None,
-    )
+# ── Static routes MUST come before dynamic /{account_id}/... routes ──────────
+# FastAPI matches routes in registration order. If /{account_id}/balance is
+# registered before /balances/all, then GET /api/accounts/balances/all will
+# try to parse "balances" as an integer account_id and return a 422 error.
 
 
 @router.get("/balances/all")
@@ -131,51 +29,13 @@ def get_all_account_balances():
     """
     Return balances for all asset/liability accounts that have a linked bank account.
     Used by the Accounts page to show balances inline.
+    Returns a dict of {ledger_account_id: balance}.
     """
     conn = get_conn()
     company_id = get_company_id()
     balance_map = ds.get_account_balances_for_company(conn, company_id)
     return balance_map
 
-
-# ── Ledger (drill-down) ───────────────────────────────────────────────────────
-
-@router.get("/{account_id}/ledger", response_model=List[LedgerRow])
-def get_account_ledger(
-    account_id: int,
-    date_from: Optional[str] = None,
-    date_to: Optional[str] = None,
-):
-    """
-    Return all transactions for a ledger account with running balance.
-    Sorted oldest → newest.
-    """
-    conn = get_conn()
-    company_id = get_company_id()
-
-    acc = ds.get_account(conn, account_id)
-    if not acc:
-        raise HTTPException(404, "Account not found")
-
-    rows = ds.get_account_ledger(conn, company_id, account_id, date_from, date_to)
-    return [
-        LedgerRow(
-            id=r["id"],
-            txn_date=r["txn_date"],
-            vendor_name=r.get("vendor_name"),
-            description=r.get("description"),
-            amount=r["amount"],
-            running_balance=r["running_balance"],
-            is_reconciled=bool(r.get("is_reconciled", 0)),
-            reconciliation_id=r.get("reconciliation_id"),
-            source=r.get("source", "manual"),
-            bank_account_id=r.get("bank_account_id"),
-        )
-        for r in rows
-    ]
-
-
-# ── Bank Accounts ─────────────────────────────────────────────────────────────
 
 @router.get("/bank-accounts", response_model=List[BankAccountOut])
 def list_bank_accounts():
@@ -237,6 +97,151 @@ def create_bank_account(body: BankAccountCreate):
 def update_bank_account(bank_account_id: int, body: dict):
     ds.update_bank_account(get_live_conn(), bank_account_id, **body)
     return {"ok": True}
+
+
+# ── Standard CRUD (no path conflicts below here) ──────────────────────────────
+
+@router.get("", response_model=List[AccountOut])
+def list_accounts(include_inactive: bool = False):
+    rows = ds.list_accounts(get_conn(), get_company_id(), include_inactive)
+    return [_to_out(r) for r in rows]
+
+
+@router.post("", response_model=AccountOut, status_code=201)
+def create_account(body: AccountCreate):
+    aid = ds.create_account(
+        get_live_conn(), get_company_id(), body.name, body.type,
+        body.parent_id, body.code, body.description,
+    )
+    row = ds.get_account(get_live_conn(), aid)
+    return _to_out(row)
+
+
+# ── Dynamic /{account_id}/... routes — registered AFTER all static routes ─────
+
+@router.get("/{account_id}/balance", response_model=AccountBalanceOut)
+def get_account_balance(account_id: int):
+    """
+    Return the current balance for an asset/liability account.
+    Balance is computed from all transactions linked via bank_account → ledger_account.
+    Also returns last reconciliation info if available.
+    """
+    conn = get_conn()
+    company_id = get_company_id()
+
+    acc = ds.get_account(conn, account_id)
+    if not acc:
+        raise HTTPException(404, "Account not found")
+
+    balance = ds.get_account_balance(conn, company_id, account_id)
+
+    # Find linked bank account (if any)
+    ba_row = conn.execute(
+        "SELECT * FROM bank_accounts WHERE company_id=? AND ledger_account_id=? LIMIT 1",
+        (company_id, account_id),
+    ).fetchone()
+
+    last_rec = None
+    bank_account_id = None
+    bank_name = None
+    last_four = None
+
+    if ba_row:
+        bank_account_id = int(ba_row["id"])
+        bank_name = ba_row["bank_name"]
+        last_four = ba_row["last_four"]
+        last_rec = ds.get_last_reconciliation(conn, company_id, bank_account_id)
+
+    return AccountBalanceOut(
+        account_id=account_id,
+        account_name=acc["name"],
+        account_type=acc["type"],
+        balance=round(balance, 2),
+        bank_account_id=bank_account_id,
+        bank_name=bank_name,
+        last_four=last_four,
+        last_reconciled_date=last_rec["reconciled_date"] if last_rec else None,
+        last_reconciled_balance=float(last_rec["statement_balance"]) if last_rec else None,
+    )
+
+
+@router.get("/{account_id}/ledger", response_model=List[LedgerRow])
+def get_account_ledger(
+    account_id: int,
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+):
+    """
+    Return all transactions for a ledger account with running balance.
+    Sorted oldest → newest.
+    """
+    conn = get_conn()
+    company_id = get_company_id()
+
+    acc = ds.get_account(conn, account_id)
+    if not acc:
+        raise HTTPException(404, "Account not found")
+
+    rows = ds.get_account_ledger(conn, company_id, account_id, date_from, date_to)
+    return [
+        LedgerRow(
+            id=r["id"],
+            txn_date=r["txn_date"],
+            vendor_name=r.get("vendor_name"),
+            description=r.get("description"),
+            amount=r["amount"],
+            running_balance=r["running_balance"],
+            is_reconciled=bool(r.get("is_reconciled", 0)),
+            reconciliation_id=r.get("reconciliation_id"),
+            source=r.get("source", "manual"),
+            bank_account_id=r.get("bank_account_id"),
+        )
+        for r in rows
+    ]
+
+
+@router.get("/{account_id}/transaction-count")
+def account_transaction_count(account_id: int):
+    count = ds.count_account_transactions(get_conn(), account_id)
+    return {"account_id": account_id, "count": count}
+
+
+@router.put("/{account_id}", response_model=AccountOut)
+def update_account(account_id: int, body: AccountUpdate):
+    kwargs = body.model_dump(exclude_none=True)
+    ds.update_account(get_live_conn(), account_id, **kwargs)
+    row = ds.get_account(get_live_conn(), account_id)
+    if not row:
+        raise HTTPException(404, "Account not found")
+    return _to_out(row)
+
+
+@router.post("/{account_id}/archive")
+def archive_account(account_id: int):
+    ds.archive_account(get_live_conn(), account_id)
+    return {"ok": True}
+
+
+@router.post("/{account_id}/restore")
+def restore_account(account_id: int):
+    ds.restore_account(get_live_conn(), account_id)
+    return {"ok": True}
+
+
+@router.delete("/{account_id}")
+def delete_account(account_id: int):
+    txn_count = ds.count_account_transactions(get_live_conn(), account_id)
+    if txn_count > 0:
+        raise HTTPException(
+            400,
+            f"Cannot delete account: it has {txn_count} transaction(s). "
+            "Remove or re-categorize them first, or archive the account instead.",
+        )
+    acc = ds.get_account(get_live_conn(), account_id)
+    if not acc:
+        raise HTTPException(404, "Account not found")
+    ds.delete_account(get_live_conn(), account_id)
+    return {"ok": True, "message": f"Account '{acc['name']}' deleted"}
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
