@@ -69,4 +69,4 @@ echo =========================================
 echo DONE! Share backend\dist\LocalBooks_Setup.exe
 echo That is the single file users download and run.
 echo =========================================
-pause
+echo Build completed successfully - continuing...
