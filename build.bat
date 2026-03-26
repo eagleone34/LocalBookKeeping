@@ -19,6 +19,14 @@ cd ..
 echo.
 echo [2/4] Building React Frontend...
 cd frontend
+call npm install
+if %ERRORLEVEL% NEQ 0 (
+    echo.
+    echo ERROR: npm install failed!
+    cd ..
+    pause
+    exit /b 1
+)
 call npm run build
 if %ERRORLEVEL% NEQ 0 (
     echo.
