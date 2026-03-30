@@ -124,9 +124,6 @@ export default function Reports() {
   const totalLiabilities = liabilities.reduce((s, r) => s + Math.abs(r.balance), 0);
   const totalEquity = equity.reduce((s, r) => s + r.balance, 0);
   
-  // Balance sheet validation: Assets = Liabilities + Equity
-  const balanceCheck = Math.abs(totalAssets - (totalLiabilities + totalEquity));
-
   return (
     <div className="space-y-6">
       {/* Page heading */}
