@@ -327,6 +327,36 @@ class TestDuplicateDetection:
         is_dup, _ = check_doc_transaction_duplicate(db, company, "2026-02-15", -50.00, "Amazon Business")
         assert is_dup is True
 
+    def test_detect_staging_duplicate(self, db, company):
+        """Re-importing the same statement before posting should detect duplicates in staging."""
+        doc_id = create_document(db, company, "stmt.pdf", "pdf", 1)
+        create_doc_transaction(db, doc_id, txn_date="2026-02-15", description="Amazon purchase",
+                               amount=-50.00, vendor_name="Amazon", suggested_account_id=None,
+                               confidence=0.0)
+        # Same transaction not yet posted — second import should flag it as a duplicate
+        is_dup, dup_id = check_doc_transaction_duplicate(db, company, "2026-02-15", -50.00, "Amazon purchase")
+        assert is_dup is True
+        assert dup_id is None  # No committed transaction id — still in staging
+
+    def test_no_staging_duplicate_different_amount(self, db, company):
+        """Staging transactions with different amounts are not duplicates."""
+        doc_id = create_document(db, company, "stmt.pdf", "pdf", 1)
+        create_doc_transaction(db, doc_id, txn_date="2026-02-15", description="Amazon purchase",
+                               amount=-50.00, vendor_name="Amazon", suggested_account_id=None,
+                               confidence=0.0)
+        is_dup, _ = check_doc_transaction_duplicate(db, company, "2026-02-15", -75.00, "Amazon purchase")
+        assert is_dup is False
+
+    def test_no_staging_duplicate_rejected(self, db, company):
+        """Rejected staging transactions are not considered active duplicates."""
+        doc_id = create_document(db, company, "stmt.pdf", "pdf", 1)
+        dt_id = create_doc_transaction(db, doc_id, txn_date="2026-02-15", description="Amazon purchase",
+                                       amount=-50.00, vendor_name="Amazon", suggested_account_id=None,
+                                       confidence=0.0)
+        update_doc_transaction(db, dt_id, status="rejected")
+        is_dup, _ = check_doc_transaction_duplicate(db, company, "2026-02-15", -50.00, "Amazon purchase")
+        assert is_dup is False
+
 
 class TestSmartCategorization:
     """Tests for the full categorization pipeline."""
