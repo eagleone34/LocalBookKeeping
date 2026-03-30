@@ -119,7 +119,6 @@ export default function Reports() {
   // Balance sheet groups
   const assets = balanceSheet.filter(r => r.type === 'asset');
   const liabilities = balanceSheet.filter(r => r.type === 'liability');
-  const equity = balanceSheet.filter(r => r.type === 'equity');
   const totalAssets = assets.reduce((s, r) => s + r.balance, 0);
   const totalLiabilities = liabilities.reduce((s, r) => s + Math.abs(r.balance), 0);
   
