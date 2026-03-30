@@ -1229,9 +1229,40 @@ def list_reconciliations(conn: sqlite3.Connection, company_id: int,
 #  DUPLICATE DETECTION
 # ═══════════════════════════════════════════════════════
 
+def _desc_matches(existing_desc: str, desc_lower: str) -> bool:
+    """Return True if two descriptions are similar enough to be considered the same."""
+    if existing_desc == desc_lower:
+        return True
+    if desc_lower in existing_desc or existing_desc in desc_lower:
+        return True
+    words_new = set(desc_lower.split())
+    words_old = set(existing_desc.split())
+    if words_new and words_old:
+        overlap = len(words_new & words_old) / max(len(words_new), len(words_old))
+        if overlap > 0.5:
+            return True
+    return False
+
+
+def _pick_desc_match(rows: list, description: str) -> Optional[Dict]:
+    """Given a list of candidate rows, return the best description match (or rows[0] if no description)."""
+    if not rows:
+        return None
+    if description:
+        desc_lower = description.lower().strip()
+        for row in rows:
+            existing_desc = (row.get("description") or "").lower().strip()
+            if _desc_matches(existing_desc, desc_lower):
+                return row
+        # No description match found — don't treat as duplicate
+        return None
+    return rows[0]
+
+
 def find_duplicate_transaction(conn: sqlite3.Connection, company_id: int,
                                 txn_date: str, amount: float,
                                 description: str = "") -> Optional[Dict]:
+    # 1. Check posted transactions — exact date match
     sql = """
         SELECT t.*, v.name AS vendor_name, a.name AS account_name
         FROM transactions t
@@ -1239,28 +1270,27 @@ def find_duplicate_transaction(conn: sqlite3.Connection, company_id: int,
         LEFT JOIN accounts a ON t.account_id = a.id
         WHERE t.company_id=? AND t.txn_date=? AND ABS(t.amount - ?) < 0.01
     """
-    params: list = [company_id, txn_date, amount]
+    rows = [dict(r) for r in conn.execute(sql, [company_id, txn_date, amount]).fetchall()]
+    match = _pick_desc_match(rows, description)
+    if match is not None:
+        return match
 
-    rows = [dict(r) for r in conn.execute(sql, params).fetchall()]
-    if not rows:
-        return None
+    # 2. Check staging (document_transactions not yet posted).
+    #    Catches re-imports of the same statement before any transactions are posted.
+    staging_sql = """
+        SELECT dt.id, dt.txn_date, dt.description, dt.amount
+        FROM document_transactions dt
+        JOIN documents d ON dt.document_id = d.id
+        WHERE d.company_id=? AND dt.txn_date=? AND ABS(dt.amount - ?) < 0.01
+          AND dt.status NOT IN ('rejected', 'duplicate')
+    """
+    staging_rows = [dict(r) for r in conn.execute(staging_sql, [company_id, txn_date, amount]).fetchall()]
+    staging_match = _pick_desc_match(staging_rows, description)
+    if staging_match is not None:
+        staging_match["_staging"] = True
+        return staging_match
 
-    if description:
-        desc_lower = description.lower().strip()
-        for row in rows:
-            existing_desc = (row.get("description") or "").lower().strip()
-            if existing_desc == desc_lower:
-                return row
-            if desc_lower in existing_desc or existing_desc in desc_lower:
-                return row
-            words_new = set(desc_lower.split())
-            words_old = set(existing_desc.split())
-            if words_new and words_old:
-                overlap = len(words_new & words_old) / max(len(words_new), len(words_old))
-                if overlap > 0.5:
-                    return row
-
-    return rows[0]
+    return None
 
 
 def check_doc_transaction_duplicate(conn: sqlite3.Connection, company_id: int,
@@ -1268,6 +1298,9 @@ def check_doc_transaction_duplicate(conn: sqlite3.Connection, company_id: int,
                                      description: str = "") -> Tuple[bool, Optional[int]]:
     dup = find_duplicate_transaction(conn, company_id, txn_date, amount, description)
     if dup:
+        # Staging matches have no committed transaction id to link to
+        if dup.get("_staging"):
+            return True, None
         return True, int(dup["id"])
     return False, None
 

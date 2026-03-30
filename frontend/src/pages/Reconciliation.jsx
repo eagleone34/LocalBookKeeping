@@ -134,7 +134,7 @@ export default function Reconciliation() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-gray-400">Loading reconciliation...</div>
+        <div className="text-gray-400 dark:text-gray-500">Loading reconciliation...</div>
       </div>
     );
   }
@@ -162,23 +162,23 @@ export default function Reconciliation() {
       <div className="flex items-center gap-4">
         <button
           onClick={() => navigate(-1)}
-          className="p-2 rounded-lg hover:bg-gray-100 text-gray-500 hover:text-gray-700 transition-colors"
+          className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
         >
           <ArrowLeft className="w-5 h-5" />
         </button>
         <div className="flex-1">
-          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 flex items-center gap-2">
             <Scale className="w-6 h-6 text-primary-600" />
             Reconcile Account
           </h1>
-          <p className="text-gray-500 mt-0.5">
+          <p className="text-gray-500 dark:text-gray-400 mt-0.5">
             {status.bank_name}
             {status.last_four ? ` ****${status.last_four}` : ''}
           </p>
         </div>
         <button
           onClick={() => setShowHistory(!showHistory)}
-          className="flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 text-sm text-gray-600 hover:bg-gray-50 transition-colors"
+          className="flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
         >
           <History className="w-4 h-4" />
           History
@@ -188,13 +188,13 @@ export default function Reconciliation() {
 
       {/* Success / Error messages */}
       {successMsg && (
-        <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 px-4 py-3 rounded-lg flex items-center gap-2">
+        <div className="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 px-4 py-3 rounded-lg flex items-center gap-2">
           <CheckCircle2 className="w-5 h-5 text-emerald-600 flex-shrink-0" />
           {successMsg}
         </div>
       )}
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-center gap-2">
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 px-4 py-3 rounded-lg flex items-center gap-2">
           <AlertTriangle className="w-5 h-5 flex-shrink-0" />
           {error}
         </div>
@@ -203,26 +203,26 @@ export default function Reconciliation() {
       {/* Reconciliation History */}
       {showHistory && (
         <div className="card">
-          <h3 className="text-base font-semibold text-gray-800 mb-3 flex items-center gap-2">
+          <h3 className="text-base font-semibold text-gray-800 dark:text-gray-200 mb-3 flex items-center gap-2">
             <History className="w-4 h-4 text-gray-500" />
             Reconciliation History
           </h3>
           {history.length === 0 ? (
-            <p className="text-gray-400 text-sm">No reconciliations yet.</p>
+            <p className="text-gray-400 dark:text-gray-500 text-sm">No reconciliations yet.</p>
           ) : (
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-gray-200">
-                  <th className="py-2 px-3 text-left text-gray-500 font-medium">Date</th>
-                  <th className="py-2 px-3 text-right text-gray-500 font-medium">Statement Balance</th>
-                  <th className="py-2 px-3 text-right text-gray-500 font-medium">LocalBooks Balance</th>
-                  <th className="py-2 px-3 text-right text-gray-500 font-medium">Difference</th>
-                  <th className="py-2 px-3 text-center text-gray-500 font-medium">Status</th>
+                <tr className="border-b border-gray-200 dark:border-gray-700">
+                  <th className="py-2 px-3 text-left text-gray-500 dark:text-gray-400 font-medium">Date</th>
+                  <th className="py-2 px-3 text-right text-gray-500 dark:text-gray-400 font-medium">Statement Balance</th>
+                  <th className="py-2 px-3 text-right text-gray-500 dark:text-gray-400 font-medium">LocalBooks Balance</th>
+                  <th className="py-2 px-3 text-right text-gray-500 dark:text-gray-400 font-medium">Difference</th>
+                  <th className="py-2 px-3 text-center text-gray-500 dark:text-gray-400 font-medium">Status</th>
                 </tr>
               </thead>
               <tbody>
                 {history.map(rec => (
-                  <tr key={rec.id} className="border-b border-gray-100 hover:bg-gray-50">
+                  <tr key={rec.id} className="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700">
                     <td className="py-2 px-3">{formatDate(rec.reconciled_date)}</td>
                     <td className="py-2 px-3 text-right font-medium">{formatMoney(rec.statement_balance)}</td>
                     <td className="py-2 px-3 text-right">{formatMoney(rec.localbooks_balance)}</td>
@@ -231,9 +231,9 @@ export default function Reconciliation() {
                     </td>
                     <td className="py-2 px-3 text-center">
                       {rec.status === 'reconciled' ? (
-                        <span className="badge bg-emerald-100 text-emerald-700">Balanced</span>
+                        <span className="badge bg-emerald-100 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400">Balanced</span>
                       ) : (
-                        <span className="badge bg-red-100 text-red-700">Discrepancy</span>
+                        <span className="badge bg-red-100 dark:bg-red-900/20 text-red-700 dark:text-red-400">Discrepancy</span>
                       )}
                     </td>
                   </tr>
@@ -247,37 +247,37 @@ export default function Reconciliation() {
       {/* Status summary */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="card text-center py-4">
-          <p className="text-xs text-gray-500 mb-1">Last Reconciled</p>
-          <p className="text-sm font-semibold text-gray-800">
+          <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Last Reconciled</p>
+          <p className="text-sm font-semibold text-gray-800 dark:text-gray-200">
             {status.last_reconciled_date ? formatDate(status.last_reconciled_date) : 'Never'}
           </p>
           {status.last_reconciled_balance !== null && (
-            <p className="text-xs text-gray-400 mt-0.5">{formatMoney(status.last_reconciled_balance)}</p>
+            <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{formatMoney(status.last_reconciled_balance)}</p>
           )}
         </div>
         <div className="card text-center py-4">
-          <p className="text-xs text-gray-500 mb-1">Current Balance</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Current Balance</p>
           <p className={`text-lg font-bold ${status.localbooks_balance_today >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
             {formatMoney(status.localbooks_balance_today)}
           </p>
         </div>
         <div className="card text-center py-4">
-          <p className="text-xs text-gray-500 mb-1">Unreconciled</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Unreconciled</p>
           <p className="text-lg font-bold text-amber-600">{status.unreconciled_count}</p>
-          <p className="text-xs text-gray-400">transactions</p>
+          <p className="text-xs text-gray-400 dark:text-gray-500">transactions</p>
         </div>
         <div className="card text-center py-4">
-          <p className="text-xs text-gray-500 mb-1">Checked Sum</p>
-          <p className={`text-lg font-bold ${checkedSum >= 0 ? 'text-gray-800' : 'text-red-600'}`}>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Checked Sum</p>
+          <p className={`text-lg font-bold ${checkedSum >= 0 ? 'text-gray-800 dark:text-gray-200' : 'text-red-600'}`}>
             {formatMoney(checkedSum)}
           </p>
-          <p className="text-xs text-gray-400">{checkedIds.size} selected</p>
+          <p className="text-xs text-gray-400 dark:text-gray-500">{checkedIds.size} selected</p>
         </div>
       </div>
 
       {/* Reconciliation form */}
       <div className="card">
-        <h3 className="text-base font-semibold text-gray-800 mb-4">New Reconciliation</h3>
+        <h3 className="text-base font-semibold text-gray-800 dark:text-gray-200 mb-4">New Reconciliation</h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
           <div>
             <label className="label">Statement Date *</label>
@@ -314,31 +314,31 @@ export default function Reconciliation() {
         {/* Balance comparison */}
         <div className={`rounded-lg p-4 mb-4 border ${
           difference === null
-            ? 'bg-gray-50 border-gray-200'
+            ? 'bg-gray-50 dark:bg-gray-700/50 border-gray-200 dark:border-gray-600'
             : isBalanced
-              ? 'bg-emerald-50 border-emerald-200'
-              : 'bg-red-50 border-red-200'
+              ? 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800'
+              : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'
         }`}>
           <div className="grid grid-cols-3 gap-4 text-center">
             <div>
-              <p className="text-xs text-gray-500 mb-1">Statement Balance</p>
-              <p className="text-lg font-bold text-gray-800">
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Statement Balance</p>
+              <p className="text-lg font-bold text-gray-800 dark:text-gray-200">
                 {isNaN(parsedStatementBalance) ? '—' : formatMoney(parsedStatementBalance)}
               </p>
             </div>
             <div>
-              <p className="text-xs text-gray-500 mb-1">
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">
                 LocalBooks Balance
-                {statementDate && <span className="ml-1 text-gray-400">as of {formatDate(statementDate)}</span>}
+                {statementDate && <span className="ml-1 text-gray-400 dark:text-gray-500">as of {formatDate(statementDate)}</span>}
               </p>
-              <p className="text-lg font-bold text-gray-800">
+              <p className="text-lg font-bold text-gray-800 dark:text-gray-200">
                 {loadingBalance ? '…' : localBooksBalance !== null ? formatMoney(localBooksBalance) : '—'}
               </p>
             </div>
             <div>
-              <p className="text-xs text-gray-500 mb-1">Difference</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Difference</p>
               {difference === null ? (
-                <p className="text-lg font-bold text-gray-400">—</p>
+                <p className="text-lg font-bold text-gray-400 dark:text-gray-500">—</p>
               ) : isBalanced ? (
                 <p className="text-lg font-bold text-emerald-600 flex items-center justify-center gap-1">
                   <CheckCircle2 className="w-5 h-5" /> $0.00 Balanced!
@@ -352,7 +352,7 @@ export default function Reconciliation() {
           </div>
 
           {difference !== null && !isBalanced && (
-            <div className="mt-3 text-sm text-red-700 bg-red-100 rounded p-3">
+            <div className="mt-3 text-sm text-red-700 dark:text-red-400 bg-red-100 dark:bg-red-900/30 rounded p-3">
               <p className="font-semibold mb-1">Possible causes of discrepancy:</p>
               <ul className="list-disc list-inside space-y-0.5 text-xs">
                 <li>Transactions in your bank statement not yet entered in LocalBooks</li>
@@ -381,19 +381,19 @@ export default function Reconciliation() {
 
       {/* Unreconciled transactions */}
       <div className="card overflow-hidden p-0">
-        <div className="bg-gray-50 border-b border-gray-200 px-4 py-3 flex items-center justify-between">
-          <h3 className="text-base font-semibold text-gray-800 flex items-center gap-2">
+        <div className="bg-gray-50 dark:bg-gray-700/50 border-b border-gray-200 dark:border-gray-700 px-4 py-3 flex items-center justify-between">
+          <h3 className="text-base font-semibold text-gray-800 dark:text-gray-200 flex items-center gap-2">
             <Clock className="w-4 h-4 text-amber-500" />
             Unreconciled Transactions
-            <span className="text-xs font-normal text-gray-400">({status.unreconciled_count})</span>
+            <span className="text-xs font-normal text-gray-400 dark:text-gray-500">({status.unreconciled_count})</span>
           </h3>
-          <p className="text-xs text-gray-500">
+          <p className="text-xs text-gray-500 dark:text-gray-400">
             Check off transactions that appear on your bank statement
           </p>
         </div>
 
         {status.unreconciled_transactions.length === 0 ? (
-          <div className="py-12 text-center text-gray-400">
+          <div className="py-12 text-center text-gray-400 dark:text-gray-500">
             <CheckCircle2 className="w-10 h-10 mx-auto mb-2 text-emerald-300" />
             <p>All transactions are reconciled!</p>
           </div>
@@ -401,7 +401,7 @@ export default function Reconciliation() {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="bg-white border-b border-gray-100">
+                <tr className="bg-white dark:bg-gray-800 border-b border-gray-100 dark:border-gray-700">
                   <th className="py-2.5 px-4 text-left w-10">
                     <input
                       type="checkbox"
@@ -411,11 +411,11 @@ export default function Reconciliation() {
                       className="rounded text-primary-600 focus:ring-primary-500"
                     />
                   </th>
-                  <th className="py-2.5 px-4 text-left text-gray-500 font-medium w-28">Date</th>
-                  <th className="py-2.5 px-4 text-left text-gray-500 font-medium">Vendor</th>
-                  <th className="py-2.5 px-4 text-left text-gray-500 font-medium">Description</th>
-                  <th className="py-2.5 px-4 text-right text-gray-500 font-medium w-28">Amount</th>
-                  <th className="py-2.5 px-4 text-right text-gray-500 font-medium w-36">Running Balance</th>
+                  <th className="py-2.5 px-4 text-left text-gray-500 dark:text-gray-400 font-medium w-28">Date</th>
+                  <th className="py-2.5 px-4 text-left text-gray-500 dark:text-gray-400 font-medium">Vendor</th>
+                  <th className="py-2.5 px-4 text-left text-gray-500 dark:text-gray-400 font-medium">Description</th>
+                  <th className="py-2.5 px-4 text-right text-gray-500 dark:text-gray-400 font-medium w-28">Amount</th>
+                  <th className="py-2.5 px-4 text-right text-gray-500 dark:text-gray-400 font-medium w-36">Running Balance</th>
                 </tr>
               </thead>
               <tbody>
@@ -425,8 +425,8 @@ export default function Reconciliation() {
                     <tr
                       key={txn.id}
                       onClick={() => toggleCheck(txn.id)}
-                      className={`border-b border-gray-50 cursor-pointer transition-colors ${
-                        isChecked ? 'bg-primary-50/40 hover:bg-primary-50/60' : 'hover:bg-gray-50'
+                      className={`border-b border-gray-50 dark:border-gray-700 cursor-pointer transition-colors ${
+                        isChecked ? 'bg-primary-50/40 dark:bg-primary-900/20 hover:bg-primary-50/60 dark:hover:bg-primary-900/30' : 'hover:bg-gray-50 dark:hover:bg-gray-700'
                       }`}
                     >
                       <td className="py-2.5 px-4" onClick={e => e.stopPropagation()}>
@@ -437,21 +437,21 @@ export default function Reconciliation() {
                           className="rounded text-primary-600 focus:ring-primary-500"
                         />
                       </td>
-                      <td className="py-2.5 px-4 whitespace-nowrap text-gray-600 text-xs">
+                      <td className="py-2.5 px-4 whitespace-nowrap text-gray-600 dark:text-gray-400 text-xs">
                         {formatDate(txn.txn_date)}
                       </td>
-                      <td className="py-2.5 px-4 font-medium text-gray-800">
-                        {txn.vendor_name || <span className="text-gray-300">—</span>}
+                      <td className="py-2.5 px-4 font-medium text-gray-800 dark:text-gray-200">
+                        {txn.vendor_name || <span className="text-gray-300 dark:text-gray-600">—</span>}
                       </td>
-                      <td className="py-2.5 px-4 text-gray-500 max-w-xs truncate" title={txn.description}>
-                        {txn.description || <span className="text-gray-300">—</span>}
+                      <td className="py-2.5 px-4 text-gray-500 dark:text-gray-400 max-w-xs truncate" title={txn.description}>
+                        {txn.description || <span className="text-gray-300 dark:text-gray-600">—</span>}
                       </td>
                       <td className={`py-2.5 px-4 text-right font-semibold whitespace-nowrap ${
                         txn.amount >= 0 ? 'text-emerald-600' : 'text-red-600'
                       }`}>
                         {formatMoney(txn.amount)}
                       </td>
-                      <td className="py-2.5 px-4 text-right text-gray-600 font-medium">
+                      <td className="py-2.5 px-4 text-right text-gray-600 dark:text-gray-400 font-medium">
                         {formatMoney(txn.running_balance)}
                       </td>
                     </tr>
@@ -459,11 +459,11 @@ export default function Reconciliation() {
                 })}
               </tbody>
               <tfoot>
-                <tr className="bg-gray-50 border-t-2 border-gray-200">
-                  <td colSpan={4} className="py-3 px-4 text-sm font-semibold text-gray-600">
+                <tr className="bg-gray-50 dark:bg-gray-700/50 border-t-2 border-gray-200 dark:border-gray-600">
+                  <td colSpan={4} className="py-3 px-4 text-sm font-semibold text-gray-600 dark:text-gray-400">
                     {checkedIds.size} of {status.unreconciled_transactions.length} selected
                   </td>
-                  <td className="py-3 px-4 text-right font-bold text-gray-800">
+                  <td className="py-3 px-4 text-right font-bold text-gray-800 dark:text-gray-200">
                     {formatMoney(checkedSum)}
                   </td>
                   <td />

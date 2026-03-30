@@ -105,7 +105,7 @@ export default function DatePresetPicker({ dateFrom, dateTo, onDateChange }) {
     <div className="space-y-2">
       {/* Period row: label, preset buttons, showing indicator */}
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide mr-1">Period</span>
+        <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mr-1">Period</span>
 
         {/* Preset buttons */}
         {presets.map(p => (
@@ -115,7 +115,7 @@ export default function DatePresetPicker({ dateFrom, dateTo, onDateChange }) {
             className={`px-2.5 py-1 rounded-md text-xs font-medium transition-all duration-150 ${
               activePreset?.key === p.key
                 ? 'bg-primary-600 text-white shadow-sm'
-                : 'bg-gray-100 text-gray-600 hover:bg-gray-200 hover:text-gray-800'
+                : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600 hover:text-gray-800 dark:hover:text-gray-200'
             }`}
           >
             {p.label}
@@ -126,7 +126,7 @@ export default function DatePresetPicker({ dateFrom, dateTo, onDateChange }) {
           className={`px-2.5 py-1 rounded-md text-xs font-medium transition-all duration-150 flex items-center gap-1 ${
             showCustom || (!activePreset && (dateFrom || dateTo))
               ? 'bg-primary-600 text-white shadow-sm'
-              : 'bg-gray-100 text-gray-600 hover:bg-gray-200 hover:text-gray-800'
+              : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600 hover:text-gray-800 dark:hover:text-gray-200'
           }`}
         >
           <Calendar className="w-3 h-3" />
@@ -134,7 +134,7 @@ export default function DatePresetPicker({ dateFrom, dateTo, onDateChange }) {
         </button>
 
         {/* Subtle date range indicator */}
-        <span className="ml-auto text-xs text-gray-400 whitespace-nowrap">
+        <span className="ml-auto text-xs text-gray-400 dark:text-gray-500 whitespace-nowrap">
           {formatDateRange()}
         </span>
       </div>
@@ -148,7 +148,7 @@ export default function DatePresetPicker({ dateFrom, dateTo, onDateChange }) {
             onChange={e => onDateChange(e.target.value, dateTo)}
             className="input-field text-xs py-1.5 px-2 w-36"
           />
-          <span className="text-gray-400 text-xs">to</span>
+          <span className="text-gray-400 dark:text-gray-500 text-xs">to</span>
           <input
             type="date"
             value={dateTo}

@@ -1,13 +1,16 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { CompanyProvider } from './context/CompanyContext'
+import { ThemeProvider } from './context/ThemeContext'
 import './index.css'
 import App from './App.jsx'
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
-    <CompanyProvider>
-      <App />
-    </CompanyProvider>
+    <ThemeProvider>
+      <CompanyProvider>
+        <App />
+      </CompanyProvider>
+    </ThemeProvider>
   </StrictMode>,
 )

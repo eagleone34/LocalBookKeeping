@@ -173,21 +173,21 @@ export default function SettingsPage() {
 
   const tabs = ['Company Info', 'Categorization Rules', 'Bank Accounts', 'Backup &amp; Security'];
 
-  if (!company) return <div className="text-gray-400">Loading...</div>;
+  if (!company) return <div className="text-gray-400 dark:text-gray-500">Loading...</div>;
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Settings</h1>
-        <p className="text-gray-500 mt-1">Configure your bookkeeping application</p>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Settings</h1>
+        <p className="text-gray-500 dark:text-gray-400 mt-1">Configure your bookkeeping application</p>
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 border-b border-gray-200 overflow-x-auto">
+      <div className="flex gap-1 border-b border-gray-200 dark:border-gray-700 overflow-x-auto">
         {tabs.map((tab, i) => (
           <button key={tab} onClick={() => setActiveTab(i)}
             className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap ${
-              activeTab === i ? 'border-primary-600 text-primary-700' : 'border-transparent text-gray-500 hover:text-gray-700'
+              activeTab === i ? 'border-primary-600 text-primary-700 dark:text-primary-400' : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
             }`}
           >
             {i === 0 && <BookOpen className="w-4 h-4" />}
@@ -239,7 +239,7 @@ export default function SettingsPage() {
         <div className="space-y-6">
           <div className="card">
             <h3 className="text-lg font-semibold mb-4">Add Categorization Rule</h3>
-            <p className="text-sm text-gray-500 mb-4">
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
               Rules automatically categorize transactions based on keywords. When a transaction matches a pattern, it gets assigned to the specified account.
               The system also learns from your approvals in the Inbox — every time you approve a transaction, its vendor-to-account mapping is remembered.
             </p>
@@ -279,23 +279,23 @@ export default function SettingsPage() {
           <div className="card overflow-hidden p-0">
             <table className="w-full text-sm">
               <thead>
-                <tr className="bg-gray-50 border-b border-gray-200">
-                  <th className="py-3 px-4 text-left text-gray-500 font-medium">Pattern</th>
-                  <th className="py-3 px-4 text-left text-gray-500 font-medium">Match Type</th>
-                  <th className="py-3 px-4 text-left text-gray-500 font-medium">Account</th>
-                  <th className="py-3 px-4 text-center text-gray-500 font-medium">Priority</th>
-                  <th className="py-3 px-4 text-right text-gray-500 font-medium">Actions</th>
+                <tr className="bg-gray-50 dark:bg-gray-700/50 border-b border-gray-200 dark:border-gray-700">
+                  <th className="py-3 px-4 text-left text-gray-500 dark:text-gray-400 font-medium">Pattern</th>
+                  <th className="py-3 px-4 text-left text-gray-500 dark:text-gray-400 font-medium">Match Type</th>
+                  <th className="py-3 px-4 text-left text-gray-500 dark:text-gray-400 font-medium">Account</th>
+                  <th className="py-3 px-4 text-center text-gray-500 dark:text-gray-400 font-medium">Priority</th>
+                  <th className="py-3 px-4 text-right text-gray-500 dark:text-gray-400 font-medium">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {rules.map(rule => (
-                  <tr key={rule.id} className="border-b border-gray-100 hover:bg-gray-50">
+                  <tr key={rule.id} className="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700">
                     <td className="py-3 px-4 font-mono font-medium">{rule.pattern}</td>
-                    <td className="py-3 px-4"><span className="badge bg-gray-100 text-gray-600">{rule.match_type}</span></td>
+                    <td className="py-3 px-4"><span className="badge bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400">{rule.match_type}</span></td>
                     <td className="py-3 px-4">{rule.account_name}</td>
                     <td className="py-3 px-4 text-center">{rule.priority}</td>
                     <td className="py-3 px-4 text-right">
-                      <button onClick={() => handleDeleteRule(rule.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-500">
+                      <button onClick={() => handleDeleteRule(rule.id)} className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 text-gray-400 dark:text-gray-500 hover:text-red-500">
                         <Trash2 className="w-4 h-4" />
                       </button>
                     </td>
@@ -303,7 +303,7 @@ export default function SettingsPage() {
                 ))}
               </tbody>
             </table>
-            {rules.length === 0 && <div className="p-8 text-center text-gray-400">No rules yet. Add your first categorization rule above.</div>}
+            {rules.length === 0 && <div className="p-8 text-center text-gray-400 dark:text-gray-500">No rules yet. Add your first categorization rule above.</div>}
           </div>
         </div>
       )}
@@ -316,7 +316,7 @@ export default function SettingsPage() {
               <Building2 className="w-5 h-5 text-primary-600" />
               Linked Bank Accounts
             </h3>
-            <p className="text-sm text-gray-500 mb-4">
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
               When you upload a bank statement PDF, the system automatically detects the bank name and account number (last 4 digits).
               Link each detected bank account to your Chart of Accounts so future uploads auto-map correctly.
             </p>
@@ -324,16 +324,16 @@ export default function SettingsPage() {
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="bg-gray-50 border-b border-gray-200">
-                      <th className="py-3 px-4 text-left text-gray-500 font-medium">Bank</th>
-                      <th className="py-3 px-4 text-left text-gray-500 font-medium">Account</th>
-                      <th className="py-3 px-4 text-left text-gray-500 font-medium">Nickname</th>
-                      <th className="py-3 px-4 text-left text-gray-500 font-medium w-64">Linked Ledger Account</th>
+                    <tr className="bg-gray-50 dark:bg-gray-700/50 border-b border-gray-200 dark:border-gray-700">
+                      <th className="py-3 px-4 text-left text-gray-500 dark:text-gray-400 font-medium">Bank</th>
+                      <th className="py-3 px-4 text-left text-gray-500 dark:text-gray-400 font-medium">Account</th>
+                      <th className="py-3 px-4 text-left text-gray-500 dark:text-gray-400 font-medium">Nickname</th>
+                      <th className="py-3 px-4 text-left text-gray-500 dark:text-gray-400 font-medium w-64">Linked Ledger Account</th>
                     </tr>
                   </thead>
                   <tbody>
                     {bankAccounts.map(ba => (
-                      <tr key={ba.id} className="border-b border-gray-100 hover:bg-gray-50">
+                      <tr key={ba.id} className="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700">
                         <td className="py-3 px-4">
                           <span className="flex items-center gap-2">
                             <Building2 className="w-4 h-4 text-blue-500" />
@@ -346,7 +346,7 @@ export default function SettingsPage() {
                             ****{ba.last_four}
                           </span>
                         </td>
-                        <td className="py-3 px-4 text-gray-500">{ba.nickname || '-'}</td>
+                        <td className="py-3 px-4 text-gray-500 dark:text-gray-400">{ba.nickname || '-'}</td>
                         <td className="py-3 px-4">
                           <div className="flex items-center gap-2">
                             <Link className="w-4 h-4 text-gray-400" />
@@ -368,7 +368,7 @@ export default function SettingsPage() {
                 </table>
               </div>
             ) : (
-              <div className="p-8 text-center text-gray-400 bg-gray-50 rounded-lg">
+              <div className="p-8 text-center text-gray-400 dark:text-gray-500 bg-gray-50 dark:bg-gray-700 rounded-lg">
                 No bank accounts detected yet. Upload a bank statement PDF in the Inbox to auto-detect bank accounts.
               </div>
             )}
@@ -384,8 +384,8 @@ export default function SettingsPage() {
           {actionMsg && (
             <div className={`px-4 py-3 rounded-lg text-sm font-medium flex items-center gap-2 ${
               actionMsg.toLowerCase().includes('fail') || actionMsg.toLowerCase().includes('error')
-                ? 'bg-red-50 text-red-700 border border-red-200'
-                : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                ? 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 border border-red-200 dark:border-red-800'
+                : 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800'
             }`}>
               <Check className="w-4 h-4 flex-shrink-0" />
               {actionMsg}
@@ -394,9 +394,9 @@ export default function SettingsPage() {
 
           {/* Preview mode notice (within settings) */}
           {previewStatus.preview_active && (
-            <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 flex items-center gap-3">
+            <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg px-4 py-3 flex items-center gap-3">
               <Eye className="w-5 h-5 text-amber-600 flex-shrink-0" />
-              <div className="flex-1 text-sm text-amber-800">
+              <div className="flex-1 text-sm text-amber-800 dark:text-amber-300">
                 <span className="font-semibold">Preview Mode Active</span> — you are viewing backup{' '}
                 <span className="font-mono text-xs bg-amber-100 px-1 rounded">{previewStatus.filename}</span>.
                 All pages show this backup&apos;s data. Your live data is untouched.
@@ -418,7 +418,7 @@ export default function SettingsPage() {
               <Database className="w-5 h-5 text-primary-600" />
               Create Backup
             </h3>
-            <p className="text-sm text-gray-500 mb-4">
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
               Create a snapshot of your entire database. Backups are stored locally alongside your data.
               You can preview any backup before restoring it.
             </p>
@@ -435,7 +435,7 @@ export default function SettingsPage() {
           {/* Backup List */}
           {backups.length > 0 && (
             <div className="card max-w-4xl">
-              <h4 className="text-base font-semibold text-gray-800 mb-4 flex items-center gap-2">
+              <h4 className="text-base font-semibold text-gray-800 dark:text-gray-200 mb-4 flex items-center gap-2">
                 <HardDrive className="w-5 h-5 text-gray-500" />
                 Available Backups
                 <span className="ml-1 text-xs font-normal text-gray-400">({backups.length})</span>
@@ -452,8 +452,8 @@ export default function SettingsPage() {
                       key={b.filename}
                       className={`rounded-lg border px-4 py-3 transition-colors ${
                         isCurrentPreview
-                          ? 'border-amber-300 bg-amber-50'
-                          : 'border-gray-200 bg-white hover:bg-gray-50'
+                          ? 'border-amber-300 bg-amber-50 dark:bg-amber-900/20 dark:border-amber-700'
+                          : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700'
                       }`}
                     >
                       <div className="flex flex-wrap items-center gap-3">
@@ -462,14 +462,14 @@ export default function SettingsPage() {
                           <Database className={`w-5 h-5 flex-shrink-0 ${isCurrentPreview ? 'text-amber-500' : 'text-gray-400'}`} />
                           <div className="min-w-0">
                             <div className="flex items-center gap-2 flex-wrap">
-                              <span className="font-mono text-xs text-gray-600 truncate">{b.filename}</span>
+                              <span className="font-mono text-xs text-gray-600 dark:text-gray-400 truncate">{b.filename}</span>
                               {isCurrentPreview && (
                                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-200 text-amber-800 text-xs font-semibold">
                                   <Eye className="w-3 h-3" /> Previewing
                                 </span>
                               )}
                             </div>
-                            <div className="flex items-center gap-3 mt-0.5 text-xs text-gray-500">
+                            <div className="flex items-center gap-3 mt-0.5 text-xs text-gray-500 dark:text-gray-400">
                               <span className="flex items-center gap-1">
                                 <Clock className="w-3 h-3" />
                                 {formatDate(b.created_at)}
@@ -534,7 +534,7 @@ export default function SettingsPage() {
                                 <button
                                   onClick={() => handlePreview(b.filename)}
                                   disabled={backupLoading || previewStatus.preview_active}
-                                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium bg-gray-100 text-gray-700 hover:bg-primary-50 hover:text-primary-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-primary-50 dark:hover:bg-primary-900/20 hover:text-primary-700 dark:hover:text-primary-400 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                                   title={previewStatus.preview_active ? 'Exit current preview first' : 'Browse this backup across the whole app'}
                                 >
                                   <Eye className="w-4 h-4" />
@@ -574,7 +574,7 @@ export default function SettingsPage() {
           )}
 
           {backups.length === 0 && (
-            <div className="card max-w-2xl p-8 text-center text-gray-400 bg-gray-50">
+            <div className="card max-w-2xl p-8 text-center text-gray-400 dark:text-gray-500 bg-gray-50 dark:bg-gray-700">
               <Database className="w-10 h-10 mx-auto mb-2 text-gray-300" />
               <p>No backups yet. Create your first backup above.</p>
             </div>
@@ -587,32 +587,32 @@ export default function SettingsPage() {
               Security &amp; Privacy
             </h3>
             <div className="space-y-3 text-sm">
-              <div className="flex items-start gap-3 p-3 bg-emerald-50 rounded-lg">
+              <div className="flex items-start gap-3 p-3 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg">
                 <Check className="w-5 h-5 text-emerald-600 mt-0.5" />
                 <div>
-                  <p className="font-medium text-emerald-800">Local-First Storage</p>
-                  <p className="text-emerald-600">All your data is stored locally on your machine. Nothing is sent to the cloud.</p>
+                  <p className="font-medium text-emerald-800 dark:text-emerald-400">Local-First Storage</p>
+                  <p className="text-emerald-600 dark:text-emerald-500">All your data is stored locally on your machine. Nothing is sent to the cloud.</p>
                 </div>
               </div>
-              <div className="flex items-start gap-3 p-3 bg-emerald-50 rounded-lg">
+              <div className="flex items-start gap-3 p-3 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg">
                 <Check className="w-5 h-5 text-emerald-600 mt-0.5" />
                 <div>
-                  <p className="font-medium text-emerald-800">Smart Learning</p>
-                  <p className="text-emerald-600">The system learns from your categorization decisions and gets smarter with each statement you process.</p>
+                  <p className="font-medium text-emerald-800 dark:text-emerald-400">Smart Learning</p>
+                  <p className="text-emerald-600 dark:text-emerald-500">The system learns from your categorization decisions and gets smarter with each statement you process.</p>
                 </div>
               </div>
-              <div className="flex items-start gap-3 p-3 bg-emerald-50 rounded-lg">
+              <div className="flex items-start gap-3 p-3 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg">
                 <Check className="w-5 h-5 text-emerald-600 mt-0.5" />
                 <div>
-                  <p className="font-medium text-emerald-800">SQLite with WAL Mode</p>
-                  <p className="text-emerald-600">Your database uses Write-Ahead Logging for data integrity and crash recovery.</p>
+                  <p className="font-medium text-emerald-800 dark:text-emerald-400">SQLite with WAL Mode</p>
+                  <p className="text-emerald-600 dark:text-emerald-500">Your database uses Write-Ahead Logging for data integrity and crash recovery.</p>
                 </div>
               </div>
-              <div className="flex items-start gap-3 p-3 bg-blue-50 rounded-lg">
+              <div className="flex items-start gap-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
                 <Shield className="w-5 h-5 text-blue-600 mt-0.5" />
                 <div>
-                  <p className="font-medium text-blue-800">Backup &amp; Preview</p>
-                  <p className="text-blue-600">Create backups at any time. Use Preview to browse a backup across the whole app before committing to a restore.</p>
+                  <p className="font-medium text-blue-800 dark:text-blue-400">Backup &amp; Preview</p>
+                  <p className="text-blue-600 dark:text-blue-500">Create backups at any time. Use Preview to browse a backup across the whole app before committing to a restore.</p>
                 </div>
               </div>
             </div>

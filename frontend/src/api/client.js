@@ -195,6 +195,10 @@ export const importMappedCsv = (data) =>
 export const suggestCategories = (data) =>
   request('/api/transactions/suggest-categories', { method: 'POST', body: JSON.stringify(data) });
 
+// Update
+export const triggerUpdate = () =>
+  request('/api/update/install', { method: 'POST' });
+
 // Reconciliation
 export const getReconciliationStatus = (bankAccountId) =>
   request(`/api/reconciliation/${bankAccountId}/status`);

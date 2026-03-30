@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import {
   getDocuments, getDocTransactions, uploadDocuments,
-  actionDocTransaction, bulkDocAction, getAccounts,
+  actionDocTransaction, getAccounts,
   deleteDocument, deleteDocTransaction, getBankAccounts,
   suggestCategories,
 } from '../api/client';
@@ -47,7 +47,7 @@ export default function Inbox() {
   const [documents, setDocuments] = useState([]);
   const [docTxns, setDocTxns] = useState([]);
   const [accounts, setAccounts] = useState([]);
-  const [bankAccounts, setBankAccounts] = useState([]);
+  const [, setBankAccounts] = useState([]);
   const [uploading, setUploading] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   
@@ -547,28 +547,28 @@ export default function Inbox() {
   const renderFlatTable = (doc, filteredTxns, hasActiveFilter, allSelected, docReviewCount) => (
     <table className="w-full text-sm">
       <thead>
-        <tr className="bg-white border-b border-gray-100">
+        <tr className="bg-white dark:bg-gray-800 border-b border-gray-100 dark:border-gray-700">
           {(filter === 'review' || filter === '') && (
             <th className="py-2.5 px-3 text-left w-10">
               <input type="checkbox" checked={allSelected && docReviewCount > 0} onChange={() => toggleAllInDoc(doc.id, filteredTxns)} className="rounded text-primary-600 focus:ring-primary-500" />
             </th>
           )}
-          <th className="py-2.5 px-3 text-left text-gray-500 font-medium w-10">Status</th>
-          <th className="py-2.5 px-3 text-left text-gray-500 font-medium w-28">Date</th>
-          <th className="py-2.5 px-3 text-left text-gray-500 font-medium">Vendor</th>
-          <th className="py-2.5 px-3 text-left text-gray-500 font-medium">Description</th>
-          <th className="py-2.5 px-3 text-right text-gray-500 font-medium w-28">Amount</th>
-          <th className="py-2.5 px-3 text-left text-gray-500 font-medium w-40">Account</th>
-          <th className="py-2.5 px-3 text-left text-gray-500 font-medium w-48">Category</th>
-          <th className="py-2.5 px-3 text-center text-gray-500 font-medium w-16">Conf.</th>
-          <th className="py-2.5 px-3 text-right text-gray-500 font-medium w-24">Actions</th>
+          <th className="py-2.5 px-3 text-left text-gray-500 dark:text-gray-400 font-medium w-10">Status</th>
+          <th className="py-2.5 px-3 text-left text-gray-500 dark:text-gray-400 font-medium w-28">Date</th>
+          <th className="py-2.5 px-3 text-left text-gray-500 dark:text-gray-400 font-medium">Vendor</th>
+          <th className="py-2.5 px-3 text-left text-gray-500 dark:text-gray-400 font-medium">Description</th>
+          <th className="py-2.5 px-3 text-right text-gray-500 dark:text-gray-400 font-medium w-28">Amount</th>
+          <th className="py-2.5 px-3 text-left text-gray-500 dark:text-gray-400 font-medium w-40">Account</th>
+          <th className="py-2.5 px-3 text-left text-gray-500 dark:text-gray-400 font-medium w-48">Category</th>
+          <th className="py-2.5 px-3 text-center text-gray-500 dark:text-gray-400 font-medium w-16">Conf.</th>
+          <th className="py-2.5 px-3 text-right text-gray-500 dark:text-gray-400 font-medium w-24">Actions</th>
         </tr>
       </thead>
       <tbody>
         {filteredTxns.map(dt => (
-          <tr key={dt.id} className={`border-b border-gray-50 transition-colors hover:bg-gray-50/50 ${
-            dt.is_duplicate ? 'bg-orange-50/30' :
-            selected.has(dt.id) ? 'bg-primary-50/50' : ''
+          <tr key={dt.id} className={`border-b border-gray-50 dark:border-gray-700 transition-colors hover:bg-gray-50/50 dark:hover:bg-gray-700/50 ${
+            dt.is_duplicate ? 'bg-orange-50/30 dark:bg-orange-900/10' :
+            selected.has(dt.id) ? 'bg-primary-50/50 dark:bg-primary-900/20' : ''
           }`}>
             {(filter === 'review' || filter === '') && (
               <td className="py-2 px-3">
@@ -585,19 +585,19 @@ export default function Inbox() {
                 )}
               </div>
             </td>
-            <td className="py-2 px-3 whitespace-nowrap text-gray-600">{dt.txn_date || '-'}</td>
-            <td className="py-2 px-3 font-medium text-gray-800">{dt.vendor_name || '-'}</td>
-            <td className="py-2 px-3 text-gray-500 max-w-xs truncate" title={dt.description}>{dt.description || '-'}</td>
-            <td className={`py-2 px-3 text-right font-semibold whitespace-nowrap ${(dt.amount || 0) >= 0 ? 'text-emerald-600' : 'text-gray-900'}`}>
+            <td className="py-2 px-3 whitespace-nowrap text-gray-600 dark:text-gray-400">{dt.txn_date || '-'}</td>
+            <td className="py-2 px-3 font-medium text-gray-800 dark:text-gray-200">{dt.vendor_name || '-'}</td>
+            <td className="py-2 px-3 text-gray-500 dark:text-gray-400 max-w-xs truncate" title={dt.description}>{dt.description || '-'}</td>
+            <td className={`py-2 px-3 text-right font-semibold whitespace-nowrap ${(dt.amount || 0) >= 0 ? 'text-emerald-600' : 'text-gray-900 dark:text-gray-100'}`}>
               {formatMoney(dt.amount)}
             </td>
             <td className="py-2 px-3">
               {dt.bank_account_name ? (
-                <span className="text-xs font-medium text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-100">
+                <span className="text-xs font-medium text-blue-700 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 px-2 py-0.5 rounded border border-blue-100 dark:border-blue-800">
                   {dt.bank_account_name}
                 </span>
               ) : (
-                <span className="text-xs text-gray-400">-</span>
+                <span className="text-xs text-gray-400 dark:text-gray-500">-</span>
               )}
             </td>
             <td className="py-2 px-3">
@@ -610,7 +610,7 @@ export default function Inbox() {
                   className="input-field text-xs py-1"
                 />
               ) : (
-                <span className="text-sm font-medium text-gray-600">
+                <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
                   {dt.suggested_category_name || dt.user_category_name || dt.suggested_account_name || dt.user_account_name || 'Uncategorized'}
                 </span>
               )}
@@ -620,10 +620,10 @@ export default function Inbox() {
               {dt.status === 'review' && (
                  <div className="flex justify-end gap-1">
                    {confirmingDelete?.type === 'txn' && confirmingDelete?.id === dt.id ? (
-                     <div className="flex items-center gap-1 bg-red-50 px-1 rounded border border-red-100 animate-in fade-in zoom-in-95">
-                       <span className="text-[10px] font-bold text-red-700 px-1">Sure?</span>
-                       <button onClick={() => handleDeleteTransaction(dt.id)} className="p-1 text-red-600 hover:bg-red-100 rounded" title="Confirm Delete"><Check className="w-3 h-3" /></button>
-                       <button onClick={() => setConfirmingDelete(null)} className="p-1 text-gray-400 hover:bg-gray-100 rounded" title="Cancel"><X className="w-3 h-3" /></button>
+                     <div className="flex items-center gap-1 bg-red-50 dark:bg-red-900/20 px-1 rounded border border-red-100 dark:border-red-800 animate-in fade-in zoom-in-95">
+                       <span className="text-[10px] font-bold text-red-700 dark:text-red-400 px-1">Sure?</span>
+                       <button onClick={() => handleDeleteTransaction(dt.id)} className="p-1 text-red-600 hover:bg-red-100 dark:hover:bg-red-900/30 rounded" title="Confirm Delete"><Check className="w-3 h-3" /></button>
+                       <button onClick={() => setConfirmingDelete(null)} className="p-1 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded" title="Cancel"><X className="w-3 h-3" /></button>
                      </div>
                    ) : (
                      <>
@@ -680,10 +680,10 @@ export default function Inbox() {
               {dt.status === 'posted' && (
                  <div className="flex justify-end gap-1">
                    {confirmingDelete?.type === 'revert' && confirmingDelete?.id === dt.id ? (
-                     <div className="flex items-center gap-1 bg-amber-50 px-1 rounded border border-amber-100 animate-in fade-in zoom-in-95">
-                       <span className="text-[10px] font-bold text-amber-700 px-1">Undo Post?</span>
-                       <button onClick={() => { handleAction(dt.id, 'revert'); setConfirmingDelete(null); }} className="p-1 text-amber-600 hover:bg-amber-100 rounded" title="Confirm Undo"><Check className="w-3 h-3" /></button>
-                       <button onClick={() => setConfirmingDelete(null)} className="p-1 text-gray-400 hover:bg-gray-100 rounded" title="Cancel"><X className="w-3 h-3" /></button>
+                     <div className="flex items-center gap-1 bg-amber-50 dark:bg-amber-900/20 px-1 rounded border border-amber-100 dark:border-amber-800 animate-in fade-in zoom-in-95">
+                       <span className="text-[10px] font-bold text-amber-700 dark:text-amber-400 px-1">Undo Post?</span>
+                       <button onClick={() => { handleAction(dt.id, 'revert'); setConfirmingDelete(null); }} className="p-1 text-amber-600 hover:bg-amber-100 dark:hover:bg-amber-900/30 rounded" title="Confirm Undo"><Check className="w-3 h-3" /></button>
+                       <button onClick={() => setConfirmingDelete(null)} className="p-1 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded" title="Cancel"><X className="w-3 h-3" /></button>
                      </div>
                    ) : (
                      <button
@@ -763,16 +763,16 @@ export default function Inbox() {
                           />
                         </div>
                         {/* Expand/collapse chevron */}
-                        <span className="text-gray-400 flex-shrink-0">
+                        <span className="text-gray-400 dark:text-gray-500 flex-shrink-0">
                           {isExpanded
                             ? <ChevronDown className="w-4 h-4" />
                             : <ChevronRight className="w-4 h-4" />}
                         </span>
                         <span className={`inline-block w-2 h-2 rounded-full flex-shrink-0 ${confidenceDot(Math.round((group.confidence || 0) * 100))}`}></span>
-                        <h5 className="font-medium text-gray-800 text-sm truncate">
+                        <h5 className="font-medium text-gray-800 dark:text-gray-200 text-sm truncate">
                           {group.sample_description || 'Unnamed group'}
                         </h5>
-                        <span className="text-xs text-gray-500 whitespace-nowrap bg-white/60 px-1.5 py-0.5 rounded">
+                        <span className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap bg-white/60 dark:bg-gray-800/60 px-1.5 py-0.5 rounded">
                           × {visibleTxns.length} transaction{visibleTxns.length !== 1 ? 's' : ''}
                         </span>
                         {/* Transaction type badge (Withdrawal / Deposit) */}
@@ -806,7 +806,7 @@ export default function Inbox() {
                           </span>
                         )}
                         {group.match_reason && (
-                          <span className="text-gray-400">— {group.match_reason}</span>
+                          <span className="text-gray-400 dark:text-gray-500">— {group.match_reason}</span>
                         )}
                       </div>
 
@@ -827,7 +827,7 @@ export default function Inbox() {
                     <div className="flex items-center gap-2 flex-shrink-0" onClick={e => e.stopPropagation()}>
                       <button
                         onClick={() => handleApproveGroup(doc.id, groupIdx)}
-                        className="p-2 rounded-lg transition-colors bg-white border border-gray-200 text-gray-400 hover:text-emerald-600 hover:border-emerald-300 hover:bg-emerald-50"
+                        className="p-2 rounded-lg transition-colors bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-400 dark:text-gray-500 hover:text-emerald-600 hover:border-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-900/20"
                         title="Approve all in group"
                       >
                         <Check className="w-5 h-5" />
@@ -837,15 +837,15 @@ export default function Inbox() {
 
                   {/* Expanded individual transactions */}
                   {isExpanded && (
-                    <div className="border-t border-gray-200/60 bg-white/60 max-h-[400px] overflow-y-auto">
-                      <div className="divide-y divide-gray-100/80">
+                    <div className="border-t border-gray-200/60 dark:border-gray-700/60 bg-white/60 dark:bg-gray-800/60 max-h-[400px] overflow-y-auto">
+                      <div className="divide-y divide-gray-100/80 dark:divide-gray-700/80">
                         {visibleTxns.map(dt => {
                           const isOverridden = overrides[dt.id] && overrides[dt.id] !== group.suggested_category_id;
                           return (
                             <div
                               key={dt.id}
-                              className={`flex items-center gap-3 pl-4 pr-4 py-2 hover:bg-gray-50/80 transition-colors ${
-                                isOverridden ? 'bg-amber-50/40' : ''
+                              className={`flex items-center gap-3 pl-4 pr-4 py-2 hover:bg-gray-50/80 dark:hover:bg-gray-700/50 transition-colors ${
+                                isOverridden ? 'bg-amber-50/40 dark:bg-amber-900/10' : ''
                               }`}
                             >
                               <input
@@ -854,15 +854,15 @@ export default function Inbox() {
                                 onChange={() => toggleSelect(dt.id)}
                                 className="rounded text-primary-600 focus:ring-primary-500 flex-shrink-0"
                               />
-                              <span className="text-gray-400 text-xs w-20 flex-shrink-0">{dt.txn_date || '-'}</span>
-                              <span className="text-gray-700 text-xs truncate flex-1 min-w-0" title={dt.description}>
+                              <span className="text-gray-400 dark:text-gray-500 text-xs w-20 flex-shrink-0">{dt.txn_date || '-'}</span>
+                              <span className="text-gray-700 dark:text-gray-300 text-xs truncate flex-1 min-w-0" title={dt.description}>
                                 {dt.description || '-'}
                               </span>
                               {dt.vendor_name && (
-                                <span className="text-gray-400 text-[11px] truncate max-w-[6rem] flex-shrink-0">{dt.vendor_name}</span>
+                                <span className="text-gray-400 dark:text-gray-500 text-[11px] truncate max-w-[6rem] flex-shrink-0">{dt.vendor_name}</span>
                               )}
                               <span className={`text-xs w-20 text-right font-medium flex-shrink-0 ${
-                                (dt.amount || 0) >= 0 ? 'text-emerald-700' : 'text-gray-800'
+                                (dt.amount || 0) >= 0 ? 'text-emerald-700' : 'text-gray-800 dark:text-gray-200'
                               }`}>
                                 {formatMoney(dt.amount)}
                               </span>
@@ -906,16 +906,16 @@ export default function Inbox() {
 
         {/* Ungrouped transactions */}
         {ungrouped.length > 0 && (
-          <div className="border border-gray-200 rounded-lg overflow-hidden">
-            <div className="bg-gray-50 px-4 py-3 border-b border-gray-200">
-              <h5 className="text-sm font-semibold text-gray-700">
+          <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+            <div className="bg-gray-50 dark:bg-gray-700/50 px-4 py-3 border-b border-gray-200 dark:border-gray-700">
+              <h5 className="text-sm font-semibold text-gray-700 dark:text-gray-300">
                 Ungrouped Transactions ({ungrouped.filter(t => filteredTxnIds.has(t.id)).length})
               </h5>
-              <p className="text-xs text-gray-500">These didn't match any pattern — assign categories individually.</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">These didn't match any pattern — assign categories individually.</p>
             </div>
             <table className="w-full text-sm">
               <thead>
-                <tr className="bg-white border-b border-gray-100">
+                <tr className="bg-white dark:bg-gray-800 border-b border-gray-100 dark:border-gray-700">
                   <th className="py-2.5 px-3 text-left w-10">
                     <input
                       type="checkbox"
@@ -930,27 +930,27 @@ export default function Inbox() {
                       className="rounded text-primary-600 focus:ring-primary-500"
                     />
                   </th>
-                  <th className="py-2.5 px-3 text-left text-gray-500 font-medium w-28">Date</th>
-                  <th className="py-2.5 px-3 text-left text-gray-500 font-medium">Vendor</th>
-                  <th className="py-2.5 px-3 text-left text-gray-500 font-medium">Description</th>
-                  <th className="py-2.5 px-3 text-right text-gray-500 font-medium w-28">Amount</th>
-                  <th className="py-2.5 px-3 text-left text-gray-500 font-medium w-48">Category</th>
-                  <th className="py-2.5 px-3 text-center text-gray-500 font-medium w-16">Conf.</th>
-                  <th className="py-2.5 px-3 text-right text-gray-500 font-medium w-24">Actions</th>
+                  <th className="py-2.5 px-3 text-left text-gray-500 dark:text-gray-400 font-medium w-28">Date</th>
+                  <th className="py-2.5 px-3 text-left text-gray-500 dark:text-gray-400 font-medium">Vendor</th>
+                  <th className="py-2.5 px-3 text-left text-gray-500 dark:text-gray-400 font-medium">Description</th>
+                  <th className="py-2.5 px-3 text-right text-gray-500 dark:text-gray-400 font-medium w-28">Amount</th>
+                  <th className="py-2.5 px-3 text-left text-gray-500 dark:text-gray-400 font-medium w-48">Category</th>
+                  <th className="py-2.5 px-3 text-center text-gray-500 dark:text-gray-400 font-medium w-16">Conf.</th>
+                  <th className="py-2.5 px-3 text-right text-gray-500 dark:text-gray-400 font-medium w-24">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {ungrouped.filter(t => filteredTxnIds.has(t.id)).map(dt => (
-                  <tr key={dt.id} className={`border-b border-gray-50 transition-colors hover:bg-gray-50/50 ${
-                    selected.has(dt.id) ? 'bg-primary-50/50' : ''
+                  <tr key={dt.id} className={`border-b border-gray-50 dark:border-gray-700 transition-colors hover:bg-gray-50/50 dark:hover:bg-gray-700/50 ${
+                    selected.has(dt.id) ? 'bg-primary-50/50 dark:bg-primary-900/20' : ''
                   }`}>
                     <td className="py-2 px-3">
                       <input type="checkbox" checked={selected.has(dt.id)} onChange={() => toggleSelect(dt.id)} className="rounded text-primary-600 focus:ring-primary-500" />
                     </td>
-                    <td className="py-2 px-3 whitespace-nowrap text-gray-600">{dt.txn_date || '-'}</td>
-                    <td className="py-2 px-3 font-medium text-gray-800">{dt.vendor_name || '-'}</td>
-                    <td className="py-2 px-3 text-gray-500 max-w-xs truncate" title={dt.description}>{dt.description || '-'}</td>
-                    <td className={`py-2 px-3 text-right font-semibold whitespace-nowrap ${(dt.amount || 0) >= 0 ? 'text-emerald-600' : 'text-gray-900'}`}>
+                    <td className="py-2 px-3 whitespace-nowrap text-gray-600 dark:text-gray-400">{dt.txn_date || '-'}</td>
+                    <td className="py-2 px-3 font-medium text-gray-800 dark:text-gray-200">{dt.vendor_name || '-'}</td>
+                    <td className="py-2 px-3 text-gray-500 dark:text-gray-400 max-w-xs truncate" title={dt.description}>{dt.description || '-'}</td>
+                    <td className={`py-2 px-3 text-right font-semibold whitespace-nowrap ${(dt.amount || 0) >= 0 ? 'text-emerald-600' : 'text-gray-900 dark:text-gray-100'}`}>
                       {formatMoney(dt.amount)}
                     </td>
                     <td className="py-2 px-3">
@@ -1001,8 +1001,8 @@ export default function Inbox() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Statements</h1>
-        <p className="text-gray-500 mt-1">Drop PDF statements or import spreadsheet files to auto-extract and categorize transactions</p>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Statements</h1>
+        <p className="text-gray-500 dark:text-gray-400 mt-1">Drop PDF statements or import spreadsheet files to auto-extract and categorize transactions</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
@@ -1012,7 +1012,7 @@ export default function Inbox() {
           onDragLeave={() => setDragOver(false)}
           onDrop={onDrop}
           className={`card border-2 border-dashed text-center py-10 cursor-pointer transition-colors h-full flex flex-col justify-center ${
-            dragOver ? 'border-primary-400 bg-primary-50' : 'border-gray-300 hover:border-primary-400'
+            dragOver ? 'border-primary-400 bg-primary-50 dark:bg-primary-900/20' : 'border-gray-300 dark:border-gray-600 hover:border-primary-400'
           }`}
           onClick={() => document.getElementById('file-input').click()}
         >
@@ -1020,13 +1020,13 @@ export default function Inbox() {
           {uploading ? (
             <div className="flex flex-col items-center gap-3">
               <Loader2 className="w-10 h-10 text-primary-500 animate-spin" />
-              <p className="text-gray-600 font-medium">Processing statements...</p>
+              <p className="text-gray-600 dark:text-gray-400 font-medium">Processing statements...</p>
             </div>
           ) : (
             <div className="flex flex-col items-center gap-2">
-              <Upload className="w-10 h-10 text-gray-400" />
-              <p className="text-gray-600 font-medium text-lg">Import PDF Statements</p>
-              <p className="text-gray-400 text-sm max-w-[250px] mx-auto">Drag &amp; drop PDF bank statements here. Auto-categorized and checked for duplicates.</p>
+              <Upload className="w-10 h-10 text-gray-400 dark:text-gray-500" />
+              <p className="text-gray-600 dark:text-gray-400 font-medium text-lg">Import PDF Statements</p>
+              <p className="text-gray-400 dark:text-gray-500 text-sm max-w-[250px] mx-auto">Drag &amp; drop PDF bank statements here. Auto-categorized and checked for duplicates.</p>
             </div>
           )}
         </div>
@@ -1034,12 +1034,12 @@ export default function Inbox() {
         {/* CSV / Excel generic manual import */}
         <div 
           onClick={() => setShowImportWizard(true)} 
-          className="card border-2 border-dashed border-gray-300 hover:border-emerald-400 text-center py-10 cursor-pointer transition-colors hover:bg-emerald-50 h-full flex flex-col justify-center"
+          className="card border-2 border-dashed border-gray-300 dark:border-gray-600 hover:border-emerald-400 text-center py-10 cursor-pointer transition-colors hover:bg-emerald-50 dark:hover:bg-emerald-900/20 h-full flex flex-col justify-center"
         >
           <div className="flex flex-col items-center gap-2">
             <FileSpreadsheet className="w-10 h-10 text-emerald-500 mb-1" />
-            <p className="text-gray-600 font-medium text-lg">Import Spreadsheet</p>
-            <p className="text-gray-400 text-sm max-w-[250px] mx-auto">Upload a .csv, .xls, or .xlsx file to map columns and import bulk transactions.</p>
+            <p className="text-gray-600 dark:text-gray-400 font-medium text-lg">Import Spreadsheet</p>
+            <p className="text-gray-400 dark:text-gray-500 text-sm max-w-[250px] mx-auto">Upload a .csv, .xls, or .xlsx file to map columns and import bulk transactions.</p>
           </div>
         </div>
       </div>
@@ -1061,7 +1061,7 @@ export default function Inbox() {
           <h3 className="text-lg font-semibold mb-3">Processing Queue</h3>
           <div className="space-y-2">
             {documents.filter(d => ['pending', 'processing'].includes(d.status)).map(doc => (
-              <div key={doc.id} className="flex items-center justify-between gap-3 px-3 py-2 bg-gray-50 rounded-lg text-sm">
+              <div key={doc.id} className="flex items-center justify-between gap-3 px-3 py-2 bg-gray-50 dark:bg-gray-700 rounded-lg text-sm">
                 <div className="flex items-center gap-3 min-w-0">
                   <FileText className="w-4 h-4 text-primary-500 flex-shrink-0" />
                   <span className="font-medium truncate">{doc.filename}</span>
@@ -1108,7 +1108,7 @@ export default function Inbox() {
 
       {/* Failed Imports — documents that errored during processing */}
       {documents.filter(d => d.status === 'error').length > 0 && (
-        <div className="card border border-red-200 bg-red-50/20">
+        <div className="card border border-red-200 dark:border-red-800 bg-red-50/20 dark:bg-red-900/10">
           <div className="flex items-center gap-2 mb-3">
             <XCircle className="w-5 h-5 text-red-500" />
             <h3 className="text-lg font-semibold text-red-700">Failed Imports</h3>
@@ -1122,7 +1122,7 @@ export default function Inbox() {
                 <FileText className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-medium text-gray-800">{doc.filename}</span>
+                    <span className="font-medium text-gray-800 dark:text-gray-200">{doc.filename}</span>
                     <span className="badge bg-red-100 text-red-700">error</span>
                   </div>
                   {doc.error_msg && (
@@ -1168,7 +1168,7 @@ export default function Inbox() {
       {/* Stats bar */}
       {docTxns.length > 0 && (
         <div className="flex items-center gap-6 text-sm">
-          <span className="text-gray-500">{docTxns.length} extracted transactions</span>
+          <span className="text-gray-500 dark:text-gray-400">{docTxns.length} extracted transactions</span>
           {reviewCount > 0 && <span className="text-amber-600 font-medium">{reviewCount} pending review</span>}
           {dupCount > 0 && <span className="text-orange-600 font-medium">{dupCount} duplicates detected</span>}
           {postedCount > 0 && <span className="text-emerald-600 font-medium">{postedCount} posted</span>}
@@ -1186,7 +1186,7 @@ export default function Inbox() {
         ].map(f => (
           <button key={f.key} onClick={() => { setFilter(f.key); setSmartGroups({}); }}
             className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-              filter === f.key ? 'bg-primary-100 text-primary-700' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              filter === f.key ? 'bg-primary-100 text-primary-700' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
             }`}
           >
             {f.label}
@@ -1196,8 +1196,8 @@ export default function Inbox() {
 
       {/* Grouped Documents Rendering */}
       {documents.filter(d => groupedTxns[d.id] && groupedTxns[d.id].length > 0).length === 0 ? (
-        <div className="card p-8 text-center text-gray-400 flex flex-col items-center">
-            <FolderOpen className="w-12 h-12 text-gray-300 mb-2" />
+        <div className="card p-8 text-center text-gray-400 dark:text-gray-500 flex flex-col items-center">
+            <FolderOpen className="w-12 h-12 text-gray-300 dark:text-gray-600 mb-2" />
             <p>{filter === 'review' ? 'No transactions pending review in any statement.' : 'No transactions found.'}</p>
         </div>
       ) : (
@@ -1220,25 +1220,25 @@ export default function Inbox() {
             const isLoadingGroups = filter === 'review' && groupingLoading[doc.id];
 
             return (
-              <div key={doc.id} className="card overflow-hidden p-0 border border-gray-200">
-                
+              <div key={doc.id} className="card overflow-hidden p-0 border border-gray-200 dark:border-gray-700">
+
                 {/* Document Header with bulk actions */}
-                <div className="bg-gray-50 border-b border-gray-200 p-4 flex flex-wrap items-center justify-between gap-4">
+                <div className="bg-gray-50 dark:bg-gray-700/50 border-b border-gray-200 dark:border-gray-700 p-4 flex flex-wrap items-center justify-between gap-4">
                   <div className="flex items-center gap-3">
-                    <div className="p-2 bg-white rounded shadow-sm border border-gray-100">
+                    <div className="p-2 bg-white dark:bg-gray-700 rounded shadow-sm border border-gray-100 dark:border-gray-600">
                       <FileText className="w-5 h-5 text-primary-600" />
                     </div>
                     <div>
-                      <h3 className="font-medium text-gray-900">{doc.filename}</h3>
-                      <div className="flex flex-wrap items-center gap-2 mt-1 text-xs text-gray-500">
+                      <h3 className="font-medium text-gray-900 dark:text-gray-100">{doc.filename}</h3>
+                      <div className="flex flex-wrap items-center gap-2 mt-1 text-xs text-gray-500 dark:text-gray-400">
                         {doc.bank_name && (
-                          <span className="flex items-center gap-1 font-medium text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-100">
+                          <span className="flex items-center gap-1 font-medium text-blue-700 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 px-2 py-0.5 rounded border border-blue-100 dark:border-blue-800">
                             <Building2 className="w-3 h-3" />
                             {doc.bank_name}
                           </span>
                         )}
                         {doc.account_last_four && (
-                          <span className="flex items-center gap-1 font-medium text-purple-700 bg-purple-50 px-2 py-0.5 rounded border border-purple-100">
+                          <span className="flex items-center gap-1 font-medium text-purple-700 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/20 px-2 py-0.5 rounded border border-purple-100 dark:border-purple-800">
                             <CreditCard className="w-3 h-3" />
                             ****{doc.account_last_four}
                           </span>
@@ -1256,8 +1256,8 @@ export default function Inbox() {
                   <div className="flex items-center gap-3">
                     {/* Contextual Bulk Actions */}
                     {docSelectedCount > 0 && (
-                      <div className="flex items-center gap-2 bg-white p-1 rounded-lg shadow-sm border border-gray-200">
-                        <span className="text-sm font-medium text-gray-600 px-3 border-r border-gray-200">
+                      <div className="flex items-center gap-2 bg-white dark:bg-gray-800 p-1 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
+                        <span className="text-sm font-medium text-gray-600 dark:text-gray-400 px-3 border-r border-gray-200 dark:border-gray-700">
                           {docSelectedCount} selected
                         </span>
                         <button onClick={() => handleBulkAction(doc.id, 'approve')} className="px-3 py-1.5 rounded-md text-sm font-medium bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-colors flex items-center gap-1">
@@ -1271,18 +1271,18 @@ export default function Inbox() {
 
                     <div className="flex items-center gap-2">
                       {confirmingDelete?.type === 'doc' && confirmingDelete?.id === doc.id ? (
-                        <div className="flex items-center gap-2 bg-red-50 px-2 py-1 rounded-md border border-red-100 animate-in fade-in slide-in-from-right-2">
-                          <span className="text-xs font-bold text-red-700">Delete Statement?</span>
-                          <button 
+                        <div className="flex items-center gap-2 bg-red-50 dark:bg-red-900/20 px-2 py-1 rounded-md border border-red-100 dark:border-red-800 animate-in fade-in slide-in-from-right-2">
+                          <span className="text-xs font-bold text-red-700 dark:text-red-400">Delete Statement?</span>
+                          <button
                             onClick={() => handleDeleteDocument(doc.id)}
-                            className="p-1 rounded hover:bg-red-200 text-red-700 transition-colors"
+                            className="p-1 rounded hover:bg-red-200 dark:hover:bg-red-900/30 text-red-700 dark:text-red-400 transition-colors"
                             title="Confirm Delete"
                           >
                             <Check className="w-4 h-4" />
                           </button>
-                          <button 
+                          <button
                             onClick={() => setConfirmingDelete(null)}
-                            className="p-1 rounded hover:bg-gray-200 text-gray-500 transition-colors"
+                            className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400 transition-colors"
                             title="Cancel"
                           >
                             <X className="w-4 h-4" />
@@ -1303,7 +1303,7 @@ export default function Inbox() {
                 </div>
 
                 {/* Per-Document Filter Bar */}
-                <div className="bg-slate-50 border-b border-gray-200 px-4 py-2.5">
+                <div className="bg-slate-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 px-4 py-2.5">
                   <div className="flex flex-wrap items-center gap-2">
                     {/* Search input */}
                     <div className="relative flex-1 min-w-[180px] max-w-xs">
@@ -1313,7 +1313,7 @@ export default function Inbox() {
                         placeholder="Search description or vendor..."
                         value={docFilter.search}
                         onChange={(e) => updateDocFilter(doc.id, 'search', e.target.value)}
-                        className="w-full pl-8 pr-3 py-1.5 text-xs border border-gray-200 rounded-md bg-white focus:outline-none focus:ring-1 focus:ring-indigo-400 focus:border-indigo-400"
+                        className="w-full pl-8 pr-3 py-1.5 text-xs border border-gray-200 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 dark:text-gray-200 dark:placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-indigo-400 focus:border-indigo-400"
                       />
                     </div>
 
@@ -1322,7 +1322,7 @@ export default function Inbox() {
                       <select
                         value={docFilter.amountOp}
                         onChange={(e) => updateDocFilter(doc.id, 'amountOp', e.target.value)}
-                        className="text-xs border border-gray-200 rounded-md bg-white py-1.5 px-2 focus:outline-none focus:ring-1 focus:ring-indigo-400 focus:border-indigo-400"
+                        className="text-xs border border-gray-200 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 dark:text-gray-200 py-1.5 px-2 focus:outline-none focus:ring-1 focus:ring-indigo-400 focus:border-indigo-400"
                       >
                         <option value="any">Any Amount</option>
                         <option value="eq">Equals</option>
@@ -1338,7 +1338,7 @@ export default function Inbox() {
                           placeholder="$0.00"
                           value={docFilter.amountVal}
                           onChange={(e) => updateDocFilter(doc.id, 'amountVal', e.target.value)}
-                          className="w-24 text-xs border border-gray-200 rounded-md bg-white py-1.5 px-2 focus:outline-none focus:ring-1 focus:ring-indigo-400 focus:border-indigo-400"
+                          className="w-24 text-xs border border-gray-200 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 dark:text-gray-200 py-1.5 px-2 focus:outline-none focus:ring-1 focus:ring-indigo-400 focus:border-indigo-400"
                           step="0.01"
                           min="0"
                         />
@@ -1350,17 +1350,17 @@ export default function Inbox() {
                             placeholder="Min"
                             value={docFilter.amountMin}
                             onChange={(e) => updateDocFilter(doc.id, 'amountMin', e.target.value)}
-                            className="w-20 text-xs border border-gray-200 rounded-md bg-white py-1.5 px-2 focus:outline-none focus:ring-1 focus:ring-indigo-400 focus:border-indigo-400"
+                            className="w-20 text-xs border border-gray-200 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 dark:text-gray-200 py-1.5 px-2 focus:outline-none focus:ring-1 focus:ring-indigo-400 focus:border-indigo-400"
                             step="0.01"
                             min="0"
                           />
-                          <span className="text-xs text-gray-400">–</span>
+                          <span className="text-xs text-gray-400 dark:text-gray-500">–</span>
                           <input
                             type="number"
                             placeholder="Max"
                             value={docFilter.amountMax}
                             onChange={(e) => updateDocFilter(doc.id, 'amountMax', e.target.value)}
-                            className="w-20 text-xs border border-gray-200 rounded-md bg-white py-1.5 px-2 focus:outline-none focus:ring-1 focus:ring-indigo-400 focus:border-indigo-400"
+                            className="w-20 text-xs border border-gray-200 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 dark:text-gray-200 py-1.5 px-2 focus:outline-none focus:ring-1 focus:ring-indigo-400 focus:border-indigo-400"
                             step="0.01"
                             min="0"
                           />
@@ -1372,7 +1372,7 @@ export default function Inbox() {
                     <select
                       value={docFilter.categoryId}
                       onChange={(e) => updateDocFilter(doc.id, 'categoryId', e.target.value)}
-                      className="text-xs border border-gray-200 rounded-md bg-white py-1.5 px-2 focus:outline-none focus:ring-1 focus:ring-indigo-400 focus:border-indigo-400 max-w-[180px]"
+                      className="text-xs border border-gray-200 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 dark:text-gray-200 py-1.5 px-2 focus:outline-none focus:ring-1 focus:ring-indigo-400 focus:border-indigo-400 max-w-[180px]"
                     >
                       <option value="">All Categories</option>
                       {accounts.map(a => (
@@ -1395,7 +1395,7 @@ export default function Inbox() {
 
                     {/* Filter result count */}
                     {hasActiveFilter && (
-                      <span className="text-xs text-gray-500 ml-auto">
+                      <span className="text-xs text-gray-500 dark:text-gray-400 ml-auto">
                         Showing <strong className="text-indigo-600">{filteredTxns.length}</strong> of {txns.length}
                       </span>
                     )}
@@ -1403,10 +1403,10 @@ export default function Inbox() {
                 </div>
 
                 {/* Document Transactions — Grouped or Flat View */}
-                <div className="overflow-x-auto bg-white">
+                <div className="overflow-x-auto bg-white dark:bg-gray-800">
                   {filteredTxns.length === 0 && hasActiveFilter ? (
-                    <div className="py-8 text-center text-gray-400 text-sm">
-                      <Filter className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+                    <div className="py-8 text-center text-gray-400 dark:text-gray-500 text-sm">
+                      <Filter className="w-8 h-8 text-gray-300 dark:text-gray-600 mx-auto mb-2" />
                       <p>No transactions match your filters.</p>
                       <button
                         onClick={() => clearDocFilter(doc.id)}
@@ -1418,7 +1418,7 @@ export default function Inbox() {
                   ) : isLoadingGroups ? (
                     <div className="py-10 text-center">
                       <Loader2 className="w-6 h-6 text-primary-500 animate-spin mx-auto mb-2" />
-                      <p className="text-sm text-gray-500">Analyzing transaction patterns...</p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">Analyzing transaction patterns...</p>
                     </div>
                   ) : showGroupedView ? (
                     renderGroupedView(doc, filteredTxns)

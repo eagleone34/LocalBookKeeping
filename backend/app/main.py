@@ -81,7 +81,7 @@ log(f"FRONTEND_DIST: {FRONTEND_DIST}")
 
 try:
     import uvicorn
-    from fastapi import FastAPI, Request
+    from fastapi import BackgroundTasks, FastAPI, HTTPException, Request
     from fastapi.middleware.cors import CORSMiddleware
     from fastapi.responses import FileResponse
     from fastapi.staticfiles import StaticFiles
@@ -95,7 +95,7 @@ try:
     from app.main_state import init_state, set_company_id
     from app.services.data_service import ensure_company
     from app.services.seed_data import seed_demo_data, seed_default_accounts
-    from app.services.update_service import check_for_updates
+    from app.services.update_service import check_for_updates, download_and_install_update
     from app.routers import accounts, transactions, budgets, reports, documents, settings
     from app.routers import reconciliation
     log("App modules OK")
@@ -162,6 +162,27 @@ def heartbeat():
 def check_update():
     v = check_for_updates()
     return {"status": "ok", "update_available": bool(v), "latest_version": v}
+
+@app.post("/api/update/install")
+def install_update(background_tasks: BackgroundTasks):
+    """
+    Downloads LocalBooks_Setup.exe from GitHub Releases and launches it as a
+    detached process. The installer kills the running exe, performs selective
+    extraction (skipping company_data/), and starts the new version.
+    This process then exits after flushing the response.
+    """
+    try:
+        download_and_install_update()
+    except RuntimeError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+    def _shutdown():
+        time.sleep(1.0)
+        log("Shutting down for in-app update — installer is running.")
+        os._exit(0)
+
+    background_tasks.add_task(_shutdown)
+    return {"ok": True}
 
 if FRONTEND_DIST.exists():
     app.mount("/assets", StaticFiles(directory=str(FRONTEND_DIST / "assets")), name="assets")

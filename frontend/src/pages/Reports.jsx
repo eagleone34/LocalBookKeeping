@@ -83,6 +83,7 @@ export default function Reports() {
     } catch (e) { console.error(e); }
   };
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { load(); }, [dateFrom, dateTo, selectedBankAccountId]);
 
   // Process P&L data for chart
@@ -118,25 +119,19 @@ export default function Reports() {
   // Balance sheet groups
   const assets = balanceSheet.filter(r => r.type === 'asset');
   const liabilities = balanceSheet.filter(r => r.type === 'liability');
-  const equity = balanceSheet.filter(r => r.type === 'equity');
   const totalAssets = assets.reduce((s, r) => s + r.balance, 0);
   const totalLiabilities = liabilities.reduce((s, r) => s + Math.abs(r.balance), 0);
-  const totalEquity = equity.reduce((s, r) => s + r.balance, 0);
   
-  // Balance sheet validation: Assets = Liabilities + Equity
-  const balanceCheck = Math.abs(totalAssets - (totalLiabilities + totalEquity));
-  const isBalanced = balanceCheck < 0.01; // Allow for rounding errors
-
   return (
     <div className="space-y-6">
       {/* Page heading */}
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Reports</h1>
-        <p className="text-gray-500 mt-1">Analyze your financial data</p>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Reports</h1>
+        <p className="text-gray-500 dark:text-gray-400 mt-1">Analyze your financial data</p>
       </div>
 
       {/* Filter toolbar */}
-      <div className="bg-gray-50 rounded-lg p-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+      <div className="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <select
           value={selectedBankAccountId}
           onChange={(e) => setSelectedBankAccountId(e.target.value)}
@@ -160,15 +155,15 @@ export default function Reports() {
 
       {/* Active date range label */}
       <div className="flex justify-end -mt-3">
-        <span className="text-xs text-gray-400">{dateRangeLabel}</span>
+        <span className="text-xs text-gray-400 dark:text-gray-500">{dateRangeLabel}</span>
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 border-b border-gray-200">
+      <div className="flex gap-1 border-b border-gray-200 dark:border-gray-700">
         {tabs.map((tab, i) => (
           <button key={tab} onClick={() => setActiveTab(i)}
             className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
-              activeTab === i ? 'border-primary-600 text-primary-700' : 'border-transparent text-gray-500 hover:text-gray-700'
+              activeTab === i ? 'border-primary-600 text-primary-700 dark:text-primary-400' : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
             }`}
           >
             {tab}
@@ -180,16 +175,16 @@ export default function Reports() {
       {activeTab === 0 && (
         <div className="space-y-6">
           <div className="grid grid-cols-3 gap-4">
-            <div className="card text-center cursor-pointer hover:shadow-md hover:bg-emerald-50 transition-all" onClick={() => drillDown({ category_type: 'income' })}>
-              <p className="text-sm text-gray-500">Total Income</p>
+            <div className="card text-center cursor-pointer hover:shadow-md hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-all" onClick={() => drillDown({ category_type: 'income' })}>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Total Income</p>
               <p className="text-2xl font-bold text-emerald-600">{formatMoney(ytdIncome)}</p>
             </div>
-            <div className="card text-center cursor-pointer hover:shadow-md hover:bg-red-50 transition-all" onClick={() => drillDown({ category_type: 'expense' })}>
-              <p className="text-sm text-gray-500">Total Expenses</p>
+            <div className="card text-center cursor-pointer hover:shadow-md hover:bg-red-50 dark:hover:bg-red-900/20 transition-all" onClick={() => drillDown({ category_type: 'expense' })}>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Total Expenses</p>
               <p className="text-2xl font-bold text-red-600">{formatMoney(ytdExpense)}</p>
             </div>
             <div className="card text-center">
-              <p className="text-sm text-gray-500">Net Income</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Net Income</p>
               <p className={`text-2xl font-bold ${ytdNet >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>{formatMoney(ytdNet)}</p>
             </div>
           </div>
@@ -210,16 +205,16 @@ export default function Reports() {
           <div className="card overflow-hidden p-0">
             <table className="w-full text-sm">
               <thead>
-                <tr className="bg-gray-50 border-b border-gray-200">
-                  <th className="py-3 px-4 text-left text-gray-500 font-medium">Month</th>
-                  <th className="py-3 px-4 text-right text-gray-500 font-medium">Income</th>
-                  <th className="py-3 px-4 text-right text-gray-500 font-medium">Expenses</th>
-                  <th className="py-3 px-4 text-right text-gray-500 font-medium">Net</th>
+                <tr className="bg-gray-50 dark:bg-gray-700/50 border-b border-gray-200 dark:border-gray-700">
+                  <th className="py-3 px-4 text-left text-gray-500 dark:text-gray-400 font-medium">Month</th>
+                  <th className="py-3 px-4 text-right text-gray-500 dark:text-gray-400 font-medium">Income</th>
+                  <th className="py-3 px-4 text-right text-gray-500 dark:text-gray-400 font-medium">Expenses</th>
+                  <th className="py-3 px-4 text-right text-gray-500 dark:text-gray-400 font-medium">Net</th>
                 </tr>
               </thead>
               <tbody>
                 {pnlChart.map(r => (
-                  <tr key={r.month} className="border-b border-gray-100 cursor-pointer hover:bg-blue-50 transition-colors"
+                  <tr key={r.month} className="border-b border-gray-100 dark:border-gray-700 cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
                       onClick={() => drillDown({ date_from: `${r.month}-01`, date_to: `${r.month}-31` })}>
                     <td className="py-3 px-4 font-medium">{r.month}</td>
                     <td className="py-3 px-4 text-right text-emerald-600">{formatMoney(r.income)}</td>
@@ -250,25 +245,25 @@ export default function Reports() {
           <div className="card overflow-hidden p-0">
             <table className="w-full text-sm">
               <thead>
-                <tr className="bg-gray-50 border-b border-gray-200">
-                  <th className="py-3 px-4 text-left text-gray-500 font-medium">Category</th>
-                  <th className="py-3 px-4 text-right text-gray-500 font-medium">Total</th>
-                  <th className="py-3 px-4 text-right text-gray-500 font-medium">%</th>
-                  <th className="py-3 px-4 text-left text-gray-500 font-medium w-32">Share</th>
+                <tr className="bg-gray-50 dark:bg-gray-700/50 border-b border-gray-200 dark:border-gray-700">
+                  <th className="py-3 px-4 text-left text-gray-500 dark:text-gray-400 font-medium">Category</th>
+                  <th className="py-3 px-4 text-right text-gray-500 dark:text-gray-400 font-medium">Total</th>
+                  <th className="py-3 px-4 text-right text-gray-500 dark:text-gray-400 font-medium">%</th>
+                  <th className="py-3 px-4 text-left text-gray-500 dark:text-gray-400 font-medium w-32">Share</th>
                 </tr>
               </thead>
               <tbody>
-                {categories.map((r, i) => (
-                  <tr key={r.account_id} className="border-b border-gray-100 cursor-pointer hover:bg-blue-50 transition-colors"
+                {categories.map((r) => (
+                  <tr key={r.account_id} className="border-b border-gray-100 dark:border-gray-700 cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
                       onClick={() => drillDown({ category_id: r.account_id })}>
                     <td className="py-3 px-4 font-medium flex items-center gap-2">
                       <div className="w-3 h-3 rounded-full" style={{ backgroundColor: getColor(r.account_name) }} />
                       {r.account_name}
                     </td>
                     <td className="py-3 px-4 text-right">{formatMoney(r.total)}</td>
-                    <td className="py-3 px-4 text-right text-gray-500">{r.percentage}%</td>
+                    <td className="py-3 px-4 text-right text-gray-500 dark:text-gray-400">{r.percentage}%</td>
                     <td className="py-3 px-4">
-                      <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+                      <div className="w-full h-2 bg-gray-200 dark:bg-gray-600 rounded-full overflow-hidden">
                         <div className="h-full rounded-full" style={{ width: `${r.percentage}%`, backgroundColor: getColor(r.account_name) }} />
                       </div>
                     </td>
@@ -276,7 +271,7 @@ export default function Reports() {
                 ))}
               </tbody>
               <tfoot>
-                <tr className="font-bold border-t-2 border-gray-300">
+                <tr className="font-bold border-t-2 border-gray-300 dark:border-gray-600">
                   <td className="py-3 px-4">Total</td>
                   <td className="py-3 px-4 text-right">{formatMoney(grandTotal)}</td>
                   <td className="py-3 px-4 text-right">100%</td>
@@ -308,24 +303,24 @@ export default function Reports() {
           <div className="card overflow-hidden p-0">
             <table className="w-full text-sm">
               <thead>
-                <tr className="bg-gray-50 border-b border-gray-200">
-                  <th className="py-3 px-4 text-left text-gray-500 font-medium">Vendor</th>
-                  <th className="py-3 px-4 text-right text-gray-500 font-medium">Total</th>
-                  <th className="py-3 px-4 text-right text-gray-500 font-medium">%</th>
+                <tr className="bg-gray-50 dark:bg-gray-700/50 border-b border-gray-200 dark:border-gray-700">
+                  <th className="py-3 px-4 text-left text-gray-500 dark:text-gray-400 font-medium">Vendor</th>
+                  <th className="py-3 px-4 text-right text-gray-500 dark:text-gray-400 font-medium">Total</th>
+                  <th className="py-3 px-4 text-right text-gray-500 dark:text-gray-400 font-medium">%</th>
                 </tr>
               </thead>
               <tbody>
                 {vendors.map(r => (
-                  <tr key={r.vendor_name} className="border-b border-gray-100 cursor-pointer hover:bg-blue-50 transition-colors"
+                  <tr key={r.vendor_name} className="border-b border-gray-100 dark:border-gray-700 cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
                       onClick={() => drillDown({ search: r.vendor_name })}>
                     <td className="py-3 px-4 font-medium">{r.vendor_name}</td>
                     <td className="py-3 px-4 text-right">{formatMoney(r.total)}</td>
-                    <td className="py-3 px-4 text-right text-gray-500">{r.percentage}%</td>
+                    <td className="py-3 px-4 text-right text-gray-500 dark:text-gray-400">{r.percentage}%</td>
                   </tr>
                 ))}
               </tbody>
               <tfoot>
-                <tr className="font-bold border-t-2 border-gray-300">
+                <tr className="font-bold border-t-2 border-gray-300 dark:border-gray-600">
                   <td className="py-3 px-4">Total</td>
                   <td className="py-3 px-4 text-right">{formatMoney(vendorGrandTotal)}</td>
                   <td className="py-3 px-4 text-right">100%</td>
@@ -376,7 +371,7 @@ export default function Reports() {
             <table className="w-full text-sm">
               <tbody>
                 {assets.map(r => (
-                  <tr key={r.account_name} className="border-b border-gray-100 cursor-pointer hover:bg-blue-50 transition-colors"
+                  <tr key={r.account_name} className="border-b border-gray-100 dark:border-gray-700 cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
                       onClick={() => drillDown({ category_id: r.account_id })}>
                     <td className="py-3 px-2 font-medium">{r.account_name}</td>
                     <td className="py-3 px-2 text-right text-blue-600 font-medium">{formatMoney(r.balance)}</td>
@@ -397,7 +392,7 @@ export default function Reports() {
               <table className="w-full text-sm">
                 <tbody>
                   {liabilities.map(r => (
-                    <tr key={r.account_name} className="border-b border-gray-100 cursor-pointer hover:bg-amber-50 transition-colors"
+                    <tr key={r.account_name} className="border-b border-gray-100 dark:border-gray-700 cursor-pointer hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors"
                         onClick={() => drillDown({ category_id: r.account_id })}>
                       <td className="py-3 px-2 font-medium">{r.account_name}</td>
                       <td className="py-3 px-2 text-right text-amber-600 font-medium">{formatMoney(Math.abs(r.balance))}</td>
@@ -417,7 +412,7 @@ export default function Reports() {
               <table className="w-full text-sm">
                 <tbody>
                   {balanceSheet.filter(r => r.type === 'equity').map(r => (
-                    <tr key={r.account_name} className="border-b border-gray-100 cursor-pointer hover:bg-purple-50 transition-colors"
+                    <tr key={r.account_name} className="border-b border-gray-100 dark:border-gray-700 cursor-pointer hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors"
                         onClick={() => drillDown({ category_id: r.account_id })}>
                       <td className="py-3 px-2 font-medium">{r.account_name}</td>
                       <td className="py-3 px-2 text-right text-purple-600 font-medium">{formatMoney(r.balance)}</td>
@@ -436,7 +431,7 @@ export default function Reports() {
             </div>
           </div>
           <div className="card lg:col-span-2 text-center">
-            <p className="text-sm text-gray-500">Net Worth (Assets - Liabilities)</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400">Net Worth (Assets - Liabilities)</p>
             <p className={`text-3xl font-bold ${totalAssets - totalLiabilities >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
               {formatMoney(totalAssets - totalLiabilities)}
             </p>

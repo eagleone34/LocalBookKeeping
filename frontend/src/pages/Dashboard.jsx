@@ -23,6 +23,7 @@ export default function Dashboard() {
   const [dateTo, setDateTo] = useState('');
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoading(true);
     getDashboard(dateFrom || undefined, dateTo || undefined)
       .then(setData)
@@ -30,24 +31,24 @@ export default function Dashboard() {
       .finally(() => setLoading(false));
   }, [dateFrom, dateTo]);
 
-  if (loading) return <div className="flex items-center justify-center h-64"><div className="text-gray-400">Loading...</div></div>;
+  if (loading) return <div className="flex items-center justify-center h-64"><div className="text-gray-400 dark:text-gray-500">Loading...</div></div>;
   if (!data) return <div className="text-red-500">Failed to load dashboard</div>;
 
   const cards = [
-    { label: 'Total Income', value: data.total_income, icon: TrendingUp, color: 'text-emerald-600', bg: 'bg-emerald-50' },
-    { label: 'Total Expenses', value: data.total_expenses, icon: TrendingDown, color: 'text-red-600', bg: 'bg-red-50' },
-    { label: 'Net Income', value: data.net_income, icon: DollarSign, color: data.net_income >= 0 ? 'text-emerald-600' : 'text-red-600', bg: data.net_income >= 0 ? 'bg-emerald-50' : 'bg-red-50' },
-    { label: 'Net Worth', value: data.net_worth, icon: Wallet, color: 'text-blue-600', bg: 'bg-blue-50' },
-    { label: 'Transactions', value: data.transaction_count, icon: FileText, color: 'text-gray-600', bg: 'bg-gray-50', isCount: true },
-    { label: 'Pending Review', value: data.pending_review_count, icon: CreditCard, color: 'text-amber-600', bg: 'bg-amber-50', isCount: true },
+    { label: 'Total Income', value: data.total_income, icon: TrendingUp, color: 'text-emerald-600', bg: 'bg-emerald-50 dark:bg-emerald-900/20' },
+    { label: 'Total Expenses', value: data.total_expenses, icon: TrendingDown, color: 'text-red-600', bg: 'bg-red-50 dark:bg-red-900/20' },
+    { label: 'Net Income', value: data.net_income, icon: DollarSign, color: data.net_income >= 0 ? 'text-emerald-600' : 'text-red-600', bg: data.net_income >= 0 ? 'bg-emerald-50 dark:bg-emerald-900/20' : 'bg-red-50 dark:bg-red-900/20' },
+    { label: 'Net Worth', value: data.net_worth, icon: Wallet, color: 'text-blue-600', bg: 'bg-blue-50 dark:bg-blue-900/20' },
+    { label: 'Transactions', value: data.transaction_count, icon: FileText, color: 'text-gray-600 dark:text-gray-400', bg: 'bg-gray-50 dark:bg-gray-700', isCount: true },
+    { label: 'Pending Review', value: data.pending_review_count, icon: CreditCard, color: 'text-amber-600', bg: 'bg-amber-50 dark:bg-amber-900/20', isCount: true },
   ];
 
   return (
     <div className="space-y-8">
       <div className="flex flex-col gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-          <p className="text-gray-500 mt-1">Your financial overview at a glance</p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Dashboard</h1>
+          <p className="text-gray-500 dark:text-gray-400 mt-1">Your financial overview at a glance</p>
         </div>
         <DatePresetPicker
           dateFrom={dateFrom}
@@ -64,7 +65,7 @@ export default function Dashboard() {
               <Icon className={`w-6 h-6 ${color}`} />
             </div>
             <div>
-              <p className="text-sm text-gray-500">{label}</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">{label}</p>
               <p className={`text-2xl font-bold ${color}`}>
                 {isCount ? value.toLocaleString() : formatMoney(value)}
               </p>
@@ -133,20 +134,20 @@ export default function Dashboard() {
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-gray-200">
-                <th className="text-left py-3 px-2 text-gray-500 font-medium">Date</th>
-                <th className="text-left py-3 px-2 text-gray-500 font-medium">Vendor</th>
-                <th className="text-left py-3 px-2 text-gray-500 font-medium">Description</th>
-                <th className="text-left py-3 px-2 text-gray-500 font-medium">Category</th>
-                <th className="text-right py-3 px-2 text-gray-500 font-medium">Amount</th>
+              <tr className="border-b border-gray-200 dark:border-gray-700">
+                <th className="text-left py-3 px-2 text-gray-500 dark:text-gray-400 font-medium">Date</th>
+                <th className="text-left py-3 px-2 text-gray-500 dark:text-gray-400 font-medium">Vendor</th>
+                <th className="text-left py-3 px-2 text-gray-500 dark:text-gray-400 font-medium">Description</th>
+                <th className="text-left py-3 px-2 text-gray-500 dark:text-gray-400 font-medium">Category</th>
+                <th className="text-right py-3 px-2 text-gray-500 dark:text-gray-400 font-medium">Amount</th>
               </tr>
             </thead>
             <tbody>
               {data.recent_transactions.map(txn => (
-                <tr key={txn.id} className="border-b border-gray-100 hover:bg-gray-50">
+                <tr key={txn.id} className="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700">
                   <td className="py-3 px-2">{txn.txn_date}</td>
                   <td className="py-3 px-2 font-medium">{txn.vendor_name || '-'}</td>
-                  <td className="py-3 px-2 text-gray-500 max-w-xs truncate">{txn.description}</td>
+                  <td className="py-3 px-2 text-gray-500 dark:text-gray-400 max-w-xs truncate">{txn.description}</td>
                   <td className="py-3 px-2">
                     <span className={`badge-${txn.account_type}`}>{txn.account_name}</span>
                   </td>
