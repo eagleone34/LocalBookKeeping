@@ -599,26 +599,26 @@ export default function ImportWizard({ onClose, onSuccess, accounts: initialAcco
 
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden">
         
         {/* Header */}
-        <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-gray-50">
-          <div className="flex items-center gap-3 text-lg font-semibold text-gray-800">
+        <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between bg-gray-50 dark:bg-gray-700">
+          <div className="flex items-center gap-3 text-lg font-semibold text-gray-800 dark:text-gray-100">
             <FileSpreadsheet className="w-6 h-6 text-primary-600" />
             Import CSV / Excel Wizard
           </div>
-          <button onClick={onClose} className="p-2 text-gray-400 hover:bg-gray-200 rounded-full transition-colors">
+          <button onClick={onClose} className="p-2 text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-full transition-colors">
             <X className="w-5 h-5"/>
           </button>
         </div>
 
         {/* Wizard Steps */}
-        <div className="px-6 py-4 border-b border-gray-100 bg-white flex items-center justify-center">
+        <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800 flex items-center justify-center">
           <div className="flex items-center gap-2 text-sm font-medium">
             {stepLabels.map((label, i) => (
               <React.Fragment key={i}>
-                {i > 0 && <ChevronRight className="w-4 h-4 text-gray-300" />}
-                <span className={`px-2.5 py-1 rounded-full ${step >= i + 1 ? 'bg-primary-100 text-primary-700' : 'bg-gray-100 text-gray-400'}`}>
+                {i > 0 && <ChevronRight className="w-4 h-4 text-gray-300 dark:text-gray-600" />}
+                <span className={`px-2.5 py-1 rounded-full ${step >= i + 1 ? 'bg-primary-100 text-primary-700 dark:bg-primary-900/30 dark:text-primary-400' : 'bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-500'}`}>
                   {label}
                 </span>
               </React.Fragment>
@@ -627,7 +627,7 @@ export default function ImportWizard({ onClose, onSuccess, accounts: initialAcco
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-auto p-6 bg-white">
+        <div className="flex-1 overflow-auto p-6 bg-white dark:bg-gray-800">
           {error && (
             <div className="mb-6 bg-red-50 text-red-700 p-4 rounded-lg flex items-start gap-3 border border-red-100">
               <AlertCircle className="w-5 h-5 mt-0.5" />
@@ -640,10 +640,10 @@ export default function ImportWizard({ onClose, onSuccess, accounts: initialAcco
 
           {/* ═══ STEP 1: Upload ═══ */}
           {step === 1 && (
-            <div className="flex flex-col items-center justify-center py-16 px-4 border-2 border-dashed border-gray-200 rounded-xl hover:border-primary-400 transition-colors bg-gray-50">
+            <div className="flex flex-col items-center justify-center py-16 px-4 border-2 border-dashed border-gray-200 dark:border-gray-600 rounded-xl hover:border-primary-400 transition-colors bg-gray-50 dark:bg-gray-700/30">
               <UploadCloud className="w-16 h-16 text-primary-200 mb-4" />
-              <h3 className="text-xl font-medium text-gray-800 mb-2">Upload your statement</h3>
-              <p className="text-gray-500 mb-6 text-center max-w-sm">We support .csv, .xls, and .xlsx files exported from your bank.</p>
+              <h3 className="text-xl font-medium text-gray-800 dark:text-gray-100 mb-2">Upload your statement</h3>
+              <p className="text-gray-500 dark:text-gray-400 mb-6 text-center max-w-sm">We support .csv, .xls, and .xlsx files exported from your bank.</p>
               <input 
                 type="file" 
                 accept=".csv, .xls, .xlsx" 
@@ -664,18 +664,18 @@ export default function ImportWizard({ onClose, onSuccess, accounts: initialAcco
           {/* ═══ STEP 2: Map Columns ═══ */}
           {step === 2 && (
             <div className="space-y-6">
-              <p className="text-gray-600">Please configure your import settings for <strong>{file?.name}</strong>.</p>
-              
+              <p className="text-gray-600 dark:text-gray-400">Please configure your import settings for <strong>{file?.name}</strong>.</p>
+
               {/* Top Settings Row: Sheet, Bank Account & Category */}
-              <div className="bg-gray-50 border border-gray-200 rounded-lg p-5 flex flex-col gap-6">
+              <div className="bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-lg p-5 flex flex-col gap-6">
                 
                 {/* First row: Excel Sheet and Bank Account */}
                 <div className="flex flex-col md:flex-row gap-6">
                   {sheets.length > 1 && (
                     <div className="w-full md:w-1/2 flex flex-col gap-1.5">
-                      <label className="text-sm font-semibold text-gray-700">Excel Sheet <span className="text-red-500">*</span></label>
+                      <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">Excel Sheet <span className="text-red-500">*</span></label>
                       <select 
-                        className="input-field bg-white shadow-sm"
+                        className="input-field bg-white dark:bg-gray-700 shadow-sm"
                         value={selectedSheet}
                         onChange={handleSheetChange}
                       >
@@ -686,12 +686,12 @@ export default function ImportWizard({ onClose, onSuccess, accounts: initialAcco
                   
                   {/* Bank Account Selection (Required) */}
                   <div className={`w-full ${sheets.length > 1 ? 'md:w-1/2' : ''} flex flex-col gap-1.5`}>
-                    <label className="text-sm font-semibold text-gray-700">
+                    <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">
                       Bank Account <span className="text-red-500">*</span>
                     </label>
                     <div className="flex gap-2">
                       <select
-                        className="input-field bg-white shadow-sm flex-1"
+                        className="input-field bg-white dark:bg-gray-700 shadow-sm flex-1"
                         value={selectedBankAccountId}
                         onChange={e => setSelectedBankAccountId(e.target.value)}
                         disabled={loadingBankAccounts}
@@ -722,8 +722,8 @@ export default function ImportWizard({ onClose, onSuccess, accounts: initialAcco
                     
                     {/* Inline Add Bank Account Form */}
                     {showAddBank && (
-                      <div className="mt-2 p-3 bg-white border border-primary-200 rounded-lg shadow-sm space-y-2">
-                        <p className="text-xs font-semibold text-gray-700">Add New Bank Account</p>
+                      <div className="mt-2 p-3 bg-white dark:bg-gray-700 border border-primary-200 dark:border-gray-600 rounded-lg shadow-sm space-y-2">
+                        <p className="text-xs font-semibold text-gray-700 dark:text-gray-300">Add New Bank Account</p>
                         <div className="flex gap-2">
                           <input
                             type="text"
@@ -737,7 +737,7 @@ export default function ImportWizard({ onClose, onSuccess, accounts: initialAcco
                             placeholder="Last 4 digits"
                             value={newLastFour}
                             onChange={e => setNewLastFour(e.target.value.replace(/\D/g, '').slice(0, 4))}
-                            className="input-field bg-white shadow-sm w-28 text-sm"
+                            className="input-field bg-white dark:bg-gray-700 shadow-sm w-28 text-sm"
                             maxLength={4}
                           />
                         </div>
@@ -745,7 +745,7 @@ export default function ImportWizard({ onClose, onSuccess, accounts: initialAcco
                           <select
                             value={newAccountType}
                             onChange={e => setNewAccountType(e.target.value)}
-                            className="input-field bg-white shadow-sm text-sm flex-1"
+                            className="input-field bg-white dark:bg-gray-700 shadow-sm text-sm flex-1"
                           >
                             <option value="checking">Checking</option>
                             <option value="savings">Savings</option>
@@ -760,11 +760,11 @@ export default function ImportWizard({ onClose, onSuccess, accounts: initialAcco
                             {addingBank ? 'Adding...' : 'Add'}
                           </button>
                         </div>
-                        <p className="text-xs text-gray-500">A linked Chart of Accounts entry will be created automatically.</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">A linked Chart of Accounts entry will be created automatically.</p>
                       </div>
                     )}
 
-                    <p className="text-xs text-gray-500">
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
                       Transactions will be linked to this bank account
                     </p>
                   </div>
@@ -773,7 +773,7 @@ export default function ImportWizard({ onClose, onSuccess, accounts: initialAcco
                 {/* Second row: Default Category (Optional) */}
                 <div className="flex flex-col md:flex-row gap-6">
                   <div className="w-full md:w-1/2 flex flex-col gap-1.5">
-                    <label className="text-sm font-semibold text-gray-700">
+                    <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">
                       Default Category <span className="text-gray-400 font-normal">(Optional)</span>
                     </label>
                     <GroupedAccountSelect
@@ -781,9 +781,9 @@ export default function ImportWizard({ onClose, onSuccess, accounts: initialAcco
                       value={selectedCategoryId}
                       onChange={e => setSelectedCategoryId(e.target.value)}
                       placeholder="-- Let system auto-categorize --"
-                      className="input-field bg-white shadow-sm"
+                      className="input-field bg-white dark:bg-gray-700 shadow-sm"
                     />
-                    <p className="text-xs text-gray-500">
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
                       Fallback category if smart categorization doesn't match. Leave empty for auto-categorization.
                     </p>
                   </div>
@@ -792,12 +792,12 @@ export default function ImportWizard({ onClose, onSuccess, accounts: initialAcco
               </div>
 
               {/* Column Mapping Row */}
-              <div className="bg-gray-50 border border-gray-200 rounded-lg p-5">
-                <h4 className="text-sm font-semibold text-gray-800 mb-4">Column Mapping</h4>
+              <div className="bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-lg p-5">
+                <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-100 mb-4">Column Mapping</h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {REQUIRED_FIELDS.map(f => (
                     <div key={f.id} className="flex flex-col gap-1.5">
-                      <label className="text-sm font-semibold text-gray-700">
+                      <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">
                         {f.label} {f.required && <span className="text-red-500">*</span>}
                       </label>
                       {f.id === 'amount' ? (
@@ -815,7 +815,7 @@ export default function ImportWizard({ onClose, onSuccess, accounts: initialAcco
                           
                           {amountType === 'single' ? (
                             <select 
-                              className="input-field bg-white shadow-sm"
+                              className="input-field bg-white dark:bg-gray-700 shadow-sm"
                               value={mapping.amountStr || ''}
                               onChange={e => setMapping({...mapping, amountStr: e.target.value})}
                             >
@@ -825,7 +825,7 @@ export default function ImportWizard({ onClose, onSuccess, accounts: initialAcco
                           ) : (
                             <div className="flex gap-2">
                               <select 
-                                className="input-field bg-white shadow-sm flex-1"
+                                className="input-field bg-white dark:bg-gray-700 shadow-sm flex-1"
                                 value={mapping.amountIn || ''}
                                 onChange={e => setMapping({...mapping, amountIn: e.target.value})}
                               >
@@ -833,7 +833,7 @@ export default function ImportWizard({ onClose, onSuccess, accounts: initialAcco
                                 {headers.map(h => <option key={h} value={h}>{h}</option>)}
                               </select>
                               <select 
-                                className="input-field bg-white shadow-sm flex-1"
+                                className="input-field bg-white dark:bg-gray-700 shadow-sm flex-1"
                                 value={mapping.amountOut || ''}
                                 onChange={e => setMapping({...mapping, amountOut: e.target.value})}
                               >
@@ -845,7 +845,7 @@ export default function ImportWizard({ onClose, onSuccess, accounts: initialAcco
                         </div>
                       ) : (
                         <select 
-                          className="input-field bg-white shadow-sm"
+                          className="input-field bg-white dark:bg-gray-700 shadow-sm"
                           value={mapping[f.id] || ''}
                           onChange={e => setMapping({...mapping, [f.id]: e.target.value})}
                         >
@@ -856,7 +856,7 @@ export default function ImportWizard({ onClose, onSuccess, accounts: initialAcco
                         </select>
                       )}
                       {f.id === 'date' && (
-                        <p className="text-xs text-gray-500">We automatically detect dates like MM/DD/YYYY, YYYY-MM-DD, etc.</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">We automatically detect dates like MM/DD/YYYY, YYYY-MM-DD, etc.</p>
                       )}
                     </div>
                   ))}
@@ -865,22 +865,22 @@ export default function ImportWizard({ onClose, onSuccess, accounts: initialAcco
 
               {/* Quick sample preview */}
               <div>
-                <h4 className="text-sm font-semibold text-gray-700 mb-3">Sample Row based on mapping:</h4>
-                <div className="overflow-x-auto border border-gray-200 rounded-lg">
+                <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Sample Row based on mapping:</h4>
+                <div className="overflow-x-auto border border-gray-200 dark:border-gray-600 rounded-lg">
                   <table className="w-full text-sm">
-                    <thead className="bg-gray-50 border-b">
+                    <thead className="bg-gray-50 dark:bg-gray-700 border-b dark:border-gray-600">
                       <tr>
-                        <th className="px-4 py-2 text-left text-gray-500 font-medium">Date</th>
-                        <th className="px-4 py-2 text-left text-gray-500 font-medium">Description</th>
-                        <th className="px-4 py-2 text-right text-gray-500 font-medium">Amount</th>
+                        <th className="px-4 py-2 text-left text-gray-500 dark:text-gray-400 font-medium">Date</th>
+                        <th className="px-4 py-2 text-left text-gray-500 dark:text-gray-400 font-medium">Description</th>
+                        <th className="px-4 py-2 text-right text-gray-500 dark:text-gray-400 font-medium">Amount</th>
                       </tr>
                     </thead>
-                    <tbody className="bg-white">
+                    <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-100 dark:divide-gray-700">
                       {rows.slice(0, 3).map((r, i) => (
-                        <tr key={i} className="border-b last:border-0 hover:bg-gray-50">
-                          <td className="px-4 py-3">{mapping.date ? r[mapping.date] : '-'}</td>
-                          <td className="px-4 py-3">{mapping.description ? r[mapping.description] : '-'}</td>
-                          <td className="px-4 py-3 text-right">
+                        <tr key={i} className="border-b dark:border-gray-700 last:border-0 hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                          <td className="px-4 py-3 text-gray-900 dark:text-gray-200">{mapping.date ? r[mapping.date] : '-'}</td>
+                          <td className="px-4 py-3 text-gray-900 dark:text-gray-200">{mapping.description ? r[mapping.description] : '-'}</td>
+                          <td className="px-4 py-3 text-right text-gray-900 dark:text-gray-200">
                             {amountType === 'single' ? String(r[mapping.amountStr] || '-') : `In: ${r[mapping.amountIn] || '-'} | Out: ${r[mapping.amountOut] || '-'}`}
                           </td>
                         </tr>
@@ -909,7 +909,7 @@ export default function ImportWizard({ onClose, onSuccess, accounts: initialAcco
               {loadingCategories ? (
                 <div className="flex flex-col items-center justify-center py-16">
                   <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary-600 mb-4"></div>
-                  <p className="text-gray-500 text-sm">Analyzing transactions and suggesting categories...</p>
+                  <p className="text-gray-500 dark:text-gray-400 text-sm">Analyzing transactions and suggesting categories...</p>
                 </div>
               ) : (
                 <>
@@ -936,7 +936,7 @@ export default function ImportWizard({ onClose, onSuccess, accounts: initialAcco
                         <div
                           key={group.group_key || groupIdx}
                           className={`border rounded-lg transition-all overflow-hidden ${
-                            isApproved ? 'bg-gray-50 border-gray-200 opacity-80' : confidenceBg(Math.round((group.confidence || 0) * 100))
+                            isApproved ? 'bg-gray-50 dark:bg-gray-700/50 border-gray-200 dark:border-gray-600 opacity-80' : confidenceBg(Math.round((group.confidence || 0) * 100))
                           }`}
                         >
                           {/* Clickable group header */}
@@ -953,10 +953,10 @@ export default function ImportWizard({ onClose, onSuccess, accounts: initialAcco
                                     : <ChevronRight className="w-4 h-4" />}
                                 </span>
                                 <span className={`inline-block w-2 h-2 rounded-full ${isApproved ? 'bg-emerald-400' : confidenceDot(Math.round((group.confidence || 0) * 100))}`}></span>
-                                <h5 className="font-medium text-gray-800 text-sm truncate">
+                                <h5 className="font-medium text-gray-800 dark:text-gray-200 text-sm truncate">
                                   {group.sample_description || 'Unnamed group'}
                                 </h5>
-                                <span className="text-xs text-gray-500 whitespace-nowrap">
+                                <span className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">
                                   × {group.transaction_indices?.length || 0} transactions
                                 </span>
                                 {/* Transaction type badge (Withdrawal / Deposit) */}
@@ -990,7 +990,7 @@ export default function ImportWizard({ onClose, onSuccess, accounts: initialAcco
                                   </span>
                                 )}
                                 {group.match_reason && (
-                                  <span className="text-gray-400">— {group.match_reason}</span>
+                                  <span className="text-gray-400 dark:text-gray-500">— {group.match_reason}</span>
                                 )}
                                 {isMixed && (
                                   <span className="text-amber-500 italic">(mixed categories)</span>
@@ -1005,7 +1005,7 @@ export default function ImportWizard({ onClose, onSuccess, accounts: initialAcco
                                   onChange={e => handleGroupCategoryChange(groupIdx, e.target.value)}
                                   onAddNew={() => handleAddNewAccount({ type: 'group', index: groupIdx })}
                                   placeholder="Select category..."
-                                  className="input-field text-sm bg-white shadow-sm"
+                                  className="input-field text-sm bg-white dark:bg-gray-700 shadow-sm"
                                   showCode={false}
                                 />
                               </div>
@@ -1017,8 +1017,8 @@ export default function ImportWizard({ onClose, onSuccess, accounts: initialAcco
                               disabled={isApproved}
                               className={`p-2 rounded-lg transition-colors flex-shrink-0 ${
                                 isApproved
-                                  ? 'bg-emerald-100 text-emerald-600 cursor-default'
-                                  : 'bg-white border border-gray-200 text-gray-400 hover:text-emerald-600 hover:border-emerald-300 hover:bg-emerald-50'
+                                  ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 cursor-default'
+                                  : 'bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-400 dark:text-gray-500 hover:text-emerald-600 hover:border-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-900/20'
                               }`}
                               title={isApproved ? 'Approved' : 'Approve suggestion'}
                             >
@@ -1028,8 +1028,8 @@ export default function ImportWizard({ onClose, onSuccess, accounts: initialAcco
 
                           {/* Expanded individual transactions */}
                           {isExpanded && (
-                            <div className="border-t border-gray-200/60 bg-white/60 max-h-[400px] overflow-y-auto">
-                              <div className="divide-y divide-gray-100/80">
+                            <div className="border-t border-gray-200/60 dark:border-gray-600/60 bg-white/60 dark:bg-gray-800/60 max-h-[400px] overflow-y-auto">
+                              <div className="divide-y divide-gray-100/80 dark:divide-gray-700/80">
                                 {group.transaction_indices.map(txnIdx => {
                                   const txnData = getTransactionData(txnIdx);
                                   if (!txnData) return null;
@@ -1037,19 +1037,19 @@ export default function ImportWizard({ onClose, onSuccess, accounts: initialAcco
                                   return (
                                     <div
                                       key={txnIdx}
-                                      className={`flex items-center gap-3 pl-10 pr-4 py-2 hover:bg-gray-50/80 transition-colors ${
-                                        isOverridden ? 'bg-amber-50/30' : ''
+                                      className={`flex items-center gap-3 pl-10 pr-4 py-2 hover:bg-gray-50/80 dark:hover:bg-gray-700/50 transition-colors ${
+                                        isOverridden ? 'bg-amber-50/30 dark:bg-amber-900/10' : ''
                                       }`}
                                     >
-                                      <span className="text-gray-400 text-xs w-20 flex-shrink-0">{txnData.date}</span>
-                                      <span className="text-gray-700 text-xs truncate flex-1 min-w-0" title={txnData.description}>
+                                      <span className="text-gray-400 dark:text-gray-500 text-xs w-20 flex-shrink-0">{txnData.date}</span>
+                                      <span className="text-gray-700 dark:text-gray-300 text-xs truncate flex-1 min-w-0" title={txnData.description}>
                                         {txnData.description}
                                       </span>
                                       {txnData.vendor && (
                                         <span className="text-gray-400 text-[11px] truncate max-w-[6rem] flex-shrink-0">{txnData.vendor}</span>
                                       )}
                                       <span className={`text-xs w-20 text-right font-medium flex-shrink-0 ${
-                                        parseFloat(txnData.amount) >= 0 ? 'text-emerald-700' : 'text-gray-800'
+                                        parseFloat(txnData.amount) >= 0 ? 'text-emerald-700 dark:text-emerald-400' : 'text-gray-800 dark:text-gray-200'
                                       }`}>
                                         {txnData.amount}
                                       </span>
@@ -1060,7 +1060,7 @@ export default function ImportWizard({ onClose, onSuccess, accounts: initialAcco
                                           onChange={e => handleIndividualCategoryChange(groupIdx, txnIdx, e.target.value)}
                                           onAddNew={() => handleAddNewAccount({ type: 'grouped-individual', groupIndex: groupIdx, txnIndex: txnIdx })}
                                           placeholder="Category..."
-                                          className="input-field text-xs bg-white shadow-sm"
+                                          className="input-field text-xs bg-white dark:bg-gray-700 shadow-sm"
                                           showCode={false}
                                         />
                                       </div>
@@ -1077,22 +1077,22 @@ export default function ImportWizard({ onClose, onSuccess, accounts: initialAcco
 
                   {/* Ungrouped transactions */}
                   {ungroupedIndices.length > 0 && (
-                    <div className="border border-gray-200 rounded-lg overflow-hidden">
-                      <div className="bg-gray-50 px-4 py-3 border-b border-gray-200">
-                        <h5 className="text-sm font-semibold text-gray-700">
+                    <div className="border border-gray-200 dark:border-gray-600 rounded-lg overflow-hidden">
+                      <div className="bg-gray-50 dark:bg-gray-700 px-4 py-3 border-b border-gray-200 dark:border-gray-600">
+                        <h5 className="text-sm font-semibold text-gray-700 dark:text-gray-300">
                           Ungrouped Transactions ({ungroupedIndices.length})
                         </h5>
-                        <p className="text-xs text-gray-500">These didn't match any pattern — assign categories individually.</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">These didn't match any pattern — assign categories individually.</p>
                       </div>
-                      <div className="max-h-[300px] overflow-y-auto divide-y divide-gray-100">
+                      <div className="max-h-[300px] overflow-y-auto divide-y divide-gray-100 dark:divide-gray-700">
                         {ungroupedIndices.map(txnIdx => {
                           const txn = mappedData[txnIdx];
                           if (!txn) return null;
                           return (
-                            <div key={txnIdx} className="flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50">
+                            <div key={txnIdx} className="flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 dark:hover:bg-gray-700/50">
                               <div className="flex-1 min-w-0">
-                                <p className="text-sm text-gray-800 truncate">{txn.description}</p>
-                                <p className="text-xs text-gray-400">{txn.txn_date} · ${Math.abs(txn.amount).toFixed(2)}</p>
+                                <p className="text-sm text-gray-800 dark:text-gray-200 truncate">{txn.description}</p>
+                                <p className="text-xs text-gray-400 dark:text-gray-500">{txn.txn_date} · ${Math.abs(txn.amount).toFixed(2)}</p>
                               </div>
                               <div className="w-48 flex-shrink-0">
                                 <GroupedAccountSelect
@@ -1101,7 +1101,7 @@ export default function ImportWizard({ onClose, onSuccess, accounts: initialAcco
                                   onChange={e => handleUngroupedCategoryChange(txnIdx, e.target.value)}
                                   onAddNew={() => handleAddNewAccount({ type: 'ungrouped', index: txnIdx })}
                                   placeholder="Category..."
-                                  className="input-field text-xs bg-white shadow-sm"
+                                  className="input-field text-xs bg-white dark:bg-gray-700 shadow-sm"
                                   showCode={false}
                                 />
                               </div>
@@ -1114,7 +1114,7 @@ export default function ImportWizard({ onClose, onSuccess, accounts: initialAcco
 
                   {/* Empty state */}
                   {categorizationGroups.length === 0 && ungroupedIndices.length === 0 && !loadingCategories && (
-                    <div className="text-center py-12 text-gray-400">
+                    <div className="text-center py-12 text-gray-400 dark:text-gray-500">
                       <p className="text-sm">No categorization suggestions available. You can proceed to preview.</p>
                     </div>
                   )}
@@ -1149,32 +1149,32 @@ export default function ImportWizard({ onClose, onSuccess, accounts: initialAcco
                 </div>
               </div>
 
-              <div className="overflow-y-auto max-h-[400px] border border-gray-200 rounded-lg shadow-inner">
+              <div className="overflow-y-auto max-h-[400px] border border-gray-200 dark:border-gray-600 rounded-lg shadow-inner">
                 <table className="w-full text-sm">
-                  <thead className="bg-gray-50 border-b sticky top-0 z-10">
+                  <thead className="bg-gray-50 dark:bg-gray-700 border-b dark:border-gray-600 sticky top-0 z-10">
                     <tr>
-                      <th className="px-4 py-2 text-left text-gray-500 font-medium w-28">Date</th>
-                      <th className="px-4 py-2 text-left text-gray-500 font-medium">Description</th>
-                      <th className="px-4 py-2 text-left text-gray-500 font-medium w-40">Category</th>
-                      <th className="px-4 py-2 text-right text-gray-500 font-medium w-28">Amount</th>
+                      <th className="px-4 py-2 text-left text-gray-500 dark:text-gray-400 font-medium w-28">Date</th>
+                      <th className="px-4 py-2 text-left text-gray-500 dark:text-gray-400 font-medium">Description</th>
+                      <th className="px-4 py-2 text-left text-gray-500 dark:text-gray-400 font-medium w-40">Category</th>
+                      <th className="px-4 py-2 text-right text-gray-500 dark:text-gray-400 font-medium w-28">Amount</th>
                     </tr>
                   </thead>
-                  <tbody className="bg-white divide-y divide-gray-100">
+                  <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-100 dark:divide-gray-700">
                     {mappedData.map((d, i) => {
                       const catId = categoryAssignments[i] || (selectedCategoryId ? parseInt(selectedCategoryId, 10) : null);
                       const catName = getCategoryName(catId);
                       return (
-                        <tr key={i} className="hover:bg-gray-50">
+                        <tr key={i} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
                           <td className="px-4 py-2">
-                            <span className={d._date_valid ? "text-gray-900" : "text-amber-600 font-medium bg-amber-50 px-1 rounded"}>
+                            <span className={d._date_valid ? "text-gray-900 dark:text-gray-200" : "text-amber-600 font-medium bg-amber-50 dark:bg-amber-900/20 px-1 rounded"}>
                               {d.txn_date}
                             </span>
                           </td>
-                          <td className="px-4 py-2 text-gray-700 truncate max-w-xs" title={d.description}>{d.description}</td>
-                          <td className="px-4 py-2 text-gray-600 text-xs truncate" title={catName}>
-                            {catName || <span className="text-gray-300 italic">None</span>}
+                          <td className="px-4 py-2 text-gray-700 dark:text-gray-300 truncate max-w-xs" title={d.description}>{d.description}</td>
+                          <td className="px-4 py-2 text-gray-600 dark:text-gray-400 text-xs truncate" title={catName}>
+                            {catName || <span className="text-gray-300 dark:text-gray-600 italic">None</span>}
                           </td>
-                          <td className={`px-4 py-2 text-right font-medium ${d.amount >= 0 ? 'text-emerald-700' : 'text-gray-900'}`}>
+                          <td className={`px-4 py-2 text-right font-medium ${d.amount >= 0 ? 'text-emerald-700 dark:text-emerald-400' : 'text-gray-900 dark:text-gray-200'}`}>
                             {d.amount.toFixed(2)}
                           </td>
                         </tr>
@@ -1183,7 +1183,7 @@ export default function ImportWizard({ onClose, onSuccess, accounts: initialAcco
                   </tbody>
                 </table>
               </div>
-              <p className="text-xs text-center text-gray-500">
+              <p className="text-xs text-center text-gray-500 dark:text-gray-400">
                 Transactions will be added to your Inbox review queue. Duplicates will be flagged automatically.
               </p>
             </div>
@@ -1191,7 +1191,7 @@ export default function ImportWizard({ onClose, onSuccess, accounts: initialAcco
         </div>
 
         {/* Footer controls */}
-        <div className="px-6 py-4 border-t border-gray-100 bg-gray-50 flex justify-between items-center rounded-b-xl">
+        <div className="px-6 py-4 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-700 flex justify-between items-center rounded-b-xl">
           <button onClick={onClose} className="btn-secondary">Cancel</button>
           
           <div className="flex gap-3">
@@ -1232,16 +1232,16 @@ export default function ImportWizard({ onClose, onSuccess, accounts: initialAcco
       {/* ═══ New Account Modal ═══ */}
       {showNewAccountModal && (
         <div className="fixed inset-0 bg-black/40 z-[60] flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-md overflow-hidden">
             {/* Modal Header */}
-            <div className="px-6 py-4 border-b border-gray-100 bg-gray-50 flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
+            <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-700 flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100 flex items-center gap-2">
                 <PlusCircle className="w-5 h-5 text-primary-600" />
                 New Account
               </h3>
               <button
                 onClick={handleCancelNewAccount}
-                className="p-1.5 text-gray-400 hover:bg-gray-200 rounded-full transition-colors"
+                className="p-1.5 text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-full transition-colors"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -1251,7 +1251,7 @@ export default function ImportWizard({ onClose, onSuccess, accounts: initialAcco
             <div className="px-6 py-5 space-y-4">
               {/* Account Name */}
               <div className="flex flex-col gap-1.5">
-                <label className="text-sm font-semibold text-gray-700">
+                <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">
                   Account Name <span className="text-red-500">*</span>
                 </label>
                 <input
@@ -1259,18 +1259,18 @@ export default function ImportWizard({ onClose, onSuccess, accounts: initialAcco
                   value={newAccountForm.name}
                   onChange={e => setNewAccountForm(f => ({ ...f, name: e.target.value }))}
                   placeholder="e.g. Office Supplies"
-                  className="input-field bg-white shadow-sm"
+                  className="input-field bg-white dark:bg-gray-700 shadow-sm"
                   autoFocus
                 />
               </div>
 
               {/* Type */}
               <div className="flex flex-col gap-1.5">
-                <label className="text-sm font-semibold text-gray-700">Type</label>
+                <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">Type</label>
                 <select
                   value={newAccountForm.type}
                   onChange={e => setNewAccountForm(f => ({ ...f, type: e.target.value }))}
-                  className="input-field bg-white shadow-sm"
+                  className="input-field bg-white dark:bg-gray-700 shadow-sm"
                 >
                   <option value="expense">Expense</option>
                   <option value="income">Income</option>
@@ -1279,7 +1279,7 @@ export default function ImportWizard({ onClose, onSuccess, accounts: initialAcco
 
               {/* Code (optional) */}
               <div className="flex flex-col gap-1.5">
-                <label className="text-sm font-semibold text-gray-700">
+                <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">
                   Account Code <span className="text-gray-400 font-normal">(Optional)</span>
                 </label>
                 <input
@@ -1287,14 +1287,14 @@ export default function ImportWizard({ onClose, onSuccess, accounts: initialAcco
                   value={newAccountForm.code}
                   onChange={e => setNewAccountForm(f => ({ ...f, code: e.target.value }))}
                   placeholder="e.g. 5200"
-                  className="input-field bg-white shadow-sm"
+                  className="input-field bg-white dark:bg-gray-700 shadow-sm"
                 />
-                <p className="text-xs text-gray-500">A short numeric code for the chart of accounts.</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">A short numeric code for the chart of accounts.</p>
               </div>
             </div>
 
             {/* Modal Footer */}
-            <div className="px-6 py-4 border-t border-gray-100 bg-gray-50 flex justify-end gap-3">
+            <div className="px-6 py-4 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-700 flex justify-end gap-3">
               <button
                 onClick={handleCancelNewAccount}
                 className="btn-secondary"

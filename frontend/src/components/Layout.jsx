@@ -2,9 +2,10 @@ import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, BookOpen, ArrowLeftRight, PiggyBank,
   BarChart3, FileText, Settings, Inbox, Building2, AlertCircle,
-  Eye, EyeOff, RotateCcw, Clock,
+  Eye, EyeOff, RotateCcw, Clock, Sun, Moon,
 } from 'lucide-react';
 import { useCompany } from '../context/CompanyContext';
+import { useTheme } from '../context/ThemeContext';
 import { useState, useEffect } from 'react';
 import { getBackupPreviewStatus, exitBackupPreview, restoreBackup } from '../api/client';
 
@@ -33,6 +34,7 @@ function formatBackupDate(isoString) {
 
 export default function Layout() {
   const { companies, currentCompany, switchCompany, createCompany, deleteCompany, loading } = useCompany();
+  const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
   const [updateInfo, setUpdateInfo] = useState({ available: false, version: null });
 
@@ -128,11 +130,11 @@ export default function Layout() {
   };
 
   return (
-    <div className="flex h-screen bg-gray-50">
+    <div className="flex h-screen bg-gray-50 dark:bg-gray-900">
       {/* Sidebar */}
-      <aside className="w-64 bg-white border-r border-gray-200 flex flex-col">
-        <div className="p-4 border-b border-gray-200">
-          <h1 className="text-xl font-bold text-primary-700 flex items-center gap-2 mb-4 px-2">
+      <aside className="w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col">
+        <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+          <h1 className="text-xl font-bold text-primary-700 dark:text-primary-400 flex items-center gap-2 mb-4 px-2">
             <BookOpen className="w-6 h-6" />
             LocalBooks
           </h1>
@@ -140,10 +142,10 @@ export default function Layout() {
           {!loading && companies.length > 0 && currentCompany && (
             <div className="relative dropdown-container">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <Building2 className="h-4 w-4 text-gray-500" />
+                <Building2 className="h-4 w-4 text-gray-500 dark:text-gray-400" />
               </div>
               <select
-                className={`w-full bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-primary-500 focus:border-primary-500 block p-2.5 pl-9 font-medium ${previewStatus.preview_active ? 'opacity-50 cursor-not-allowed' : ''}`}
+                className={`w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 text-sm rounded-lg focus:ring-primary-500 focus:border-primary-500 block p-2.5 pl-9 font-medium ${previewStatus.preview_active ? 'opacity-50 cursor-not-allowed' : ''}`}
                 value={currentCompany.id}
                 onChange={handleCompanyChange}
                 disabled={previewStatus.preview_active}
@@ -172,8 +174,8 @@ export default function Layout() {
               className={({ isActive }) =>
                 `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
                   isActive
-                    ? 'bg-primary-50 text-primary-700'
-                    : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                    ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-400'
+                    : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-gray-100'
                 }`
               }
             >
@@ -182,10 +184,17 @@ export default function Layout() {
             </NavLink>
           ))}
         </nav>
-        <div className="p-4 border-t border-gray-200">
-          <div className="text-xs text-gray-400">
+        <div className="p-4 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between">
+          <div className="text-xs text-gray-400 dark:text-gray-500">
             v1.0.0 &middot; Data stored locally
           </div>
+          <button
+            onClick={toggleTheme}
+            className="p-1.5 rounded-lg text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+            title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+          >
+            {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+          </button>
         </div>
       </aside>
 
@@ -250,16 +259,16 @@ export default function Layout() {
 
         {/* ── Update Banner ── */}
         {updateInfo.available && (
-          <div className="bg-blue-50 p-4 border-b border-blue-100 flex items-center gap-3 flex-shrink-0">
+          <div className="bg-blue-50 dark:bg-blue-900/20 p-4 border-b border-blue-100 dark:border-blue-800 flex items-center gap-3 flex-shrink-0">
             <AlertCircle className="w-5 h-5 text-blue-500 flex-shrink-0" />
-            <div className="text-sm text-blue-700">
+            <div className="text-sm text-blue-700 dark:text-blue-300">
               <span className="font-semibold">Update Available!</span> Version {updateInfo.version} is now available.{' '}
               Please download the latest version from{' '}
               <a
                 href="https://github.com/eagleone34/LocalBookKeeping/releases/latest"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="font-medium underline hover:text-blue-800"
+                className="font-medium underline hover:text-blue-800 dark:hover:text-blue-200"
               >
                 GitHub
               </a>.

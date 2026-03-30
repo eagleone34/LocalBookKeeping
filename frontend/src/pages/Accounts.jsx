@@ -124,15 +124,15 @@ export default function Accounts() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Chart of Accounts</h1>
-          <p className="text-gray-500 mt-1">
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Chart of Accounts</h1>
+          <p className="text-gray-500 dark:text-gray-400 mt-1">
             Organize your income, expenses, assets, and liabilities.
             Asset &amp; liability accounts show live balances — click the{' '}
             <ExternalLink className="inline w-3.5 h-3.5 text-blue-500" /> icon to view the ledger and reconcile.
           </p>
         </div>
         <div className="flex gap-3">
-          <label className="flex items-center gap-2 text-sm text-gray-600">
+          <label className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
             <input type="checkbox" checked={showInactive} onChange={e => setShowInactive(e.target.checked)} className="rounded text-primary-600" />
             Show archived
           </label>
@@ -143,11 +143,11 @@ export default function Accounts() {
       </div>
 
       {/* How-to hint banner */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 text-sm text-blue-800 flex items-start gap-3">
+      <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg px-4 py-3 text-sm text-blue-800 dark:text-blue-300 flex items-start gap-3">
         <Scale className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />
         <div>
           <span className="font-semibold">How to use Account Ledger &amp; Reconciliation:</span>
-          <ol className="list-decimal list-inside mt-1 space-y-0.5 text-blue-700">
+          <ol className="list-decimal list-inside mt-1 space-y-0.5 text-blue-700 dark:text-blue-400">
             <li>Import a PDF bank statement in <strong>Statements</strong> and approve the transactions.</li>
             <li>Come back here — your <strong>Asset</strong> accounts will show a live balance.</li>
             <li>Click the <ExternalLink className="inline w-3.5 h-3.5" /> icon on any asset row to open the <strong>Account Ledger</strong> (running balance view).</li>
@@ -158,7 +158,7 @@ export default function Accounts() {
 
       {/* Error banner */}
       {deleteError && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl flex items-center justify-between">
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 px-4 py-3 rounded-xl flex items-center justify-between">
           <span className="text-sm">{deleteError}</span>
           <button onClick={() => setDeleteError(null)} className="text-red-400 hover:text-red-600"><X className="w-4 h-4" /></button>
         </div>
@@ -218,10 +218,10 @@ export default function Accounts() {
                   : <ChevronDown className="w-5 h-5 text-gray-400" />
                 }
                 <span className={TYPE_COLORS[type]}>{label}</span>
-                <span className="text-gray-400 text-sm font-normal">({items.length} accounts)</span>
+                <span className="text-gray-400 dark:text-gray-500 text-sm font-normal">({items.length} accounts)</span>
               </h3>
               {isBalanceType && !isCollapsed && (
-                <span className="text-xs text-gray-400 italic">
+                <span className="text-xs text-gray-400 dark:text-gray-500 italic">
                   Click <ExternalLink className="inline w-3 h-3" /> to view ledger &amp; reconcile
                 </span>
               )}
@@ -230,22 +230,22 @@ export default function Accounts() {
             {!isCollapsed && (
               <>
                 {items.length === 0 ? (
-                  <p className="text-gray-400 text-sm ml-7">No {label.toLowerCase()} accounts yet</p>
+                  <p className="text-gray-400 dark:text-gray-500 text-sm ml-7">No {label.toLowerCase()} accounts yet</p>
                 ) : (
                   <table className="w-full text-sm">
                     <thead>
-                      <tr className="border-b border-gray-200">
-                        <th className="text-left py-2 px-2 text-gray-500 font-medium w-20">Code</th>
-                        <th className="text-left py-2 px-2 text-gray-500 font-medium">Name</th>
-                        <th className="text-left py-2 px-2 text-gray-500 font-medium">Description</th>
+                      <tr className="border-b border-gray-200 dark:border-gray-700">
+                        <th className="text-left py-2 px-2 text-gray-500 dark:text-gray-400 font-medium w-20">Code</th>
+                        <th className="text-left py-2 px-2 text-gray-500 dark:text-gray-400 font-medium">Name</th>
+                        <th className="text-left py-2 px-2 text-gray-500 dark:text-gray-400 font-medium">Description</th>
                         {isBalanceType && (
-                          <th className="text-right py-2 px-2 text-gray-500 font-medium w-36">
+                          <th className="text-right py-2 px-2 text-gray-500 dark:text-gray-400 font-medium w-36">
                             Balance
-                            <span className="block text-xs font-normal text-gray-400">(linked txns)</span>
+                            <span className="block text-xs font-normal text-gray-400 dark:text-gray-500">(linked txns)</span>
                           </th>
                         )}
-                        <th className="text-left py-2 px-2 text-gray-500 font-medium w-24">Status</th>
-                        <th className="text-right py-2 px-2 text-gray-500 font-medium w-48">Actions</th>
+                        <th className="text-left py-2 px-2 text-gray-500 dark:text-gray-400 font-medium w-24">Status</th>
+                        <th className="text-right py-2 px-2 text-gray-500 dark:text-gray-400 font-medium w-48">Actions</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -296,10 +296,10 @@ export default function Accounts() {
                             </td>
                             <td className="py-2 px-2 text-right">
                               <div className="flex justify-end gap-1">
-                                <button onClick={saveEdit} className="p-1.5 rounded-lg bg-emerald-100 hover:bg-emerald-200 text-emerald-700" title="Save">
+                                <button onClick={saveEdit} className="p-1.5 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 hover:bg-emerald-200 dark:hover:bg-emerald-900/50 text-emerald-700 dark:text-emerald-400" title="Save">
                                   <Check className="w-4 h-4" />
                                 </button>
-                                <button onClick={cancelEdit} className="p-1.5 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-500" title="Cancel">
+                                <button onClick={cancelEdit} className="p-1.5 rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-500 dark:text-gray-400" title="Cancel">
                                   <X className="w-4 h-4" />
                                 </button>
                               </div>
@@ -307,13 +307,13 @@ export default function Accounts() {
                           </tr>
                         ) : (
                           /* ═══ NORMAL DISPLAY ROW ═══ */
-                          <tr key={acc.id} className={`border-b border-gray-100 hover:bg-gray-50 ${!acc.is_active ? 'opacity-50' : ''}`}>
-                            <td className="py-2 px-2 text-gray-400 font-mono text-xs">{acc.code || '-'}</td>
+                          <tr key={acc.id} className={`border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 ${!acc.is_active ? 'opacity-50' : ''}`}>
+                            <td className="py-2 px-2 text-gray-400 dark:text-gray-500 font-mono text-xs">{acc.code || '-'}</td>
                             <td className="py-2 px-2 font-medium">
                               {acc.parent_id ? <span className="text-gray-300 mr-1">└</span> : ''}
                               {acc.name}
                             </td>
-                            <td className="py-2 px-2 text-gray-500 max-w-xs truncate">{acc.description || '-'}</td>
+                            <td className="py-2 px-2 text-gray-500 dark:text-gray-400 max-w-xs truncate">{acc.description || '-'}</td>
                             {isBalanceType && (
                               <td className="py-2 px-2 text-right">
                                 {hasBalance ? (
@@ -327,7 +327,7 @@ export default function Accounts() {
                                     {formatMoney(balance)}
                                   </span>
                                 ) : (
-                                  <span className="text-gray-300 text-xs italic">
+                                  <span className="text-gray-300 dark:text-gray-600 text-xs italic">
                                     no linked txns
                                   </span>
                                 )}
@@ -335,8 +335,8 @@ export default function Accounts() {
                             )}
                             <td className="py-2 px-2">
                               {acc.is_active
-                                ? <span className="badge bg-emerald-100 text-emerald-700">Active</span>
-                                : <span className="badge bg-gray-100 text-gray-500">Archived</span>
+                                ? <span className="badge bg-emerald-100 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400">Active</span>
+                                : <span className="badge bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400">Archived</span>
                               }
                             </td>
                             <td className="py-2 px-2 text-right">
@@ -347,7 +347,7 @@ export default function Accounts() {
                                 {isBalanceType && (
                                   <button
                                     onClick={() => navigate(`/accounts/${acc.id}/ledger`)}
-                                    className="p-1.5 rounded-lg hover:bg-blue-50 text-blue-400 hover:text-blue-600"
+                                    className="p-1.5 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 text-blue-400 hover:text-blue-600"
                                     title="View ledger &amp; reconcile"
                                   >
                                     <ExternalLink className="w-4 h-4" />
@@ -355,7 +355,7 @@ export default function Accounts() {
                                 )}
                                 <button
                                   onClick={() => startEdit(acc)}
-                                  className="p-1.5 rounded-lg hover:bg-blue-50 text-gray-400 hover:text-blue-600"
+                                  className="p-1.5 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 text-gray-400 dark:text-gray-500 hover:text-blue-600"
                                   title="Edit inline"
                                 >
                                   <Edit2 className="w-4 h-4" />
@@ -363,7 +363,7 @@ export default function Accounts() {
                                 {acc.is_active ? (
                                   <button
                                     onClick={async () => { await archiveAccount(acc.id); load(); }}
-                                    className="p-1.5 rounded-lg hover:bg-amber-50 text-gray-400 hover:text-amber-600"
+                                    className="p-1.5 rounded-lg hover:bg-amber-50 dark:hover:bg-amber-900/20 text-gray-400 dark:text-gray-500 hover:text-amber-600"
                                     title="Archive"
                                   >
                                     <Archive className="w-4 h-4" />
@@ -371,7 +371,7 @@ export default function Accounts() {
                                 ) : (
                                   <button
                                     onClick={async () => { await restoreAccount(acc.id); load(); }}
-                                    className="p-1.5 rounded-lg hover:bg-emerald-50 text-gray-400 hover:text-emerald-600"
+                                    className="p-1.5 rounded-lg hover:bg-emerald-50 dark:hover:bg-emerald-900/20 text-gray-400 dark:text-gray-500 hover:text-emerald-600"
                                     title="Restore"
                                   >
                                     <RotateCcw className="w-4 h-4" />
@@ -379,7 +379,7 @@ export default function Accounts() {
                                 )}
                                 <button
                                   onClick={() => handleDelete(acc)}
-                                  className="p-1.5 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-500"
+                                  className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 text-gray-400 dark:text-gray-500 hover:text-red-500"
                                   title="Delete (only if no transactions)"
                                 >
                                   <Trash2 className="w-4 h-4" />

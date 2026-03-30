@@ -218,8 +218,8 @@ export default function Budgets() {
       {/* ── Header ─────────────────────────────────────────────────────── */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Budgets</h1>
-          <p className="text-gray-500 mt-1">Set monthly budgets and track actual spending</p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Budgets</h1>
+          <p className="text-gray-500 dark:text-gray-400 mt-1">Set monthly budgets and track actual spending</p>
         </div>
         <button onClick={() => setShowForm(true)} className="btn-primary">
           <Plus className="w-4 h-4 mr-2" /> Set Budget
@@ -227,10 +227,10 @@ export default function Budgets() {
       </div>
 
       {/* ── Filter Bar ─────────────────────────────────────────────────── */}
-      <div className="bg-gray-50 rounded-lg p-3 space-y-3">
+      <div className="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 space-y-3">
         {/* Category filter */}
         <div className="flex items-center gap-2">
-          <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide mr-1">
+          <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mr-1">
             Category
           </span>
           <select
@@ -246,7 +246,7 @@ export default function Budgets() {
           {selectedAccount && (
             <button
               onClick={() => setSelectedAccount('')}
-              className="text-xs text-gray-400 hover:text-gray-600 underline"
+              className="text-xs text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 underline"
             >
               Clear
             </button>
@@ -332,9 +332,9 @@ export default function Budgets() {
               <h3 className="text-lg font-semibold">
                 {chartView === 'budget_actual' ? 'Budget vs Actual' : 'Variance by Category'}
               </h3>
-              <p className="text-xs text-gray-400 mt-0.5">{periodLabel}</p>
+              <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{periodLabel}</p>
             </div>
-            <div className="flex gap-1 bg-gray-100 rounded-lg p-1">
+            <div className="flex gap-1 bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
               {CHART_VIEWS.map(v => {
                 const Icon = v.icon;
                 return (
@@ -343,8 +343,8 @@ export default function Budgets() {
                     onClick={() => setChartView(v.id)}
                     className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
                       chartView === v.id
-                        ? 'bg-white text-primary-700 shadow-sm'
-                        : 'text-gray-500 hover:text-gray-700'
+                        ? 'bg-white dark:bg-gray-600 text-primary-700 dark:text-primary-400 shadow-sm'
+                        : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
                     }`}
                   >
                     <Icon className="w-4 h-4" />{v.label}
@@ -387,7 +387,7 @@ export default function Budgets() {
           </ResponsiveContainer>
 
           {chartView === 'variance' && (
-            <div className="flex gap-6 justify-center mt-2 text-xs text-gray-500">
+            <div className="flex gap-6 justify-center mt-2 text-xs text-gray-500 dark:text-gray-400">
               <span className="flex items-center gap-1.5">
                 <span className="w-3 h-3 rounded-sm bg-emerald-500 inline-block" /> Under Budget
               </span>
@@ -401,8 +401,8 @@ export default function Budgets() {
 
       {/* ── Budget Table ────────────────────────────────────────────────── */}
       <div className="card overflow-hidden p-0">
-        <div className="px-4 py-3 border-b border-gray-100 bg-gray-50 flex items-center justify-between">
-          <p className="text-sm font-medium text-gray-600">
+        <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50 flex items-center justify-between">
+          <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
             {periodLabel} — {summary.length} categor{summary.length !== 1 ? 'ies' : 'y'}
           </p>
         </div>
@@ -410,12 +410,12 @@ export default function Budgets() {
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="bg-gray-50 border-b border-gray-200">
-                <th className="py-3 px-4 text-left   text-gray-500 font-medium">Category</th>
-                <th className="py-3 px-4 text-right  text-gray-500 font-medium">User Budget&nbsp;<span className="font-normal text-xs">(monthly)</span></th>
-                <th className="py-3 px-4 text-right  text-gray-500 font-medium">Actual&nbsp;<span className="font-normal text-xs">(monthly avg)</span></th>
-                <th className="py-3 px-4 text-right  text-gray-500 font-medium">Variance</th>
-                <th className="py-3 px-4 text-right  text-gray-500 font-medium">Actions</th>
+              <tr className="bg-gray-50 dark:bg-gray-700/50 border-b border-gray-200 dark:border-gray-700">
+                <th className="py-3 px-4 text-left   text-gray-500 dark:text-gray-400 font-medium">Category</th>
+                <th className="py-3 px-4 text-right  text-gray-500 dark:text-gray-400 font-medium">User Budget&nbsp;<span className="font-normal text-xs">(monthly)</span></th>
+                <th className="py-3 px-4 text-right  text-gray-500 dark:text-gray-400 font-medium">Actual&nbsp;<span className="font-normal text-xs">(monthly avg)</span></th>
+                <th className="py-3 px-4 text-right  text-gray-500 dark:text-gray-400 font-medium">Variance</th>
+                <th className="py-3 px-4 text-right  text-gray-500 dark:text-gray-400 font-medium">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -434,8 +434,8 @@ export default function Budgets() {
                 return (
                   <tr
                     key={i}
-                    className={`border-b border-gray-100 ${
-                      isEditing ? 'bg-blue-50' : 'hover:bg-gray-50'
+                    className={`border-b border-gray-100 dark:border-gray-700 ${
+                      isEditing ? 'bg-blue-50 dark:bg-blue-900/20' : 'hover:bg-gray-50 dark:hover:bg-gray-700'
                     }`}
                   >
                     {/* Category */}
@@ -494,14 +494,14 @@ export default function Budgets() {
                         <div className="flex items-center justify-end gap-1">
                           <button
                             onClick={() => saveEdit(row)}
-                            className="p-1.5 rounded-lg bg-blue-100 text-blue-700 hover:bg-blue-200"
+                            className="p-1.5 rounded-lg bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 hover:bg-blue-200 dark:hover:bg-blue-900/50"
                             title="Save"
                           >
                             <Check className="w-4 h-4" />
                           </button>
                           <button
                             onClick={cancelEdit}
-                            className="p-1.5 rounded-lg bg-gray-100 text-gray-500 hover:bg-gray-200"
+                            className="p-1.5 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600"
                             title="Cancel"
                           >
                             <X className="w-4 h-4" />
@@ -517,7 +517,7 @@ export default function Budgets() {
                           )}
                           <button
                             onClick={() => startEdit(row)}
-                            className="p-1.5 rounded-lg hover:bg-blue-50 text-gray-400 hover:text-blue-600"
+                            className="p-1.5 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 text-gray-400 dark:text-gray-500 hover:text-blue-600"
                             title={editableBudget ? 'Edit budget' : 'Set budget for current month'}
                           >
                             <Pencil className="w-4 h-4" />
@@ -525,7 +525,7 @@ export default function Budgets() {
                           {editableBudget && (
                             <button
                               onClick={() => handleDelete(editableBudget.id)}
-                              className="p-1.5 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-500"
+                              className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 text-gray-400 dark:text-gray-500 hover:text-red-500"
                               title="Delete current/future budget entry"
                             >
                               <Trash2 className="w-4 h-4" />
@@ -542,7 +542,7 @@ export default function Budgets() {
         </div>
 
         {summary.length === 0 && (
-          <div className="p-8 text-center text-gray-400">
+          <div className="p-8 text-center text-gray-400 dark:text-gray-500">
             No budgets found for this period. Click &quot;Set Budget&quot; to add one.
           </div>
         )}

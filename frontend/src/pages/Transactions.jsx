@@ -237,8 +237,8 @@ export default function Transactions() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Transactions</h1>
-          <p className="text-gray-500 mt-1">{transactions.length} transactions{hasActiveFilters ? ' (filtered)' : ''}</p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Transactions</h1>
+          <p className="text-gray-500 dark:text-gray-400 mt-1">{transactions.length} transactions{hasActiveFilters ? ' (filtered)' : ''}</p>
         </div>
         <button onClick={() => { setShowForm(true); cancelEdit(); }} className="btn-primary">
           <Plus className="w-4 h-4 mr-2" /> New Transaction
@@ -252,7 +252,7 @@ export default function Transactions() {
           <div className="flex-1 min-w-[180px]">
             <label className="label">Search</label>
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-500" />
               <input
                 value={filters.search}
                 onChange={e => setFilters({...filters, search: e.target.value})}
@@ -397,17 +397,17 @@ export default function Transactions() {
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="bg-gray-50 border-b border-gray-200">
+              <tr className="bg-gray-50 dark:bg-gray-700/50 border-b border-gray-200 dark:border-gray-700">
                 <th className="py-3 px-3 text-left w-10">
                   <input type="checkbox" checked={selected.size === transactions.length && transactions.length > 0} onChange={toggleAll} className="rounded text-primary-600" />
                 </th>
-                <th className="py-3 px-3 text-left text-gray-500 font-medium w-28">Date</th>
-                <th className="py-3 px-3 text-left text-gray-500 font-medium">Vendor</th>
-                <th className="py-3 px-3 text-left text-gray-500 font-medium">Description</th>
-                <th className="py-3 px-3 text-left text-gray-500 font-medium w-32">Account</th>
-                <th className="py-3 px-3 text-left text-gray-500 font-medium w-44">Category</th>
-                <th className="py-3 px-3 text-right text-gray-500 font-medium w-28">Amount</th>
-                <th className="py-3 px-3 text-right text-gray-500 font-medium w-24">Actions</th>
+                <th className="py-3 px-3 text-left text-gray-500 dark:text-gray-400 font-medium w-28">Date</th>
+                <th className="py-3 px-3 text-left text-gray-500 dark:text-gray-400 font-medium">Vendor</th>
+                <th className="py-3 px-3 text-left text-gray-500 dark:text-gray-400 font-medium">Description</th>
+                <th className="py-3 px-3 text-left text-gray-500 dark:text-gray-400 font-medium w-32">Account</th>
+                <th className="py-3 px-3 text-left text-gray-500 dark:text-gray-400 font-medium w-44">Category</th>
+                <th className="py-3 px-3 text-right text-gray-500 dark:text-gray-400 font-medium w-28">Amount</th>
+                <th className="py-3 px-3 text-right text-gray-500 dark:text-gray-400 font-medium w-24">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -479,10 +479,10 @@ export default function Transactions() {
                     </td>
                     <td className="py-2 px-3 text-right">
                       <div className="flex justify-end gap-1">
-                        <button onClick={saveEdit} className="p-1.5 rounded-lg bg-emerald-100 hover:bg-emerald-200 text-emerald-700" title="Save (Enter)">
+                        <button onClick={saveEdit} className="p-1.5 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 hover:bg-emerald-200 dark:hover:bg-emerald-900/50 text-emerald-700 dark:text-emerald-400" title="Save (Enter)">
                           <Check className="w-4 h-4" />
                         </button>
-                        <button onClick={cancelEdit} className="p-1.5 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-500" title="Cancel (Esc)">
+                        <button onClick={cancelEdit} className="p-1.5 rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-500 dark:text-gray-400" title="Cancel (Esc)">
                           <X className="w-4 h-4" />
                         </button>
                       </div>
@@ -490,14 +490,14 @@ export default function Transactions() {
                   </tr>
                 ) : (
                   /* NORMAL DISPLAY ROW */
-                  <tr key={txn.id} className={`border-b border-gray-100 hover:bg-gray-50 ${selected.has(txn.id) ? 'bg-primary-50' : ''}`}>
+                  <tr key={txn.id} className={`border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 ${selected.has(txn.id) ? 'bg-primary-50' : ''}`}>
                     <td className="py-3 px-3">
                       <input type="checkbox" checked={selected.has(txn.id)} onChange={() => toggleSelect(txn.id)} className="rounded text-primary-600" />
                     </td>
-                    <td className="py-3 px-3 whitespace-nowrap text-gray-700">{txn.txn_date}</td>
-                    <td className="py-3 px-3 font-medium text-gray-900">{txn.vendor_name || '-'}</td>
-                    <td className="py-3 px-3 text-gray-500 max-w-xs truncate">{txn.description || '-'}</td>
-                    <td className="py-3 px-3 whitespace-nowrap text-gray-500 text-sm">
+                    <td className="py-3 px-3 whitespace-nowrap text-gray-700 dark:text-gray-300">{txn.txn_date}</td>
+                    <td className="py-3 px-3 font-medium text-gray-900 dark:text-gray-100">{txn.vendor_name || '-'}</td>
+                    <td className="py-3 px-3 text-gray-500 dark:text-gray-400 max-w-xs truncate">{txn.description || '-'}</td>
+                    <td className="py-3 px-3 whitespace-nowrap text-gray-500 dark:text-gray-400 text-sm">
                       {txn.bank_account_name ? (
                         <span className="flex items-center gap-1">
                           <Building2 className="w-3 h-3" />
@@ -515,10 +515,10 @@ export default function Transactions() {
                     </td>
                     <td className="py-3 px-3 text-right">
                       <div className="flex justify-end gap-1">
-                        <button onClick={() => startEdit(txn)} className="p-1.5 rounded-lg hover:bg-blue-50 text-gray-400 hover:text-blue-600" title="Edit">
+                        <button onClick={() => startEdit(txn)} className="p-1.5 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 text-gray-400 dark:text-gray-500 hover:text-blue-600" title="Edit">
                           <Edit2 className="w-4 h-4" />
                         </button>
-                        <button onClick={() => handleDelete(txn.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-500" title="Delete">
+                        <button onClick={() => handleDelete(txn.id)} className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 text-gray-400 dark:text-gray-500 hover:text-red-500" title="Delete">
                           <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
@@ -529,9 +529,9 @@ export default function Transactions() {
             </tbody>
           </table>
         </div>
-        {loading && <div className="p-8 text-center text-gray-400">Loading...</div>}
+        {loading && <div className="p-8 text-center text-gray-400 dark:text-gray-500">Loading...</div>}
         {!loading && transactions.length === 0 && (
-          <div className="p-8 text-center text-gray-400">
+          <div className="p-8 text-center text-gray-400 dark:text-gray-500">
             {hasActiveFilters ? 'No transactions match your filters.' : 'No transactions found'}
           </div>
         )}
