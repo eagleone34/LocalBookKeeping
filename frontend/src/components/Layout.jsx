@@ -1,4 +1,4 @@
-import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { NavLink, Outlet } from 'react-router-dom';
 import {
   LayoutDashboard, BookOpen, ArrowLeftRight, PiggyBank,
   BarChart3, FileText, Settings, Inbox, Building2, AlertCircle,
@@ -35,7 +35,6 @@ function formatBackupDate(isoString) {
 export default function Layout() {
   const { companies, currentCompany, switchCompany, createCompany, deleteCompany, loading } = useCompany();
   const { theme, toggleTheme } = useTheme();
-  const navigate = useNavigate();
   const [updateInfo, setUpdateInfo] = useState({ available: false, version: null });
   const [updateLoading, setUpdateLoading] = useState(false);
   const [updateError, setUpdateError] = useState(null);
@@ -125,7 +124,7 @@ export default function Layout() {
       if (name && name.trim()) {
         try {
           await createCompany(name.trim());
-        } catch (err) {
+        } catch {
           alert('Failed to create company.');
           e.target.value = currentCompany.id;
         }

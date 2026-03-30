@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import {
   getDocuments, getDocTransactions, uploadDocuments,
-  actionDocTransaction, bulkDocAction, getAccounts,
+  actionDocTransaction, getAccounts,
   deleteDocument, deleteDocTransaction, getBankAccounts,
   suggestCategories,
 } from '../api/client';
@@ -47,7 +47,7 @@ export default function Inbox() {
   const [documents, setDocuments] = useState([]);
   const [docTxns, setDocTxns] = useState([]);
   const [accounts, setAccounts] = useState([]);
-  const [bankAccounts, setBankAccounts] = useState([]);
+  const [, setBankAccounts] = useState([]);
   const [uploading, setUploading] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   
