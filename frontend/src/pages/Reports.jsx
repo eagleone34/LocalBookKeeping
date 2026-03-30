@@ -122,7 +122,6 @@ export default function Reports() {
   const equity = balanceSheet.filter(r => r.type === 'equity');
   const totalAssets = assets.reduce((s, r) => s + r.balance, 0);
   const totalLiabilities = liabilities.reduce((s, r) => s + Math.abs(r.balance), 0);
-  const totalEquity = equity.reduce((s, r) => s + r.balance, 0);
   
   return (
     <div className="space-y-6">
