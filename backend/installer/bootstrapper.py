@@ -119,21 +119,35 @@ def _selective_update(extracted_root: Path) -> None:
 def main() -> None:
     log("=== LocalBooks Setup starting ===")
 
-    # ── EULA ──
-    eula = (
-        "LocalBooks Beta - User Agreement\n\n"
-        "This software is for educational purposes only.\n"
-        "The creator is not liable for any data loss or financial errors.\n"
-        "This software is currently in Beta.\n\n"
-        "Accept and install LocalBooks to:\n"
-        f"{INSTALL_DIR}\n\n"
-        "A Desktop shortcut will be created."
-    )
-    result = msgbox("LocalBooks Setup", eula, 4 | 64 | 262144)  # MB_YESNO|INFO|TOPMOST
-    if result != 6:  # IDYES
-        log("User declined EULA.")
-        sys.exit(0)
-    log("EULA accepted.")
+    # Determine early so we can conditionally show the EULA.
+    is_first_install = not INSTALL_DIR.exists()
+
+    if is_first_install:
+        # ── EULA (first install only) ──────────────────────────────────────
+        eula = (
+            "LocalBooks Beta - User Agreement\n\n"
+            "This software is for educational purposes only.\n"
+            "The creator is not liable for any data loss or financial errors.\n"
+            "This software is currently in Beta.\n\n"
+            "Accept and install LocalBooks to:\n"
+            f"{INSTALL_DIR}\n\n"
+            "A Desktop shortcut will be created."
+        )
+        result = msgbox("LocalBooks Setup", eula, 4 | 64 | 262144)  # MB_YESNO|INFO|TOPMOST
+        if result != 6:  # IDYES
+            log("User declined EULA.")
+            sys.exit(0)
+        log("EULA accepted.")
+    else:
+        # ── Update notice (no EULA re-prompt) ─────────────────────────────
+        msgbox(
+            "LocalBooks Update",
+            f"Updating LocalBooks to the latest version.\n\n"
+            f"Your company data will not be affected.\n\n"
+            f"Installing to: {INSTALL_DIR}",
+            0x40 | 262144,  # MB_ICONINFORMATION | MB_TOPMOST
+        )
+        log("Update run detected — skipping EULA (already accepted on first install).")
 
     # ── Kill running instances ──
     try:
@@ -157,8 +171,6 @@ def main() -> None:
         sys.exit(1)
 
     # ── Branch: first install vs. update ──
-    is_first_install = not INSTALL_DIR.exists()
-
     if is_first_install:
         # ── FIRST INSTALL ──────────────────────────────────────────────────
         # No existing data to protect; extract everything including company_data/
