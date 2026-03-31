@@ -13,16 +13,7 @@ import {
 } from 'recharts';
 import GroupedAccountSelect from '../components/GroupedAccountSelect';
 import DatePresetPicker from '../components/DatePresetPicker';
-
-// ── Formatting helpers ───────────────────────────────────────────────────────
-
-function formatMoney(val) {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: 0,
-  }).format(val ?? 0);
-}
+import { useCurrency } from '../hooks/useCurrency';
 
 // Custom Y-axis tick: truncates at 20 chars, shows full name in SVG <title>
 const CustomYTick = ({ x, y, payload }) => {
@@ -49,6 +40,7 @@ const CHART_VIEWS = [
 // ── Component ────────────────────────────────────────────────────────────────
 
 export default function Budgets() {
+  const { formatMoney } = useCurrency();
   const navigate = useNavigate();
 
   // Raw budget records (used only for edit/delete targeting)

@@ -73,6 +73,12 @@ export function CompanyProvider({ children }) {
     }
   };
 
+  // Convenience currency properties derived from currentCompany
+  const currency = currentCompany?.currency || 'USD';
+  const conversionRates = (() => {
+    try { return JSON.parse(currentCompany?.conversion_rates || '{}'); } catch { return {}; }
+  })();
+
   return (
     <CompanyContext.Provider value={{
       companies,
@@ -81,7 +87,9 @@ export function CompanyProvider({ children }) {
       switchCompany,
       createCompany,
       deleteCompany,
-      fetchCompanies
+      fetchCompanies,
+      currency,
+      conversionRates,
     }}>
       {children}
     </CompanyContext.Provider>

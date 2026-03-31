@@ -10,6 +10,8 @@ import {
   ChevronDown, ChevronRight, ExternalLink, Scale,
 } from 'lucide-react';
 import GroupedAccountSelect from '../components/GroupedAccountSelect';
+import { useCurrency, getHasMultiCurrency } from '../hooks/useCurrency';
+import SecondaryAmount from '../components/SecondaryAmount';
 
 const TYPES = ['income', 'expense', 'asset', 'liability'];
 const TYPE_COLORS = {
@@ -19,12 +21,8 @@ const TYPE_COLORS = {
   liability: 'badge-liability',
 };
 
-function formatMoney(val) {
-  if (val === undefined || val === null) return null;
-  return new Intl.NumberFormat('en-CA', { style: 'currency', currency: 'USD' }).format(val);
-}
-
 export default function Accounts() {
+  const { formatPrimary } = useCurrency();
   const navigate = useNavigate();
   const [accounts, setAccounts] = useState([]);
   // balances keys are strings (JSON always serializes object keys as strings)
@@ -32,11 +30,14 @@ export default function Accounts() {
   const [balances, setBalances] = useState({}); // { "account_id": balance }
   const [showInactive, setShowInactive] = useState(false);
   const [showNewForm, setShowNewForm] = useState(false);
+  const [showSecondary, setShowSecondary] = useState(false);
   const [editId, setEditId] = useState(null);
   const [editForm, setEditForm] = useState({});
-  const [newForm, setNewForm] = useState({ name: '', type: 'expense', code: '', description: '', parent_id: null });
+  const [newForm, setNewForm] = useState({ name: '', type: 'expense', code: '', description: '', parent_id: null, currency: 'USD' });
   const [collapsedTypes, setCollapsedTypes] = useState(new Set());
   const [deleteError, setDeleteError] = useState(null);
+
+  const hasMultiCurrency = getHasMultiCurrency(accounts);
 
   const load = async () => {
     try {
@@ -62,7 +63,7 @@ export default function Accounts() {
   const handleCreateSubmit = async (e) => {
     e.preventDefault();
     await createAccount(newForm);
-    setNewForm({ name: '', type: 'expense', code: '', description: '', parent_id: null });
+    setNewForm({ name: '', type: 'expense', code: '', description: '', parent_id: null, currency: 'USD' });
     setShowNewForm(false);
     load();
   };
@@ -132,11 +133,19 @@ export default function Accounts() {
             <ExternalLink className="inline w-3.5 h-3.5 text-blue-500" /> icon to view the ledger and reconcile.
           </p>
         </div>
-        <div className="flex gap-3">
+        <div className="flex gap-3 items-center">
           <label className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
             <input type="checkbox" checked={showInactive} onChange={e => setShowInactive(e.target.checked)} className="rounded text-primary-600" />
             Show archived
           </label>
+          {hasMultiCurrency && (
+            <button
+              onClick={() => setShowSecondary(s => !s)}
+              className={`text-xs px-3 py-1.5 rounded-lg border transition-colors ${showSecondary ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-300' : 'border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:border-gray-300'}`}
+            >
+              {showSecondary ? 'Hide secondary currency' : 'Show secondary currency'}
+            </button>
+          )}
           <button onClick={() => { setShowNewForm(true); setEditId(null); setDeleteError(null); }} className="btn-primary">
             <Plus className="w-4 h-4 mr-2" /> New Account
           </button>
@@ -169,7 +178,7 @@ export default function Accounts() {
       {showNewForm && (
         <div className="card border-2 border-primary-200 bg-primary-50/30">
           <h3 className="text-lg font-semibold mb-4 text-primary-700">New Account</h3>
-          <form onSubmit={handleCreateSubmit} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+          <form onSubmit={handleCreateSubmit} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
             <div>
               <label className="label">Name *</label>
               <input value={newForm.name} onChange={e => setNewForm({...newForm, name: e.target.value})} required className="input-field" placeholder="e.g., Office Supplies" />
@@ -178,6 +187,13 @@ export default function Accounts() {
               <label className="label">Type *</label>
               <select value={newForm.type} onChange={e => setNewForm({...newForm, type: e.target.value})} className="input-field">
                 {TYPES.map(t => <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="label">Currency</label>
+              <select value={newForm.currency || 'USD'} onChange={e => setNewForm({...newForm, currency: e.target.value})} className="input-field">
+                <option value="USD">USD</option>
+                <option value="CAD">CAD</option>
               </select>
             </div>
             <div>
@@ -325,7 +341,8 @@ export default function Accounts() {
                                         : balance <= 0 ? 'text-amber-600' : 'text-gray-600'
                                     }`}
                                   >
-                                    {formatMoney(balance)}
+                                    {formatPrimary(balance, acc.currency || 'USD', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                    <SecondaryAmount amount={balance} accountCurrency={acc.currency || 'USD'} show={showSecondary} />
                                   </span>
                                 ) : (
                                   <span className="text-gray-300 dark:text-gray-600 text-xs italic">

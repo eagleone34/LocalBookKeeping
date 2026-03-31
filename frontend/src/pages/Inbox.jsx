@@ -12,11 +12,7 @@ import {
 } from 'lucide-react';
 import GroupedAccountSelect from '../components/GroupedAccountSelect';
 import ImportWizard from '../components/ImportWizard';
-
-function formatMoney(val) {
-  if (val === null || val === undefined) return '-';
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(val);
-}
+import { useCurrency } from '../hooks/useCurrency';
 
 function confidenceBadge(conf) {
   const pct = Math.round((conf || 0) * 100);
@@ -44,6 +40,11 @@ function confidenceDot(confidence) {
 }
 
 export default function Inbox() {
+  const { formatMoney: formatMoneyHook } = useCurrency();
+  const formatMoney = (val) => {
+    if (val === null || val === undefined) return '-';
+    return formatMoneyHook(val, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  };
   const [documents, setDocuments] = useState([]);
   const [docTxns, setDocTxns] = useState([]);
   const [accounts, setAccounts] = useState([]);

@@ -6,6 +6,7 @@ import {
   PieChart, Pie, Cell, LineChart, Line, Legend, AreaChart, Area
 } from 'recharts';
 import DatePresetPicker from '../components/DatePresetPicker';
+import { useCurrency } from '../hooks/useCurrency';
 
 const COLORS = ['#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16', '#f97316', '#6366f1'];
 
@@ -16,10 +17,6 @@ function getColor(name) {
     hash = name.charCodeAt(i) + ((hash << 5) - hash);
   }
   return COLORS[Math.abs(hash) % COLORS.length];
-}
-
-function formatMoney(val) {
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0 }).format(val);
 }
 
 // Custom Y-axis tick: truncates display at 20 chars but shows full name on hover via SVG <title>
@@ -40,6 +37,7 @@ const CustomYTick = ({ x, y, payload }) => {
 const tabs = ['Profit & Loss', 'Expense by Category', 'Expense by Vendor', 'Monthly Trends', 'Balance Sheet'];
 
 export default function Reports() {
+  const { formatMoney } = useCurrency();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState(0);
   const [pnl, setPnl] = useState([]);

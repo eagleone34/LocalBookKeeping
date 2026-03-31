@@ -7,12 +7,10 @@ import {
 import { Plus, Search, Trash2, X, Check, Tags, Filter, Edit2, Building2 } from 'lucide-react';
 import GroupedAccountSelect from '../components/GroupedAccountSelect';
 import DatePresetPicker from '../components/DatePresetPicker';
-
-function formatMoney(val) {
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(val);
-}
+import { useCurrency } from '../hooks/useCurrency';
 
 export default function Transactions() {
+  const { formatMoney } = useCurrency();
   const [searchParams] = useSearchParams();
   const [transactions, setTransactions] = useState([]);
   const [accounts, setAccounts] = useState([]);
