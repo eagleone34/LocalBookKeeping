@@ -116,6 +116,14 @@ try:
     log(f"Ensured default accounts for {len(all_companies)} company(ies)")
 
     init_state(conn, company_id, DATA_DIR)
+
+    companies = conn.execute("SELECT name FROM company ORDER BY id").fetchall()
+    company_names = [r["name"] for r in companies]
+    if len(company_names) == 1 and company_names[0] == "Demo Company":
+        log("[NOTE] Database contains only the Demo Company. If you expected other companies, "
+            "check if the database was recently recreated. Backups may exist in "
+            "company_data/backups/ or Documents/LocalBooks/company_data/backups/.")
+
     log("DB init OK")
 except Exception:
     show_error("LocalBooks - Database Error", traceback.format_exc())

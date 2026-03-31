@@ -37,6 +37,8 @@ When the user states any of the following, **write to memory immediately — bef
 ## Three Absolute Rules
 
 1. **Never wipe or drop user DB tables.** Use `CREATE TABLE IF NOT EXISTS` and `ALTER TABLE ADD COLUMN` only.
+   - `build_golden_copy.py` must never be run without `--force` if user data exists — it will refuse and exit.
+   - Dev DB (`backend/company_data/ledgerlocal.db`) and installed app DB (`Documents\LocalBooks\company_data\ledgerlocal.db`) are separate files — changes to one don't affect the other.
    Full rules: `DEVELOPMENT_RULES.md`
 
 2. **Expenses are stored as NEGATIVE amounts. Income is POSITIVE.** Never mix signs in calculations.

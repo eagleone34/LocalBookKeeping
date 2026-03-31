@@ -171,6 +171,35 @@ The validation service (`backend/app/services/validation_service.py`) provides:
 - Revenue should be in the tens or hundreds of thousands.
 - Expenses should be proportionally realistic.
 
+## Database Safety Rules
+
+### Two Database Locations
+| Database | Path | Purpose |
+|----------|------|---------|
+| **Dev DB** | `backend/company_data/ledgerlocal.db` | Used by the dev server (`uvicorn --reload`) |
+| **Installed App DB** | `Documents\LocalBooks\company_data\ledgerlocal.db` | Used by the installed `.exe` app |
+
+These are **separate files**. Running the dev server shows dev data; launching the installed app shows production data. Changes to one do not affect the other.
+
+### Backup-Before-Wipe Requirement
+Any script that deletes or recreates the database **must create a timestamped backup first**. `build_golden_copy.py` enforces this automatically:
+- Detects user data (non-demo companies or >500 transactions)
+- Refuses to wipe without `--force`
+- Always backs up to `company_data/backups/` before deletion
+
+### Recovery from Accidental Wipe
+If the database was accidentally wiped or recreated:
+1. Check `backend/company_data/backups/` (dev environment)
+2. Check `Documents\LocalBooks\company_data\backups/` (installed app)
+3. Restore by copying the most recent backup over `ledgerlocal.db`
+
+### Incident Log (March 2026)
+**Issue:** User's "Personal" company appeared missing when running the dev server.
+**Root cause:** Dev DB was a freshly-seeded copy containing only Demo Company. The installed app DB (with all user data) was intact.
+**Fix:** Added user-data detection, `--force` flag, and automatic backup to `build_golden_copy.py`. Added startup warning when only Demo Company exists.
+
+---
+
 ## Code Review Requirements
 
 Before any financial calculation code is merged:
