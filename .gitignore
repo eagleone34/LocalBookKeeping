@@ -12,3 +12,4 @@ dist/
 *.log
 .DS_Store
 .aider*
+backend/installer/LocalBooks.zip
