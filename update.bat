@@ -9,12 +9,17 @@ echo.
 
 echo [1/3] Pulling latest code from git...
 echo.
-git pull
+git pull --ff-only
 if %ERRORLEVEL% NEQ 0 (
     echo.
     echo ==========================================
-    echo  GIT PULL FAILED. Check your internet
-    echo  connection or repository access.
+    echo  GIT PULL FAILED.
+    echo  This usually means you have local changes
+    echo  that conflict with the update. Try running:
+    echo    git stash
+    echo    git pull --ff-only
+    echo    git stash pop
+    echo  Or check your internet connection.
     echo ==========================================
     pause
     exit /b 1
