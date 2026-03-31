@@ -179,7 +179,7 @@ The validation service (`backend/app/services/validation_service.py`) provides:
 | **Dev DB** | `backend/company_data/ledgerlocal.db` | Used by the dev server (`uvicorn --reload`) |
 | **Installed App DB** | `Documents\LocalBooks\company_data\ledgerlocal.db` | Used by the installed `.exe` app |
 
-These are **separate files**. Running the dev server shows dev data; launching the installed app shows production data. Changes to one do not affect the other.
+These are **separate files**. Changes to one do not affect the other. However, in dev mode, the app **auto-recovers** user data: if the dev DB is missing or demo-only and the installed app DB has user data, it copies the installed DB to the dev location on startup (backing up the dev DB first).
 
 ### Backup-Before-Wipe Requirement
 Any script that deletes or recreates the database **must create a timestamped backup first**. `build_golden_copy.py` enforces this automatically:

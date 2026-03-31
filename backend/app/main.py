@@ -74,6 +74,46 @@ else:
     DATA_DIR = Path(__file__).resolve().parent.parent / "company_data"
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     DB_PATH = DATA_DIR / "ledgerlocal.db"
+
+    # Dev-mode auto-recovery: if dev DB is missing or demo-only, copy from installed app
+    INSTALLED_DB = Path.home() / "Documents" / "LocalBooks" / "company_data" / "ledgerlocal.db"
+    if INSTALLED_DB.exists():
+        dev_is_demo_only = False
+        if not DB_PATH.exists():
+            dev_is_demo_only = True
+        else:
+            try:
+                import sqlite3 as _sq
+                _c = _sq.connect(str(DB_PATH))
+                _names = [r[0] for r in _c.execute("SELECT name FROM company").fetchall()]
+                _tx = _c.execute("SELECT COUNT(*) FROM transactions").fetchone()[0]
+                _c.close()
+                dev_is_demo_only = all(n == "Demo Company" for n in _names) and _tx < 500
+            except Exception:
+                dev_is_demo_only = False
+
+        if dev_is_demo_only:
+            try:
+                # Backup current dev DB before overwriting
+                if DB_PATH.exists():
+                    backup_dir = DATA_DIR / "backups"
+                    backup_dir.mkdir(parents=True, exist_ok=True)
+                    import time as _time
+                    backup_name = f"ledgerlocal_backup_{_time.strftime('%Y%m%d_%H%M%S')}.db"
+                    shutil.copy2(DB_PATH, backup_dir / backup_name)
+                    log(f"[DATA RECOVERY] Backed up demo-only dev DB to backups/{backup_name}")
+
+                shutil.copy2(INSTALLED_DB, DB_PATH)
+                import sqlite3 as _sq
+                _c = _sq.connect(str(DB_PATH))
+                _co = _c.execute("SELECT COUNT(*) FROM company").fetchone()[0]
+                _tx = _c.execute("SELECT COUNT(*) FROM transactions").fetchone()[0]
+                _c.close()
+                log(f"[DATA RECOVERY] Copied user database from installed app "
+                    f"({_co} companies, {_tx} transactions)")
+            except Exception as e:
+                log(f"[DATA RECOVERY] Failed to copy installed app DB: {e}")
+
     FRONTEND_DIST = Path(__file__).resolve().parent.parent.parent / "frontend" / "dist"
 
 log(f"DB_PATH: {DB_PATH}")
@@ -116,13 +156,6 @@ try:
     log(f"Ensured default accounts for {len(all_companies)} company(ies)")
 
     init_state(conn, company_id, DATA_DIR)
-
-    companies = conn.execute("SELECT name FROM company ORDER BY id").fetchall()
-    company_names = [r["name"] for r in companies]
-    if len(company_names) == 1 and company_names[0] == "Demo Company":
-        log("[NOTE] Database contains only the Demo Company. If you expected other companies, "
-            "check if the database was recently recreated. Backups may exist in "
-            "company_data/backups/ or Documents/LocalBooks/company_data/backups/.")
 
     log("DB init OK")
 except Exception:
