@@ -7,7 +7,7 @@ echo =========================================
 echo.
 echo [1/4] Generating Demo Data (Chase/RBC)...
 if exist "backend\company_data\ledgerlocal.db" (
-    echo   Skipping — ledgerlocal.db already exists.
+    echo   Skipping — ledgerlocal.db already exists. Run 'python scripts/build_golden_copy.py --force' to rebuild.
 ) else (
     cd backend
     python scripts/build_golden_copy.py

@@ -13,6 +13,8 @@ These rules apply to ALL contributors and AI agents working on this project.
 5. **Build process is separate from runtime**: `build_golden_copy.py` may wipe and recreate the bundled database for builds, but this must NEVER affect the user's runtime database.
 6. **Bootstrapper must preserve user data**: The installer bootstrapper must backup the database before removing the install directory and restore it after extraction. It must NOT delete any company data (including Demo Company) from the restored database.
 7. **`ensure_company()` must be name-specific**: The function must check for a company by name, not just return the first company found.
+8. **`build_golden_copy.py` must never run against a database with user data** unless `--force` is explicitly passed. The script always creates a backup before deleting. It is for building the bundled demo DB only — never run it against a production or dev database with real company data.
+9. **Dev and installed app databases are separate files.** The dev DB lives at `backend/company_data/ledgerlocal.db`; the installed app DB lives at `Documents\LocalBooks\company_data\ledgerlocal.db`. Running the dev server shows dev data, not installed app data. Changes to one do not affect the other.
 
 ---
 
