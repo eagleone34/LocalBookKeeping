@@ -15,6 +15,7 @@ class CompanyOut(BaseModel):
     name: str
     currency: str
     fiscal_year_start: int
+    conversion_rates: Optional[str] = None
     created_at: str
     updated_at: str
 
@@ -23,6 +24,7 @@ class CompanyUpdate(BaseModel):
     name: Optional[str] = None
     currency: Optional[str] = None
     fiscal_year_start: Optional[int] = None
+    conversion_rates: Optional[str] = None
 
 
 # ── Accounts ─────────────────────────────────────────
