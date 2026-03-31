@@ -8,10 +8,7 @@ import {
   ArrowLeft, CheckCircle2, AlertTriangle, Scale, Clock,
   ChevronDown, ChevronUp, History, Check, X,
 } from 'lucide-react';
-
-function formatMoney(val) {
-  return new Intl.NumberFormat('en-CA', { style: 'currency', currency: 'USD' }).format(val ?? 0);
-}
+import { useCurrency } from '../hooks/useCurrency';
 
 function formatDate(iso) {
   if (!iso) return '—';
@@ -25,6 +22,8 @@ function formatDate(iso) {
 }
 
 export default function Reconciliation() {
+  const { formatMoney: formatMoneyHook } = useCurrency();
+  const formatMoney = (val) => formatMoneyHook(val ?? 0, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const { bankAccountId } = useParams();
   const navigate = useNavigate();
   const baId = parseInt(bankAccountId);
