@@ -21,7 +21,7 @@ function formatDate(iso) {
 }
 
 export default function AccountLedger() {
-  const { formatPrimary, formatSecondary, globalCurrency } = useCurrency();
+  const { formatPrimary, globalCurrency } = useCurrency();
   const { accountId } = useParams();
   const navigate = useNavigate();
 
