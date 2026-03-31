@@ -83,6 +83,7 @@ export default function Reports() {
     } catch (e) { console.error(e); }
   };
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { load(); }, [dateFrom, dateTo, selectedBankAccountId]);
 
   // Process P&L data for chart
@@ -118,15 +119,9 @@ export default function Reports() {
   // Balance sheet groups
   const assets = balanceSheet.filter(r => r.type === 'asset');
   const liabilities = balanceSheet.filter(r => r.type === 'liability');
-  const equity = balanceSheet.filter(r => r.type === 'equity');
   const totalAssets = assets.reduce((s, r) => s + r.balance, 0);
   const totalLiabilities = liabilities.reduce((s, r) => s + Math.abs(r.balance), 0);
-  const totalEquity = equity.reduce((s, r) => s + r.balance, 0);
   
-  // Balance sheet validation: Assets = Liabilities + Equity
-  const balanceCheck = Math.abs(totalAssets - (totalLiabilities + totalEquity));
-  const isBalanced = balanceCheck < 0.01; // Allow for rounding errors
-
   return (
     <div className="space-y-6">
       {/* Page heading */}
@@ -258,7 +253,7 @@ export default function Reports() {
                 </tr>
               </thead>
               <tbody>
-                {categories.map((r, i) => (
+                {categories.map((r) => (
                   <tr key={r.account_id} className="border-b border-gray-100 dark:border-gray-700 cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
                       onClick={() => drillDown({ category_id: r.account_id })}>
                     <td className="py-3 px-4 font-medium flex items-center gap-2">

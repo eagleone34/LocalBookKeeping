@@ -13,7 +13,7 @@ function formatMoney(val) {
 }
 
 export default function Transactions() {
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchParams] = useSearchParams();
   const [transactions, setTransactions] = useState([]);
   const [accounts, setAccounts] = useState([]);
   const [bankAccounts, setBankAccounts] = useState([]);
@@ -37,6 +37,7 @@ export default function Transactions() {
 
   // Use ref to avoid stale closure in debounced search
   const filtersRef = useRef(filters);
+  // eslint-disable-next-line react-hooks/refs
   filtersRef.current = filters;
 
   // Initialize filters from URL search params on mount

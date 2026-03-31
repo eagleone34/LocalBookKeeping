@@ -23,6 +23,7 @@ export default function Dashboard() {
   const [dateTo, setDateTo] = useState('');
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoading(true);
     getDashboard(dateFrom || undefined, dateTo || undefined)
       .then(setData)

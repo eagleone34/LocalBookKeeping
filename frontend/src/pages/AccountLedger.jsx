@@ -175,7 +175,7 @@ export default function AccountLedger() {
                   </td>
                 </tr>
               ) : (
-                ledger.map((row, i) => {
+                ledger.map((row) => {
                   const isPositive = row.amount >= 0;
                   const balancePositive = row.running_balance >= 0;
 

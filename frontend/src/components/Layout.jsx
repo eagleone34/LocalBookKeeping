@@ -1,4 +1,4 @@
-import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { NavLink, Outlet } from 'react-router-dom';
 import {
   LayoutDashboard, BookOpen, ArrowLeftRight, PiggyBank,
   BarChart3, FileText, Settings, Inbox, Building2, AlertCircle,
@@ -7,7 +7,7 @@ import {
 import { useCompany } from '../context/CompanyContext';
 import { useTheme } from '../context/ThemeContext';
 import { useState, useEffect } from 'react';
-import { getBackupPreviewStatus, exitBackupPreview, restoreBackup } from '../api/client';
+import { getBackupPreviewStatus, exitBackupPreview, restoreBackup, triggerUpdate } from '../api/client';
 
 
 const navItems = [
@@ -35,8 +35,10 @@ function formatBackupDate(isoString) {
 export default function Layout() {
   const { companies, currentCompany, switchCompany, createCompany, deleteCompany, loading } = useCompany();
   const { theme, toggleTheme } = useTheme();
-  const navigate = useNavigate();
   const [updateInfo, setUpdateInfo] = useState({ available: false, version: null });
+  const [updateLoading, setUpdateLoading] = useState(false);
+  const [updateError, setUpdateError] = useState(null);
+  const [updateDone, setUpdateDone] = useState(false);
 
   // Preview mode state
   const [previewStatus, setPreviewStatus] = useState({ preview_active: false, filename: null, created_at: null });
@@ -54,6 +56,14 @@ export default function Layout() {
       .catch(() => {});
   }, []);
 
+  // Heartbeat: keeps the backend alive while the browser tab is open.
+  useEffect(() => {
+    const beat = () => fetch('/api/heartbeat').catch(() => {});
+    beat();
+    const id = setInterval(beat, 15000);
+    return () => clearInterval(id);
+  }, []);
+
   // Poll preview status every 3 seconds so the banner stays in sync
   useEffect(() => {
     const check = () => {
@@ -65,6 +75,18 @@ export default function Layout() {
     const id = setInterval(check, 3000);
     return () => clearInterval(id);
   }, []);
+
+  const handleInstallUpdate = async () => {
+    setUpdateLoading(true);
+    setUpdateError(null);
+    try {
+      await triggerUpdate();
+      setUpdateDone(true);
+    } catch (err) {
+      setUpdateError('Update failed: ' + err.message);
+      setUpdateLoading(false);
+    }
+  };
 
   const handleExitPreview = async () => {
     setPreviewLoading(true);
@@ -102,7 +124,7 @@ export default function Layout() {
       if (name && name.trim()) {
         try {
           await createCompany(name.trim());
-        } catch (err) {
+        } catch {
           alert('Failed to create company.');
           e.target.value = currentCompany.id;
         }
@@ -261,18 +283,30 @@ export default function Layout() {
         {updateInfo.available && (
           <div className="bg-blue-50 dark:bg-blue-900/20 p-4 border-b border-blue-100 dark:border-blue-800 flex items-center gap-3 flex-shrink-0">
             <AlertCircle className="w-5 h-5 text-blue-500 flex-shrink-0" />
-            <div className="text-sm text-blue-700 dark:text-blue-300">
-              <span className="font-semibold">Update Available!</span> Version {updateInfo.version} is now available.{' '}
-              Please download the latest version from{' '}
-              <a
-                href="https://github.com/eagleone34/LocalBookKeeping/releases/latest"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="font-medium underline hover:text-blue-800 dark:hover:text-blue-200"
-              >
-                GitHub
-              </a>.
+            <div className="flex-1 text-sm text-blue-700 dark:text-blue-300">
+              {updateDone ? (
+                <span className="font-semibold">
+                  Installer is running — the app will restart shortly.
+                </span>
+              ) : (
+                <>
+                  <span className="font-semibold">Version {updateInfo.version} available.</span>
+                  {' '}Your company data will be preserved.{' '}
+                  {updateError && (
+                    <span className="text-red-600 dark:text-red-400 mr-2">{updateError}</span>
+                  )}
+                </>
+              )}
             </div>
+            {!updateDone && (
+              <button
+                onClick={handleInstallUpdate}
+                disabled={updateLoading}
+                className="flex-shrink-0 px-4 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white rounded-lg text-sm font-semibold transition-colors"
+              >
+                {updateLoading ? 'Downloading…' : 'Update Now'}
+              </button>
+            )}
           </div>
         )}
 

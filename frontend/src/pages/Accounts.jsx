@@ -56,6 +56,7 @@ export default function Accounts() {
     }
   };
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { load(); }, [showInactive]);
 
   const handleCreateSubmit = async (e) => {

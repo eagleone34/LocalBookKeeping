@@ -102,6 +102,7 @@ export default function Budgets() {
     }
   }, [dateFrom, dateTo, selectedAccount]);
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { load(); }, [load]);
 
   // ── Add-budget form ───────────────────────────────────────────────────────
