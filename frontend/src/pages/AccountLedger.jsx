@@ -6,10 +6,8 @@ import {
   TrendingUp, TrendingDown,
 } from 'lucide-react';
 import DatePresetPicker from '../components/DatePresetPicker';
-
-function formatMoney(val) {
-  return new Intl.NumberFormat('en-CA', { style: 'currency', currency: 'USD' }).format(val ?? 0);
-}
+import { useCurrency } from '../hooks/useCurrency';
+import SecondaryAmount from '../components/SecondaryAmount';
 
 function formatDate(iso) {
   if (!iso) return '—';
@@ -23,6 +21,7 @@ function formatDate(iso) {
 }
 
 export default function AccountLedger() {
+  const { formatPrimary, formatSecondary, globalCurrency } = useCurrency();
   const { accountId } = useParams();
   const navigate = useNavigate();
 
@@ -32,6 +31,11 @@ export default function AccountLedger() {
   const [loading, setLoading] = useState(true);
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
+  const [showSecondary, setShowSecondary] = useState(false);
+
+  const accountCurrency = accountInfo?.currency || 'USD';
+  const isMultiCurrency = accountCurrency !== globalCurrency;
+  const formatMoney = (val) => formatPrimary(val ?? 0, accountCurrency, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
   const load = async () => {
     setLoading(true);
@@ -105,16 +109,26 @@ export default function AccountLedger() {
           </div>
         </div>
 
-        {/* Reconcile button */}
-        {linkedBankAccount && (
-          <Link
-            to={`/reconciliation/${linkedBankAccount.id}`}
-            className="btn-primary flex items-center gap-2"
-          >
-            <Scale className="w-4 h-4" />
-            Reconcile Account
-          </Link>
-        )}
+        <div className="flex items-center gap-2">
+          {isMultiCurrency && (
+            <button
+              onClick={() => setShowSecondary(s => !s)}
+              className={`text-xs px-3 py-1.5 rounded-lg border transition-colors ${showSecondary ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-300' : 'border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:border-gray-300'}`}
+            >
+              {showSecondary ? `Hide ${accountCurrency}` : `Show ${accountCurrency}`}
+            </button>
+          )}
+          {/* Reconcile button */}
+          {linkedBankAccount && (
+            <Link
+              to={`/reconciliation/${linkedBankAccount.id}`}
+              className="btn-primary flex items-center gap-2"
+            >
+              <Scale className="w-4 h-4" />
+              Reconcile Account
+            </Link>
+          )}
+        </div>
       </div>
 
       {/* Summary cards */}
@@ -123,6 +137,7 @@ export default function AccountLedger() {
           <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Current Balance</p>
           <p className={`text-xl font-bold ${currentBalance >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
             {formatMoney(currentBalance)}
+            <SecondaryAmount amount={currentBalance} accountCurrency={accountCurrency} show={showSecondary} />
           </p>
         </div>
         <div className="card text-center py-4">
@@ -204,12 +219,14 @@ export default function AccountLedger() {
                             : <TrendingDown className="w-3 h-3" />
                           }
                           {formatMoney(row.amount)}
+                          <SecondaryAmount amount={row.amount} accountCurrency={accountCurrency} show={showSecondary} />
                         </span>
                       </td>
                       <td className={`py-3 px-4 text-right font-bold whitespace-nowrap ${
                         balancePositive ? 'text-gray-800' : 'text-red-700'
                       }`}>
                         {formatMoney(row.running_balance)}
+                        <SecondaryAmount amount={row.running_balance} accountCurrency={accountCurrency} show={showSecondary} />
                       </td>
                       <td className="py-3 px-4 text-center">
                         {row.is_reconciled ? (

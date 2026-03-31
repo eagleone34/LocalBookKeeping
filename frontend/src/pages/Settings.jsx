@@ -57,7 +57,13 @@ export default function SettingsPage() {
         getBankAccounts().catch(() => []),
         getBackupPreviewStatus().catch(() => ({ preview_active: false })),
       ]);
-      setCompany(c);
+      // Parse existing conversion rate for display in the form
+      let usdCadRate = '';
+      try {
+        const rates = JSON.parse(c.conversion_rates || '{}');
+        if (rates.USD_CAD) usdCadRate = String(rates.USD_CAD);
+      } catch { /* ignore */ }
+      setCompany({ ...c, usdCadRate });
       setRules(r);
       setAccounts(a);
       setBackups(b);
@@ -70,7 +76,16 @@ export default function SettingsPage() {
 
   const handleSaveCompany = async (e) => {
     e.preventDefault();
-    await updateCompany({ name: company.name, currency: company.currency, fiscal_year_start: company.fiscal_year_start });
+    const usdCadRate = parseFloat(company.usdCadRate);
+    const conversion_rates = !isNaN(usdCadRate) && usdCadRate > 0
+      ? JSON.stringify({ USD_CAD: usdCadRate })
+      : company.conversion_rates || null;
+    await updateCompany({
+      name: company.name,
+      currency: company.currency,
+      fiscal_year_start: company.fiscal_year_start,
+      conversion_rates,
+    });
     await fetchCompanies();
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
@@ -214,8 +229,6 @@ export default function SettingsPage() {
                 <select value={company.currency} onChange={e => setCompany({...company, currency: e.target.value})} className="input-field">
                   <option value="USD">USD - US Dollar</option>
                   <option value="CAD">CAD - Canadian Dollar</option>
-                  <option value="EUR">EUR - Euro</option>
-                  <option value="GBP">GBP - British Pound</option>
                 </select>
               </div>
               <div>
@@ -226,6 +239,28 @@ export default function SettingsPage() {
                   ))}
                 </select>
               </div>
+            </div>
+            <div>
+              <label className="label">
+                Exchange Rate
+                <span className="text-gray-400 dark:text-gray-500 font-normal ml-1">(1 USD = ? CAD)</span>
+              </label>
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-gray-500">1 USD =</span>
+                <input
+                  type="number"
+                  step="0.0001"
+                  min="0.0001"
+                  placeholder="e.g. 1.38"
+                  value={company.usdCadRate || ''}
+                  onChange={e => setCompany({...company, usdCadRate: e.target.value})}
+                  className="input-field w-36"
+                />
+                <span className="text-sm text-gray-500">CAD</span>
+              </div>
+              <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                Used to convert amounts between USD and CAD accounts.
+              </p>
             </div>
             <button type="submit" className="btn-primary">
               {saved ? <><Check className="w-4 h-4 mr-2" /> Saved!</> : <><Save className="w-4 h-4 mr-2" /> Save Changes</>}

@@ -34,6 +34,7 @@ class AccountCreate(BaseModel):
     parent_id: Optional[int] = None
     code: Optional[str] = None
     description: Optional[str] = None
+    currency: str = "USD"
 
 
 class AccountUpdate(BaseModel):
@@ -43,6 +44,7 @@ class AccountUpdate(BaseModel):
     code: Optional[str] = None
     description: Optional[str] = None
     is_active: Optional[bool] = None
+    currency: Optional[str] = None
 
 
 class AccountOut(BaseModel):
@@ -53,6 +55,7 @@ class AccountOut(BaseModel):
     code: Optional[str]
     description: Optional[str]
     is_active: bool
+    currency: str = "USD"
     created_at: str
     updated_at: str
     children: List[AccountOut] = []
@@ -137,6 +140,7 @@ class AccountBalanceOut(BaseModel):
     account_name: str
     account_type: str
     balance: float
+    currency: str = "USD"
     bank_account_id: Optional[int] = None
     bank_name: Optional[str] = None
     last_four: Optional[str] = None

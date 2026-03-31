@@ -111,7 +111,7 @@ def list_accounts(include_inactive: bool = False):
 def create_account(body: AccountCreate):
     aid = ds.create_account(
         get_live_conn(), get_company_id(), body.name, body.type,
-        body.parent_id, body.code, body.description,
+        body.parent_id, body.code, body.description, currency=body.currency,
     )
     row = ds.get_account(get_live_conn(), aid)
     return _to_out(row)
@@ -157,6 +157,7 @@ def get_account_balance(account_id: int):
         account_name=acc["name"],
         account_type=acc["type"],
         balance=round(balance, 2),
+        currency=acc.get("currency", "USD") or "USD",
         bank_account_id=bank_account_id,
         bank_name=bank_name,
         last_four=last_four,
@@ -255,6 +256,7 @@ def _to_out(row: dict) -> AccountOut:
         code=row.get("code"),
         description=row.get("description"),
         is_active=bool(row["is_active"]),
+        currency=row.get("currency", "USD") or "USD",
         created_at=row["created_at"],
         updated_at=row["updated_at"],
     )

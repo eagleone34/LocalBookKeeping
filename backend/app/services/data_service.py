@@ -101,14 +101,14 @@ def get_account(conn: sqlite3.Connection, account_id: int) -> Optional[Dict]:
 
 def create_account(conn: sqlite3.Connection, company_id: int, name: str, acct_type: str,
                    parent_id: Optional[int] = None, code: Optional[str] = None,
-                   description: Optional[str] = None) -> int:
+                   description: Optional[str] = None, currency: str = "USD") -> int:
     if not code:
         code = _next_account_code(conn, company_id, acct_type)
     now = _now()
     cur = conn.execute(
-        """INSERT INTO accounts (company_id, name, type, parent_id, code, description, is_active, created_at, updated_at)
-           VALUES (?,?,?,?,?,?,1,?,?)""",
-        (company_id, name, acct_type, parent_id, code, description, now, now),
+        """INSERT INTO accounts (company_id, name, type, parent_id, code, description, currency, is_active, created_at, updated_at)
+           VALUES (?,?,?,?,?,?,?,1,?,?)""",
+        (company_id, name, acct_type, parent_id, code, description, currency, now, now),
     )
     conn.commit()
     _audit(conn, company_id, "account", cur.lastrowid, "create", f"Created account '{name}'")
