@@ -26,7 +26,7 @@ def check_for_updates() -> Optional[str]:
     """
     url = f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest"
     try:
-        response = requests.get(url, timeout=5)
+        response = requests.get(url, timeout=(2, 3))
         if response.status_code == 200:
             data = response.json()
             latest_version = data.get("tag_name", "").strip("v")

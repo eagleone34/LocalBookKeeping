@@ -6,28 +6,40 @@ echo =========================================
 
 echo.
 echo [1/4] Generating Demo Data (Chase/RBC)...
-cd backend
-python scripts/build_golden_copy.py
-if %ERRORLEVEL% NEQ 0 (
-    echo.
-    echo ERROR: build_golden_copy.py failed!
+if exist "backend\company_data\ledgerlocal.db" (
+    echo   Skipping — ledgerlocal.db already exists.
+) else (
+    cd backend
+    python scripts/build_golden_copy.py
+    if %ERRORLEVEL% NEQ 0 (
+        echo.
+        echo ERROR: build_golden_copy.py failed!
+        cd ..
+        pause
+        exit /b 1
+    )
     cd ..
-    pause
-    exit /b 1
 )
-cd ..
 
 echo.
 echo [2/4] Building React Frontend...
 cd frontend
-call npm install
-if %ERRORLEVEL% NEQ 0 (
-    echo.
-    echo ERROR: npm install failed!
-    cd ..
-    pause
-    exit /b 1
+
+REM Skip npm install if node_modules already exists and package-lock.json hasn't changed.
+if not exist "node_modules\.package-lock.json" (
+    echo   Installing npm dependencies...
+    call npm ci --prefer-offline
+    if %ERRORLEVEL% NEQ 0 (
+        echo.
+        echo ERROR: npm ci failed!
+        cd ..
+        pause
+        exit /b 1
+    )
+) else (
+    echo   Skipping npm install — node_modules is up-to-date.
 )
+
 call npm run build
 if %ERRORLEVEL% NEQ 0 (
     echo.

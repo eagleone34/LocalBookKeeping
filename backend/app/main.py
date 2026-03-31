@@ -152,6 +152,19 @@ def health():
 
 _last_heartbeat = time.time()
 
+# ── Background update check (runs once at startup, never blocks requests) ──
+_update_result = {"checked": False, "version": None}
+
+def _background_update_check():
+    try:
+        v = check_for_updates()
+        _update_result["version"] = v
+    except Exception:
+        pass
+    _update_result["checked"] = True
+
+threading.Thread(target=_background_update_check, daemon=True).start()
+
 @app.get("/api/heartbeat")
 def heartbeat():
     global _last_heartbeat
@@ -160,7 +173,7 @@ def heartbeat():
 
 @app.get("/api/health/update")
 def check_update():
-    v = check_for_updates()
+    v = _update_result["version"]
     return {"status": "ok", "update_available": bool(v), "latest_version": v}
 
 @app.post("/api/update/install")
