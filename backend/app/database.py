@@ -310,6 +310,28 @@ def _migrate(conn: sqlite3.Connection) -> None:
     except Exception:
         pass
 
+    # Backfill: create bank_accounts rows for orphan asset/liability accounts
+    try:
+        now = datetime.utcnow().isoformat()
+        orphans = conn.execute("""
+            SELECT a.id, a.company_id, a.name
+            FROM accounts a
+            WHERE a.type IN ('asset','liability') AND a.is_active=1
+              AND NOT EXISTS (
+                  SELECT 1 FROM bank_accounts ba WHERE ba.ledger_account_id = a.id
+              )
+        """).fetchall()
+        for row in orphans:
+            conn.execute(
+                """INSERT INTO bank_accounts (company_id, bank_name, last_four, full_number, nickname, ledger_account_id, created_at, updated_at)
+                   VALUES (?,?,?,?,?,?,?,?)""",
+                (row[1], row[2], "0000", "", "", row[0], now, now),
+            )
+        if orphans:
+            conn.commit()
+    except Exception:
+        pass
+
     # Data Migration: Copy account_id to category_id for existing records
     try:
         cols = [r[1] for r in conn.execute("PRAGMA table_info(transactions)").fetchall()]

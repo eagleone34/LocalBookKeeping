@@ -68,14 +68,23 @@ export default function Accounts() {
     load();
   };
 
-  const startEdit = (acc) => {
+  const startEdit = async (acc) => {
     setEditId(acc.id);
+    let txnCount = 0;
+    if (acc.type === 'asset' || acc.type === 'liability') {
+      try {
+        const { count } = await getAccountTransactionCount(acc.id);
+        txnCount = count;
+      } catch { /* default to 0 — allow editing */ }
+    }
     setEditForm({
       name: acc.name,
       type: acc.type,
       code: acc.code || '',
       description: acc.description || '',
       parent_id: acc.parent_id,
+      currency: acc.currency || 'USD',
+      _txnCount: txnCount,
     });
     setDeleteError(null);
   };
@@ -87,7 +96,8 @@ export default function Accounts() {
   };
 
   const saveEdit = async () => {
-    await updateAccount(editId, editForm);
+    const { _txnCount, ...payload } = editForm;
+    await updateAccount(editId, payload);
     setEditId(null);
     setEditForm({});
     load();
@@ -256,6 +266,9 @@ export default function Accounts() {
                         <th className="text-left py-2 px-2 text-gray-500 dark:text-gray-400 font-medium">Name</th>
                         <th className="text-left py-2 px-2 text-gray-500 dark:text-gray-400 font-medium">Description</th>
                         {isBalanceType && (
+                          <th className="text-center py-2 px-2 text-gray-500 dark:text-gray-400 font-medium w-20">Currency</th>
+                        )}
+                        {isBalanceType && (
                           <th className="text-right py-2 px-2 text-gray-500 dark:text-gray-400 font-medium w-36">
                             Balance
                             <span className="block text-xs font-normal text-gray-400 dark:text-gray-500">(linked txns)</span>
@@ -301,6 +314,20 @@ export default function Accounts() {
                                 placeholder="Description"
                               />
                             </td>
+                            {isBalanceType && (
+                              <td className="py-2 px-2 text-center">
+                                <select
+                                  value={editForm.currency || 'USD'}
+                                  onChange={e => setEditForm({...editForm, currency: e.target.value})}
+                                  className="input-field text-xs py-1"
+                                  disabled={editForm._txnCount > 0}
+                                  title={editForm._txnCount > 0 ? `Cannot change: ${editForm._txnCount} linked transaction(s)` : ''}
+                                >
+                                  <option value="USD">USD</option>
+                                  <option value="CAD">CAD</option>
+                                </select>
+                              </td>
+                            )}
                             {isBalanceType && <td className="py-2 px-2" />}
                             <td className="py-2 px-2">
                               <select
@@ -331,6 +358,9 @@ export default function Accounts() {
                               {acc.name}
                             </td>
                             <td className="py-2 px-2 text-gray-500 dark:text-gray-400 max-w-xs truncate">{acc.description || '-'}</td>
+                            {isBalanceType && (
+                              <td className="py-2 px-2 text-center text-xs font-mono text-gray-500 dark:text-gray-400">{acc.currency || 'USD'}</td>
+                            )}
                             {isBalanceType && (
                               <td className="py-2 px-2 text-right">
                                 {hasBalance ? (
