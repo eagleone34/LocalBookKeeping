@@ -141,7 +141,13 @@ def restore_account(conn: sqlite3.Connection, account_id: int) -> None:
 
 
 def count_account_transactions(conn: sqlite3.Connection, account_id: int) -> int:
-    row = conn.execute("SELECT COUNT(*) as cnt FROM transactions WHERE account_id=?", (account_id,)).fetchone()
+    """Count transactions linked to an account — both directly (category) and via bank_accounts (asset/liability)."""
+    row = conn.execute(
+        """SELECT COUNT(*) as cnt FROM transactions
+           WHERE account_id=?
+              OR bank_account_id IN (SELECT id FROM bank_accounts WHERE ledger_account_id=?)""",
+        (account_id, account_id),
+    ).fetchone()
     return int(row["cnt"])
 
 

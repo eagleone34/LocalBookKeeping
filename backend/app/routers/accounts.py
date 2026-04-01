@@ -109,11 +109,18 @@ def list_accounts(include_inactive: bool = False):
 
 @router.post("", response_model=AccountOut, status_code=201)
 def create_account(body: AccountCreate):
+    conn = get_live_conn()
+    company_id = get_company_id()
     aid = ds.create_account(
-        get_live_conn(), get_company_id(), body.name, body.type,
+        conn, company_id, body.name, body.type,
         body.parent_id, body.code, body.description, currency=body.currency,
     )
-    row = ds.get_account(get_live_conn(), aid)
+    # Asset/liability accounts need a bank_accounts record so they appear
+    # in the transaction form's "Account" dropdown.
+    if body.type in ("asset", "liability"):
+        ds.upsert_bank_account(conn, company_id, bank_name=body.name,
+                               last_four="0000", ledger_account_id=aid)
+    row = ds.get_account(conn, aid)
     return _to_out(row)
 
 
@@ -209,9 +216,17 @@ def account_transaction_count(account_id: int):
 
 @router.put("/{account_id}", response_model=AccountOut)
 def update_account(account_id: int, body: AccountUpdate):
+    conn = get_live_conn()
+    # Prevent currency change when transactions are linked
+    if body.currency is not None:
+        existing = ds.get_account(conn, account_id)
+        if existing and existing.get("currency", "USD") != body.currency:
+            txn_count = ds.count_account_transactions(conn, account_id)
+            if txn_count > 0:
+                raise HTTPException(400, f"Cannot change currency: account has {txn_count} linked transaction(s). Re-categorize them first.")
     kwargs = body.model_dump(exclude_none=True)
-    ds.update_account(get_live_conn(), account_id, **kwargs)
-    row = ds.get_account(get_live_conn(), account_id)
+    ds.update_account(conn, account_id, **kwargs)
+    row = ds.get_account(conn, account_id)
     if not row:
         raise HTTPException(404, "Account not found")
     return _to_out(row)
