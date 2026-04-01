@@ -224,6 +224,8 @@ def _migrate(conn: sqlite3.Connection) -> None:
         ("documents", "bank_account_id", "ALTER TABLE documents ADD COLUMN bank_account_id INTEGER REFERENCES bank_accounts(id)"),
         ("accounts", "currency", "ALTER TABLE accounts ADD COLUMN currency TEXT NOT NULL DEFAULT 'USD'"),
         ("company", "conversion_rates", "ALTER TABLE company ADD COLUMN conversion_rates TEXT"),
+        ("bank_accounts", "opening_balance", "ALTER TABLE bank_accounts ADD COLUMN opening_balance REAL NOT NULL DEFAULT 0"),
+        ("bank_accounts", "opening_balance_date", "ALTER TABLE bank_accounts ADD COLUMN opening_balance_date TEXT"),
     ]
     for table, column, sql in migrations:
         try:

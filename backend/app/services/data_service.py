@@ -161,7 +161,7 @@ def delete_account(conn: sqlite3.Connection, account_id: int) -> None:
 def get_account_balance(conn: sqlite3.Connection, company_id: int, account_id: int) -> float:
     """
     Return the current balance of an asset/liability account.
-    Balance = SUM of all transaction amounts where bank_account_id links to this ledger account.
+    Balance = opening_balance + SUM of all transaction amounts where bank_account_id links to this ledger account.
     """
     row = conn.execute("""
         SELECT COALESCE(SUM(t.amount), 0) AS balance
@@ -169,19 +169,30 @@ def get_account_balance(conn: sqlite3.Connection, company_id: int, account_id: i
         JOIN bank_accounts ba ON t.bank_account_id = ba.id
         WHERE ba.ledger_account_id = ? AND t.company_id = ?
     """, (account_id, company_id)).fetchone()
-    return float(row["balance"]) if row else 0.0
+    balance = float(row["balance"]) if row else 0.0
+
+    ob_row = conn.execute("""
+        SELECT COALESCE(SUM(opening_balance), 0) AS ob
+        FROM bank_accounts
+        WHERE ledger_account_id = ? AND company_id = ?
+    """, (account_id, company_id)).fetchone()
+    balance += float(ob_row["ob"]) if ob_row else 0.0
+
+    return balance
 
 
 def get_account_balances_for_company(conn: sqlite3.Connection, company_id: int) -> Dict[int, float]:
     """
     Return a dict of {ledger_account_id: balance} for all bank-linked accounts.
+    Includes opening_balance in the total.
     """
     rows = conn.execute("""
-        SELECT ba.ledger_account_id, COALESCE(SUM(t.amount), 0) AS balance
+        SELECT ba.ledger_account_id,
+               COALESCE(SUM(t.amount), 0) + COALESCE(ba.opening_balance, 0) AS balance
         FROM bank_accounts ba
         LEFT JOIN transactions t ON t.bank_account_id = ba.id AND t.company_id = ?
         WHERE ba.company_id = ? AND ba.ledger_account_id IS NOT NULL
-        GROUP BY ba.ledger_account_id
+        GROUP BY ba.ledger_account_id, ba.opening_balance
     """, (company_id, company_id)).fetchall()
     return {int(r["ledger_account_id"]): float(r["balance"]) for r in rows}
 
@@ -191,7 +202,20 @@ def get_account_ledger(conn: sqlite3.Connection, company_id: int, account_id: in
     """
     Return all transactions for a ledger account (via bank_account link),
     sorted oldest→newest, with a running balance column.
+    Includes a synthetic "Opening Balance" row if one is set on the bank account.
     """
+    # Look up opening balance from linked bank account
+    ob_row = conn.execute("""
+        SELECT opening_balance, opening_balance_date, id AS ba_id
+        FROM bank_accounts
+        WHERE ledger_account_id = ? AND company_id = ?
+        LIMIT 1
+    """, (account_id, company_id)).fetchone()
+
+    ob_amount = float(ob_row["opening_balance"]) if ob_row and ob_row["opening_balance"] else 0.0
+    ob_date = ob_row["opening_balance_date"] if ob_row else None
+    ob_ba_id = int(ob_row["ba_id"]) if ob_row else None
+
     sql = """
         SELECT t.id, t.txn_date, t.amount, t.description, t.source,
                t.is_reconciled, t.reconciliation_id, t.bank_account_id,
@@ -212,13 +236,65 @@ def get_account_ledger(conn: sqlite3.Connection, company_id: int, account_id: in
 
     rows = [dict(r) for r in conn.execute(sql, params).fetchall()]
 
-    # Compute running balance
+    # Determine whether to show the opening balance row or use it as a starting value
+    show_ob_row = False
     running = 0.0
+
+    if ob_amount != 0 and ob_date:
+        ob_in_range = True
+        if date_from and ob_date < date_from:
+            ob_in_range = False
+        if date_to and ob_date > date_to:
+            ob_in_range = False
+
+        if ob_in_range:
+            # Prepend synthetic opening balance row
+            show_ob_row = True
+            ob_entry = {
+                "id": 0,
+                "txn_date": ob_date,
+                "amount": ob_amount,
+                "description": "Opening Balance",
+                "source": "opening_balance",
+                "is_reconciled": 1,
+                "reconciliation_id": None,
+                "bank_account_id": ob_ba_id,
+                "vendor_name": None,
+            }
+            rows.insert(0, ob_entry)
+            running = 0.0  # Will accumulate from the OB row itself
+        else:
+            # OB date is outside filter range — use it as starting balance
+            if not date_from or ob_date < date_from:
+                running = ob_amount
+
+    # Compute running balance
     for r in rows:
         running += r["amount"]
         r["running_balance"] = round(running, 2)
 
     return rows
+
+
+def get_min_txn_date(conn: sqlite3.Connection, company_id: int, bank_account_id: int) -> Optional[str]:
+    """Return the earliest transaction date for a bank account, or None if no transactions."""
+    row = conn.execute(
+        "SELECT MIN(txn_date) AS earliest FROM transactions WHERE company_id=? AND bank_account_id=?",
+        (company_id, bank_account_id),
+    ).fetchone()
+    return row["earliest"] if row and row["earliest"] else None
+
+
+def validate_opening_balance_date(conn: sqlite3.Connection, company_id: int,
+                                   bank_account_id: int, date: str) -> Tuple[bool, Optional[str]]:
+    """
+    Validate that the opening balance date is before any existing transactions.
+    Returns (is_valid, error_message).
+    """
+    earliest = get_min_txn_date(conn, company_id, bank_account_id)
+    if earliest and date >= earliest:
+        return False, f"Opening balance date must be before the earliest transaction ({earliest})"
+    return True, None
 
 
 # ═══════════════════════════════════════════════════════
@@ -886,12 +962,12 @@ def balance_sheet(conn: sqlite3.Connection, company_id: int) -> List[Dict]:
 
     bank_balances = conn.execute("""
         SELECT a.id AS account_id, a.type, a.name AS account_name,
-               COALESCE(SUM(t.amount), 0) AS balance
+               COALESCE(SUM(t.amount), 0) + COALESCE(ba.opening_balance, 0) AS balance
         FROM bank_accounts ba
         JOIN accounts a ON ba.ledger_account_id = a.id
         LEFT JOIN transactions t ON t.bank_account_id = ba.id AND t.company_id = ?
         WHERE ba.company_id = ? AND a.type IN ('asset', 'liability')
-        GROUP BY a.id, a.type, a.name
+        GROUP BY a.id, a.type, a.name, ba.opening_balance
         ORDER BY a.type, a.name
     """, (company_id, company_id)).fetchall()
 
@@ -1086,9 +1162,15 @@ def get_or_create_bank_for_ledger(conn: sqlite3.Connection, company_id: int, led
 def update_bank_account(conn: sqlite3.Connection, bank_account_id: int, **kwargs) -> None:
     sets, vals = [], []
     for k, v in kwargs.items():
+        # Allow clearing opening_balance_date by sending empty string → NULL
+        if k == "opening_balance_date" and v == "":
+            v = None
         if v is not None:
             sets.append(f"{k}=?")
             vals.append(v)
+        elif k == "opening_balance_date":
+            # Explicitly set to NULL when clearing
+            sets.append(f"{k}=NULL")
     if not sets:
         return
     sets.append("updated_at=?")
@@ -1135,13 +1217,14 @@ def get_reconciliation_status(conn: sqlite3.Connection, company_id: int, bank_ac
 
     last_rec = get_last_reconciliation(conn, company_id, bank_account_id)
 
-    # Current balance (all transactions)
+    # Current balance (all transactions + opening balance)
     balance_row = conn.execute("""
         SELECT COALESCE(SUM(amount), 0) AS balance
         FROM transactions
         WHERE company_id=? AND bank_account_id=?
     """, (company_id, bank_account_id)).fetchone()
     current_balance = float(balance_row["balance"]) if balance_row else 0.0
+    current_balance += float(ba["opening_balance"]) if ba.get("opening_balance") else 0.0
 
     # Unreconciled transactions
     unrec_rows = conn.execute("""
@@ -1155,7 +1238,10 @@ def get_reconciliation_status(conn: sqlite3.Connection, company_id: int, bank_ac
     """, (company_id, bank_account_id)).fetchall()
 
     # Compute running balance for unreconciled txns starting from last reconciled balance
-    start_balance = float(last_rec["localbooks_balance"]) if last_rec else 0.0
+    if last_rec:
+        start_balance = float(last_rec["localbooks_balance"])
+    else:
+        start_balance = float(ba["opening_balance"]) if ba.get("opening_balance") else 0.0
     running = start_balance
     unreconciled = []
     for r in unrec_rows:
@@ -1178,13 +1264,23 @@ def get_reconciliation_status(conn: sqlite3.Connection, company_id: int, bank_ac
 
 def get_localbooks_balance_as_of(conn: sqlite3.Connection, company_id: int,
                                   bank_account_id: int, as_of_date: str) -> float:
-    """Return the LocalBooks balance for a bank account as of a specific date."""
+    """Return the LocalBooks balance for a bank account as of a specific date (includes opening balance)."""
     row = conn.execute("""
         SELECT COALESCE(SUM(amount), 0) AS balance
         FROM transactions
         WHERE company_id=? AND bank_account_id=? AND txn_date <= ?
     """, (company_id, bank_account_id, as_of_date)).fetchone()
-    return float(row["balance"]) if row else 0.0
+    balance = float(row["balance"]) if row else 0.0
+
+    # Add opening balance if its date is on or before the as_of_date
+    ob_row = conn.execute("""
+        SELECT opening_balance, opening_balance_date FROM bank_accounts
+        WHERE id=? AND opening_balance_date IS NOT NULL AND opening_balance_date <= ?
+    """, (bank_account_id, as_of_date)).fetchone()
+    if ob_row and ob_row["opening_balance"]:
+        balance += float(ob_row["opening_balance"])
+
+    return balance
 
 
 def save_reconciliation(conn: sqlite3.Connection, company_id: int, bank_account_id: int,

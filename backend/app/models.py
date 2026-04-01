@@ -146,6 +146,8 @@ class AccountBalanceOut(BaseModel):
     last_four: Optional[str] = None
     last_reconciled_date: Optional[str] = None
     last_reconciled_balance: Optional[float] = None
+    opening_balance: float = 0.0
+    opening_balance_date: Optional[str] = None
 
 
 # ── Budgets ──────────────────────────────────────────
@@ -330,6 +332,8 @@ class BankAccountCreate(BaseModel):
     account_type: str = Field("checking", pattern="^(checking|savings|credit_card)$")
     nickname: Optional[str] = None
     full_number: Optional[str] = None
+    opening_balance: Optional[float] = None
+    opening_balance_date: Optional[str] = None
 
 
 class BankAccountOut(BaseModel):
@@ -340,6 +344,8 @@ class BankAccountOut(BaseModel):
     nickname: Optional[str] = None
     ledger_account_id: Optional[int] = None
     ledger_account_name: Optional[str] = None
+    opening_balance: float = 0.0
+    opening_balance_date: Optional[str] = None
     created_at: str
     updated_at: str
 

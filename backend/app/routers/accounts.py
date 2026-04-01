@@ -87,6 +87,12 @@ def create_bank_account(body: BankAccountCreate):
     if ba and not ba.get("ledger_account_id"):
         ds.update_bank_account(conn, bank_id, ledger_account_id=ledger_account_id)
 
+    # Set opening balance if provided
+    if body.opening_balance is not None and body.opening_balance_date:
+        ds.update_bank_account(conn, bank_id,
+                               opening_balance=body.opening_balance,
+                               opening_balance_date=body.opening_balance_date)
+
     row = ds.find_bank_account_by_last_four(conn, company_id, body.bank_name, body.last_four)
     if not row:
         raise HTTPException(500, "Bank account created but not found")
@@ -95,8 +101,28 @@ def create_bank_account(body: BankAccountCreate):
 
 @router.put("/bank-accounts/{bank_account_id}")
 def update_bank_account(bank_account_id: int, body: dict):
-    ds.update_bank_account(get_live_conn(), bank_account_id, **body)
+    conn = get_live_conn()
+    company_id = get_company_id()
+
+    # Validate opening balance date if provided
+    if "opening_balance_date" in body and body["opening_balance_date"]:
+        is_valid, err = ds.validate_opening_balance_date(
+            conn, company_id, bank_account_id, body["opening_balance_date"]
+        )
+        if not is_valid:
+            raise HTTPException(400, err)
+
+    ds.update_bank_account(conn, bank_account_id, **body)
     return {"ok": True}
+
+
+@router.get("/bank-accounts/{bank_account_id}/min-txn-date")
+def get_min_txn_date(bank_account_id: int):
+    """Return the earliest transaction date for a bank account (for opening balance validation)."""
+    conn = get_conn()
+    company_id = get_company_id()
+    earliest = ds.get_min_txn_date(conn, company_id, bank_account_id)
+    return {"min_txn_date": earliest}
 
 
 # ── Standard CRUD (no path conflicts below here) ──────────────────────────────
@@ -170,6 +196,8 @@ def get_account_balance(account_id: int):
         last_four=last_four,
         last_reconciled_date=last_rec["reconciled_date"] if last_rec else None,
         last_reconciled_balance=float(last_rec["statement_balance"]) if last_rec else None,
+        opening_balance=float(ba_row["opening_balance"] or 0) if ba_row else 0.0,
+        opening_balance_date=ba_row["opening_balance_date"] if ba_row else None,
     )
 
 
@@ -286,6 +314,8 @@ def _bank_to_out(row: dict) -> BankAccountOut:
         nickname=row.get("nickname"),
         ledger_account_id=row.get("ledger_account_id"),
         ledger_account_name=row.get("ledger_account_name"),
+        opening_balance=float(row.get("opening_balance") or 0),
+        opening_balance_date=row.get("opening_balance_date"),
         created_at=row["created_at"],
         updated_at=row["updated_at"],
     )

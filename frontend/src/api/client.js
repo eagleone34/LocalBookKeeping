@@ -188,6 +188,8 @@ export const createBankAccount = (data) =>
   request('/api/accounts/bank-accounts', { method: 'POST', body: JSON.stringify(data) });
 export const updateBankAccount = (id, data) =>
   request(`/api/accounts/bank-accounts/${id}`, { method: 'PUT', body: JSON.stringify(data) });
+export const getMinTxnDate = (bankAccountId) =>
+  request(`/api/accounts/bank-accounts/${bankAccountId}/min-txn-date`);
 export const importMappedCsv = (data) =>
   request('/api/documents/import-csv', { method: 'POST', body: JSON.stringify(data) });
 
