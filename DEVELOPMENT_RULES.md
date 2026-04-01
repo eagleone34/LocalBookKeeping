@@ -16,6 +16,8 @@ These rules apply to ALL contributors and AI agents working on this project.
 8. **`build_golden_copy.py` must never run against a database with user data** unless `--force` is explicitly passed. The script always creates a backup before deleting. It is for building the bundled demo DB only — never run it against a production or dev database with real company data.
 9. **Dev and installed app databases are separate files.** The dev DB lives at `backend/company_data/ledgerlocal.db`; the installed app DB lives at `Documents\LocalBooks\company_data\ledgerlocal.db`. Changes to one do not affect the other.
 10. **Dev-mode auto-recovery.** When the dev server starts and the dev DB is missing or demo-only, it automatically copies the installed app's database (if it exists and contains user data). This ensures the dev server always shows real user data. The previous dev DB is backed up to `company_data/backups/` before overwriting.
+11. **Installed app always wins port conflicts.** If the installed app (`LocalBooks.exe`) detects port 8000 is in use (e.g., by a stale dev server), it kills the stale process and starts its own server. This prevents the confusing scenario where the user launches the installed app but sees dev server data.
+12. **Auto-shutdown prevents stale servers.** The heartbeat-based auto-shutdown monitor runs in ALL modes (installed app AND dev server). If no browser heartbeat is received for 30 seconds, the server process exits. This prevents stale dev servers from blocking future launches.
 
 ---
 

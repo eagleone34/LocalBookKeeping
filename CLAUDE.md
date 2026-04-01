@@ -39,6 +39,7 @@ When the user states any of the following, **write to memory immediately — bef
 1. **Never wipe or drop user DB tables.** Use `CREATE TABLE IF NOT EXISTS` and `ALTER TABLE ADD COLUMN` only.
    - `build_golden_copy.py` must never be run without `--force` if user data exists — it will refuse and exit.
    - Dev DB (`backend/company_data/ledgerlocal.db`) and installed app DB (`Documents\LocalBooks\company_data\ledgerlocal.db`) are separate files — changes to one don't affect the other. In dev mode, if the dev DB is demo-only, the app auto-recovers by copying the installed app's DB.
+   - The installed app always kills stale servers on port 8000 and takes over. All server modes auto-shutdown after 30s of no browser heartbeat.
    Full rules: `DEVELOPMENT_RULES.md`
 
 2. **Expenses are stored as NEGATIVE amounts. Income is POSITIVE.** Never mix signs in calculations.

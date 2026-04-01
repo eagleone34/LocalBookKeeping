@@ -8,6 +8,7 @@ import sys
 import os
 import shutil
 import socket
+import subprocess
 import threading
 import webbrowser
 import time
@@ -23,6 +24,37 @@ def _is_server_running() -> bool:
             return True
     except OSError:
         return False
+
+
+def _kill_port_8000() -> None:
+    """Kill any process listening on port 8000 (Windows only).
+
+    Uses netstat to find the PID, then taskkill to terminate it.
+    Called by the installed app to reclaim the port from stale dev servers.
+    """
+    try:
+        result = subprocess.run(
+            ["netstat", "-ano"],
+            capture_output=True, text=True, timeout=5,
+        )
+        pids_killed = set()
+        for line in result.stdout.splitlines():
+            if "127.0.0.1:8000" in line and "LISTENING" in line:
+                parts = line.split()
+                pid = parts[-1]
+                if pid and pid.isdigit() and pid not in pids_killed:
+                    log(f"[PORT CONFLICT] Killing PID {pid} holding port 8000")
+                    subprocess.run(
+                        ["taskkill", "/F", "/PID", pid],
+                        capture_output=True, timeout=5,
+                    )
+                    pids_killed.add(pid)
+        if pids_killed:
+            log(f"[PORT CONFLICT] Killed {len(pids_killed)} process(es) on port 8000")
+        else:
+            log("[PORT CONFLICT] No LISTENING process found on port 8000")
+    except Exception as e:
+        log(f"[PORT CONFLICT] Failed to kill port 8000 processes: {e}")
 
 if sys.stdout is None:
     sys.stdout = open(os.devnull, "w")
@@ -272,14 +304,28 @@ def _auto_shutdown_monitor():
 
 if __name__ == "__main__":
     if _is_server_running():
-        log("Server already running – opening browser.")
-        webbrowser.open(APP_URL)
-        sys.exit(0)
+        if getattr(sys, 'frozen', False):
+            # Installed app always takes over — kill stale server and reclaim port
+            log("[PORT CONFLICT] Port 8000 in use. Killing stale server to take over...")
+            _kill_port_8000()
+            time.sleep(2)  # Wait for port to be released
+            if _is_server_running():
+                log("[PORT CONFLICT] Could not free port 8000. Opening browser to existing server.")
+                webbrowser.open(APP_URL)
+                sys.exit(0)
+            log("[PORT CONFLICT] Port 8000 freed. Starting installed app server.")
+        else:
+            # Dev mode — just open browser to whatever's already running
+            log("Server already running – opening browser.")
+            webbrowser.open(APP_URL)
+            sys.exit(0)
 
     log("Starting server on :8000 ...")
     if getattr(sys, 'frozen', False):
         threading.Thread(target=open_browser, daemon=True).start()
-        threading.Thread(target=_auto_shutdown_monitor, daemon=True).start()
+    # Auto-shutdown monitor runs in ALL modes to prevent stale server processes.
+    # When the browser closes and heartbeats stop, the server shuts down after 30s.
+    threading.Thread(target=_auto_shutdown_monitor, daemon=True).start()
     try:
         uvicorn.run(app, host="127.0.0.1", port=8000, log_level="error", access_log=False)
     except Exception:
