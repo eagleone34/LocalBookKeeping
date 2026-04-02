@@ -88,7 +88,17 @@ def _selective_update(install_dir: Path, extracted_root: Path) -> None:
             dest_path.mkdir(parents=True, exist_ok=True)
         else:
             dest_path.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(src_path, dest_path)
+            # Retry up to 5 times — Windows may hold file locks briefly after process exit
+            for attempt in range(5):
+                try:
+                    shutil.copy2(src_path, dest_path)
+                    break
+                except PermissionError:
+                    if attempt < 4:
+                        log(f"File locked, retrying ({attempt + 1}/5): {rel}")
+                        time.sleep(2)
+                    else:
+                        raise
             updated += 1
 
     log(
@@ -373,12 +383,25 @@ class InstallerWizard:
         is_first = self.is_first_install
 
         try:
-            # Step 1: Kill running instances
+            # Step 1: Kill running instances and wait for file handles to release
             self.root.after(0, self._update_progress, 5, "Stopping running instances...")
             try:
                 subprocess.run(["taskkill", "/IM", APP_EXE_NAME, "/F"], capture_output=True)
                 log("Attempted to kill running LocalBooks.exe instances.")
-                time.sleep(1)
+                # Wait until the process is fully gone (up to 15 seconds)
+                for i in range(15):
+                    result = subprocess.run(
+                        ["tasklist", "/FI", f"IMAGENAME eq {APP_EXE_NAME}"],
+                        capture_output=True, text=True,
+                    )
+                    if APP_EXE_NAME.lower() not in result.stdout.lower():
+                        log(f"Process gone after {i + 1}s.")
+                        break
+                    time.sleep(1)
+                else:
+                    log("WARNING: Process may still be running after 15s wait.")
+                # Extra pause for file handles to fully release
+                time.sleep(2)
             except Exception as e:
                 log(f"taskkill error: {e}")
 
