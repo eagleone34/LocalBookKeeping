@@ -51,7 +51,7 @@ if %ERRORLEVEL% NEQ 0 (
     echo.
     echo ==========================================
     echo  INSTALLER FAILED. Check the log at:
-    echo  %USERPROFILE%\Documents\localbooks_setup.log
+    echo  %USERPROFILE%\Documents\LocalBooks\localbooks_setup.log
     echo ==========================================
     pause
     exit /b 1
