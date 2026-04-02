@@ -14,15 +14,44 @@ import time
 import traceback
 from pathlib import Path
 
-APP_URL = "http://127.0.0.1:8000"
+_PORT_RANGE_START = 8000
+_PORT_RANGE_END = 8020
+_server_port: int = _PORT_RANGE_START
 
 
-def _is_server_running() -> bool:
-    try:
-        with socket.create_connection(("127.0.0.1", 8000), timeout=1.0):
-            return True
-    except OSError:
-        return False
+def _app_url(port: int | None = None) -> str:
+    return f"http://127.0.0.1:{port or _server_port}"
+
+
+def _find_running_instance() -> int | None:
+    """Return the port of an already-running LocalBooks instance, or None."""
+    import urllib.request
+    import json as _json
+
+    for port in range(_PORT_RANGE_START, _PORT_RANGE_END + 1):
+        try:
+            url = f"http://127.0.0.1:{port}/api/health"
+            req = urllib.request.Request(url, method="GET")
+            with urllib.request.urlopen(req, timeout=0.5) as resp:
+                data = _json.loads(resp.read())
+                if data.get("app") == "LocalBooks":
+                    return port
+        except Exception:
+            continue
+    return None
+
+
+def _find_free_port() -> int:
+    """Return the first available port in the range, or raise RuntimeError."""
+    for port in range(_PORT_RANGE_START, _PORT_RANGE_END + 1):
+        try:
+            with socket.create_connection(("127.0.0.1", port), timeout=0.3):
+                pass  # port is in use
+        except OSError:
+            return port  # connection refused = port is free
+    raise RuntimeError(
+        f"No free port found in range {_PORT_RANGE_START}-{_PORT_RANGE_END}"
+    )
 
 if sys.stdout is None:
     sys.stdout = open(os.devnull, "w")
@@ -156,7 +185,7 @@ app.include_router(reconciliation.router)
 
 @app.get("/api/health")
 def health():
-    return {"status": "ok", "version": "1.0.0"}
+    return {"status": "ok", "version": "1.0.0", "app": "LocalBooks"}
 
 _last_heartbeat = time.time()
 
@@ -220,35 +249,44 @@ else:
 
 def open_browser():
     time.sleep(2.0)
-    webbrowser.open("http://127.0.0.1:8000")
+    webbrowser.open(_app_url())
 
 
 def _auto_shutdown_monitor():
+    global _last_heartbeat
     last_check = time.time()
     while True:
-        time.sleep(5)
+        time.sleep(60)
         now = time.time()
-        if now - last_check > 10.0:
+        if now - last_check > 120.0:
+            _last_heartbeat = now
             last_check = now
             continue
-        if now - _last_heartbeat > 30.0:
-            log("No heartbeat received for 30 seconds. Shutting down LocalBooks background process.")
+        if now - _last_heartbeat > 1800.0:
+            log("No heartbeat received for 30 minutes. Shutting down LocalBooks background process.")
             os._exit(0)
         last_check = now
 
 
 if __name__ == "__main__":
-    if _is_server_running():
-        log("Server already running – opening browser.")
-        webbrowser.open(APP_URL)
+    existing_port = _find_running_instance()
+    if existing_port is not None:
+        log(f"Server already running on port {existing_port} – opening browser.")
+        webbrowser.open(_app_url(existing_port))
         sys.exit(0)
 
-    log("Starting server on :8000 ...")
+    try:
+        _server_port = _find_free_port()
+    except RuntimeError as e:
+        show_error("LocalBooks - Port Error", str(e))
+        sys.exit(1)
+
+    log(f"Starting server on :{_server_port} ...")
     if getattr(sys, 'frozen', False):
         threading.Thread(target=open_browser, daemon=True).start()
         threading.Thread(target=_auto_shutdown_monitor, daemon=True).start()
     try:
-        uvicorn.run(app, host="127.0.0.1", port=8000, log_level="error", access_log=False)
+        uvicorn.run(app, host="127.0.0.1", port=_server_port, log_level="error", access_log=False)
     except Exception:
         show_error("LocalBooks - Server Error", traceback.format_exc())
         sys.exit(1)
