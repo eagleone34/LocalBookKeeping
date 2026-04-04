@@ -1,0 +1,776 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LocalBooks — Personal &amp; Small Business Bookkeeping Software | No Subscription</title>
+  <meta name="description" content="Track your personal income and expenses on YOUR computer. One-time $49.99 payment. No cloud, no monthly fees. Import bank statements, categorize spending, generate reports. Perfect for individuals and small businesses.">
+  <meta name="robots" content="index, follow">
+  <link rel="canonical" href="https://llmboost.ca/">
+
+  <!-- Open Graph -->
+  <meta property="og:title" content="LocalBooks — Your Books Stay on Your Computer">
+  <meta property="og:description" content="Simple, private bookkeeping software. $49.99 once. No subscriptions ever.">
+  <meta property="og:image" content="https://llmboost.ca/og-image.png">
+  <meta property="og:url" content="https://llmboost.ca/">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="LocalBooks">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="LocalBooks — Your Books Stay on Your Computer">
+  <meta name="twitter:description" content="Simple, private bookkeeping software. $49.99 once. No subscriptions ever.">
+  <meta name="twitter:image" content="https://llmboost.ca/og-image.png">
+
+  <!-- Favicons -->
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+  <link rel="manifest" href="/site.webmanifest">
+  <meta name="theme-color" content="#2563eb">
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: {
+              50: '#eff6ff', 100: '#dbeafe', 200: '#bfdbfe',
+              300: '#93c5fd', 400: '#60a5fa', 500: '#3b82f6',
+              600: '#2563eb', 700: '#1d4ed8', 800: '#1e40af',
+              900: '#1e3a8a',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style type="text/tailwindcss">
+    @layer base {
+      html { scroll-behavior: smooth; }
+    }
+    @layer utilities {
+      .text-balance { text-wrap: balance; }
+    }
+    details summary::-webkit-details-marker { display: none; }
+    details summary { list-style: none; }
+    details[open] summary .faq-chevron { transform: rotate(180deg); }
+    .faq-chevron { transition: transform 0.2s ease; }
+  </style>
+
+  <!-- Schema.org Structured Data -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "LocalBooks",
+    "applicationCategory": "BusinessApplication",
+    "operatingSystem": "Windows 10, Windows 11",
+    "description": "Local-first desktop bookkeeping software for personal use and small businesses. No cloud, no subscription. Import bank statements, track income and expenses, generate financial reports.",
+    "url": "https://llmboost.ca",
+    "offers": {
+      "@type": "Offer",
+      "price": "49.99",
+      "priceCurrency": "CAD",
+      "availability": "https://schema.org/InStock"
+    },
+    "featureList": [
+      "Dashboard with financial KPIs",
+      "Chart of Accounts management",
+      "PDF bank statement import with auto-categorization",
+      "Budget vs Actual tracking",
+      "Profit & Loss and Balance Sheet reports",
+      "Bank reconciliation",
+      "Multi-company support",
+      "One-click backup and restore"
+    ]
+  }
+  </script>
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+      {
+        "@type": "Question",
+        "name": "Is LocalBooks a good alternative to QuickBooks for small businesses?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Yes. LocalBooks offers the core features small businesses need — income and expense tracking, bank statement import, financial reports, and budget management — for a one-time payment of $49.99 instead of $30+/month. Your data stays on your computer, not in the cloud."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "Do I need an internet connection to use LocalBooks?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "No. LocalBooks runs entirely on your desktop. All your data is stored locally in a secure database on your machine. No internet connection is required to use any feature."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "What bank statements can LocalBooks import?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "LocalBooks can import PDF bank statements from major Canadian and US banks. Simply drag and drop your statement PDF, and transactions are extracted and auto-categorized."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "Is my financial data secure with LocalBooks?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Absolutely. Your data never leaves your computer. There is no cloud sync, no tracking, and no third-party access. LocalBooks uses a secure SQLite database stored locally on your machine."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "Will LocalBooks work on Mac?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "LocalBooks currently supports Windows 10 and Windows 11. Mac support is on our roadmap and planned for a future release."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "What is included in the $49.99 price?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Everything. All current features plus all future updates are included. There are no tiers, no add-ons, and no recurring fees. One payment gives you lifetime access."
+        }
+      }
+    ]
+  }
+  </script>
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    "name": "LocalBooks",
+    "url": "https://llmboost.ca",
+    "logo": "https://llmboost.ca/favicon.svg"
+  }
+  </script>
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+      {
+        "@type": "ListItem",
+        "position": 1,
+        "name": "Home",
+        "item": "https://llmboost.ca/"
+      }
+    ]
+  }
+  </script>
+</head>
+
+<body class="bg-white text-gray-900 antialiased">
+
+  <!-- ===================== NAVBAR ===================== -->
+  <header class="fixed top-0 inset-x-0 z-50 bg-white/80 backdrop-blur-md border-b border-gray-100">
+    <nav class="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
+      <!-- Logo -->
+      <a href="/" class="flex items-center gap-2 text-primary-700 font-bold text-lg">
+        <svg class="w-7 h-7" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="4" y="4" width="24" height="24" rx="3" fill="#2563eb"/>
+          <path d="M16 6v20" stroke="#1e40af" stroke-width="1.5"/>
+          <path d="M8 10h5M8 13h5M8 16h5M8 19h4" stroke="#93c5fd" stroke-width="1" stroke-linecap="round"/>
+          <path d="M19 10h5M19 13h5M19 16h5M19 19h4" stroke="#93c5fd" stroke-width="1" stroke-linecap="round"/>
+          <circle cx="24" cy="24" r="6" fill="#10b981"/>
+          <path d="M21.5 24l1.5 1.5 3-3" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        LocalBooks
+      </a>
+      <!-- Nav links -->
+      <div class="hidden sm:flex items-center gap-8 text-sm text-gray-600">
+        <a href="#features" class="hover:text-gray-900 transition-colors">Features</a>
+        <a href="#compare" class="hover:text-gray-900 transition-colors">Compare</a>
+        <a href="#pricing" class="hover:text-gray-900 transition-colors">Pricing</a>
+        <a href="#faq" class="hover:text-gray-900 transition-colors">FAQ</a>
+        <!-- STRIPE: Replace href with your Stripe Payment Link -->
+        <a href="https://buy.stripe.com/REPLACE_ME" class="inline-flex items-center gap-1.5 bg-primary-600 text-white text-sm font-semibold px-4 py-2 rounded-lg hover:bg-primary-700 transition-colors shadow-sm">
+          Get LocalBooks
+        </a>
+      </div>
+      <!-- Mobile CTA -->
+      <a href="https://buy.stripe.com/REPLACE_ME" class="sm:hidden inline-flex items-center bg-primary-600 text-white text-sm font-semibold px-4 py-2 rounded-lg hover:bg-primary-700 transition-colors">
+        Get LocalBooks
+      </a>
+    </nav>
+  </header>
+
+  <main>
+
+    <!-- ===================== HERO ===================== -->
+    <section class="pt-28 pb-16 sm:pt-36 sm:pb-24 bg-gradient-to-b from-white to-primary-50/40">
+      <div class="max-w-6xl mx-auto px-4 sm:px-6 grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
+        <!-- Text -->
+        <div class="max-w-xl">
+          <h1 class="text-4xl sm:text-5xl font-extrabold tracking-tight text-balance leading-[1.1]">
+            Your Books. Your Computer. <span class="text-primary-600">No Subscriptions.</span>
+          </h1>
+          <p class="mt-6 text-lg text-gray-600 leading-relaxed">
+            Track your personal income and expenses without trusting your financial data to the cloud. LocalBooks is simple desktop bookkeeping you buy once and own forever &mdash; perfect for individuals, freelancers, and small businesses.
+          </p>
+          <div class="mt-8 flex flex-col sm:flex-row gap-4">
+            <!-- STRIPE: Replace href with your Stripe Payment Link -->
+            <a href="https://buy.stripe.com/REPLACE_ME" class="inline-flex items-center justify-center gap-2 bg-primary-600 text-white text-base font-semibold px-7 py-3.5 rounded-xl hover:bg-primary-700 transition-colors shadow-lg shadow-primary-600/25">
+              <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+              Get LocalBooks &mdash; $49.99 Once
+            </a>
+            <a href="#features" class="inline-flex items-center justify-center text-gray-600 text-base font-medium px-6 py-3.5 rounded-xl border border-gray-200 hover:border-gray-300 hover:text-gray-900 transition-colors">
+              See Features
+            </a>
+          </div>
+          <p class="mt-4 text-sm text-gray-500 flex flex-wrap gap-x-4 gap-y-1">
+            <span class="inline-flex items-center gap-1">
+              <svg class="w-4 h-4 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+              30-day money-back guarantee
+            </span>
+            <span>Windows 10/11</span>
+            <span>No account needed</span>
+          </p>
+        </div>
+
+        <!-- Dashboard screenshot -->
+        <div class="relative">
+          <img src="/screenshot-dashboard.png" alt="LocalBooks Dashboard showing income, expenses, net worth, monthly trends, and expense breakdown" class="rounded-2xl shadow-2xl border border-gray-200" loading="eager" width="1280" height="800">
+          <!-- Decorative glow -->
+          <div class="absolute -inset-4 bg-primary-400/10 rounded-3xl blur-2xl -z-10"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== TRUST BADGES ===================== -->
+    <section class="py-10 bg-white border-y border-gray-100">
+      <div class="max-w-6xl mx-auto px-4 sm:px-6">
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
+          <div class="flex flex-col items-center gap-2">
+            <div class="w-10 h-10 rounded-full bg-primary-50 flex items-center justify-center">
+              <svg class="w-5 h-5 text-primary-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+            </div>
+            <span class="text-sm font-semibold text-gray-800">100% Local</span>
+            <span class="text-xs text-gray-500">Data never leaves your PC</span>
+          </div>
+          <div class="flex flex-col items-center gap-2">
+            <div class="w-10 h-10 rounded-full bg-emerald-50 flex items-center justify-center">
+              <svg class="w-5 h-5 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            </div>
+            <span class="text-sm font-semibold text-gray-800">One-Time Payment</span>
+            <span class="text-xs text-gray-500">$49.99 and it's yours forever</span>
+          </div>
+          <div class="flex flex-col items-center gap-2">
+            <div class="w-10 h-10 rounded-full bg-amber-50 flex items-center justify-center">
+              <svg class="w-5 h-5 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+            </div>
+            <span class="text-sm font-semibold text-gray-800">Windows Desktop</span>
+            <span class="text-xs text-gray-500">Runs on Windows 10 &amp; 11</span>
+          </div>
+          <div class="flex flex-col items-center gap-2">
+            <div class="w-10 h-10 rounded-full bg-purple-50 flex items-center justify-center">
+              <svg class="w-5 h-5 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+            </div>
+            <span class="text-sm font-semibold text-gray-800">Free Updates</span>
+            <span class="text-xs text-gray-500">Every future version included</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== PROBLEM AGITATION ===================== -->
+    <section class="py-16 sm:py-24 bg-gray-50">
+      <div class="max-w-6xl mx-auto px-4 sm:px-6">
+        <h2 class="text-3xl sm:text-4xl font-extrabold text-center text-balance mb-4">Tracking Your Finances Shouldn't Cost $30 Every Month</h2>
+        <p class="text-center text-gray-500 max-w-2xl mx-auto mb-12">Whether it's personal expenses or a side business, you just need a simple tool that works &mdash; without the recurring bill.</p>
+        <div class="grid md:grid-cols-3 gap-8">
+          <div class="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+            <div class="w-10 h-10 rounded-lg bg-red-50 flex items-center justify-center mb-4">
+              <svg class="w-5 h-5 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            </div>
+            <h3 class="text-lg font-bold mb-2">Monthly fees add up</h3>
+            <p class="text-gray-600 text-sm leading-relaxed">Mint is gone. QuickBooks charges $30+/month. That's $360/year just to categorize your spending. In 3 years, you've spent over <strong>$1,080</strong> &mdash; and you still don't own the software.</p>
+          </div>
+          <div class="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+            <div class="w-10 h-10 rounded-lg bg-amber-50 flex items-center justify-center mb-4">
+              <svg class="w-5 h-5 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+            </div>
+            <h3 class="text-lg font-bold mb-2">Your data lives on their servers</h3>
+            <p class="text-gray-600 text-sm leading-relaxed">Cloud apps mean your income, expenses, and bank details sit on someone else's computer. One breach, one policy change &mdash; and your personal financial records are at risk.</p>
+          </div>
+          <div class="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+            <div class="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center mb-4">
+              <svg class="w-5 h-5 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
+            </div>
+            <h3 class="text-lg font-bold mb-2">Overcomplicated for what you need</h3>
+            <p class="text-gray-600 text-sm leading-relaxed">You don't need payroll integration, inventory tracking, or 200 features you'll never touch. You need to track income, categorize expenses, and see where your money goes. <strong>That's it.</strong></p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== PRODUCT SHOWCASE ===================== -->
+    <section class="py-16 sm:py-24 bg-white">
+      <div class="max-w-6xl mx-auto px-4 sm:px-6">
+        <h2 class="text-3xl sm:text-4xl font-extrabold text-center text-balance mb-4">Everything You Need. Nothing You Don't.</h2>
+        <p class="text-center text-gray-500 max-w-2xl mx-auto mb-16">Three screens. That's the whole story of your finances.</p>
+
+        <!-- Screenshot 1: Dashboard -->
+        <div class="grid lg:grid-cols-2 gap-10 lg:gap-16 items-center mb-20">
+          <div class="relative">
+            <img src="/screenshot-dashboard.png" alt="LocalBooks Dashboard with income, expenses, monthly trends and expense breakdown" class="rounded-xl shadow-xl border border-gray-200" loading="lazy" width="1280" height="800">
+          </div>
+          <div>
+            <div class="inline-flex items-center gap-2 bg-primary-50 text-primary-700 text-xs font-bold px-3 py-1.5 rounded-full mb-4 uppercase tracking-wide">
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+              Dashboard
+            </div>
+            <h3 class="text-2xl font-bold mb-3">See where your money goes &mdash; at a glance</h3>
+            <p class="text-gray-600 leading-relaxed mb-4">Open the app and instantly see your total income, expenses, and net worth. Monthly trends show you the big picture, while the expense breakdown reveals exactly where every dollar went.</p>
+            <ul class="space-y-2 text-sm text-gray-600">
+              <li class="flex items-center gap-2"><svg class="w-4 h-4 text-emerald-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>Income, expenses &amp; net worth KPIs</li>
+              <li class="flex items-center gap-2"><svg class="w-4 h-4 text-emerald-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>Monthly trend charts</li>
+              <li class="flex items-center gap-2"><svg class="w-4 h-4 text-emerald-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>Expense breakdown by category</li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- Screenshot 2: Budgets (reversed layout) -->
+        <div class="grid lg:grid-cols-2 gap-10 lg:gap-16 items-center mb-20">
+          <div class="lg:order-2 relative">
+            <img src="/screenshot-budgets.png" alt="LocalBooks Budget vs Actual variance chart showing spending by category" class="rounded-xl shadow-xl border border-gray-200" loading="lazy" width="1280" height="800">
+          </div>
+          <div class="lg:order-1">
+            <div class="inline-flex items-center gap-2 bg-emerald-50 text-emerald-700 text-xs font-bold px-3 py-1.5 rounded-full mb-4 uppercase tracking-wide">
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+              Budgets
+            </div>
+            <h3 class="text-2xl font-bold mb-3">Set spending limits. Stay on track.</h3>
+            <p class="text-gray-600 leading-relaxed mb-4">Set monthly budgets for each category and instantly see where you're under or over. The variance chart makes it obvious which areas need attention &mdash; green means under budget, red means over.</p>
+            <ul class="space-y-2 text-sm text-gray-600">
+              <li class="flex items-center gap-2"><svg class="w-4 h-4 text-emerald-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>Budget vs actual by category</li>
+              <li class="flex items-center gap-2"><svg class="w-4 h-4 text-emerald-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>Visual variance chart (under/over)</li>
+              <li class="flex items-center gap-2"><svg class="w-4 h-4 text-emerald-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>Filter by period &mdash; monthly, quarterly, yearly</li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- Screenshot 3: Reports -->
+        <div class="grid lg:grid-cols-2 gap-10 lg:gap-16 items-center">
+          <div class="relative">
+            <img src="/screenshot-reports.png" alt="LocalBooks Expense by Category report with pie chart and detailed breakdown" class="rounded-xl shadow-xl border border-gray-200" loading="lazy" width="1280" height="800">
+          </div>
+          <div>
+            <div class="inline-flex items-center gap-2 bg-violet-50 text-violet-700 text-xs font-bold px-3 py-1.5 rounded-full mb-4 uppercase tracking-wide">
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+              Reports
+            </div>
+            <h3 class="text-2xl font-bold mb-3">Tax time? You're already ready.</h3>
+            <p class="text-gray-600 leading-relaxed mb-4">Generate clean Profit &amp; Loss, Balance Sheet, and expense reports with one click. See spending breakdowns by category or vendor &mdash; exactly what your accountant needs, without the last-minute scramble.</p>
+            <ul class="space-y-2 text-sm text-gray-600">
+              <li class="flex items-center gap-2"><svg class="w-4 h-4 text-emerald-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>Profit &amp; Loss, Balance Sheet</li>
+              <li class="flex items-center gap-2"><svg class="w-4 h-4 text-emerald-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>Expense by category &amp; vendor</li>
+              <li class="flex items-center gap-2"><svg class="w-4 h-4 text-emerald-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>Monthly trends over time</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== FEATURES ===================== -->
+    <section id="features" class="py-16 sm:py-24 bg-white border-t border-gray-100">
+      <div class="max-w-6xl mx-auto px-4 sm:px-6">
+        <h2 class="text-3xl sm:text-4xl font-extrabold text-center text-balance mb-4">Built for People Who Value Their Time and Privacy</h2>
+        <p class="text-center text-gray-500 max-w-2xl mx-auto mb-14">Everything you need to track your finances. Nothing you don't.</p>
+        <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-8">
+          <!-- Feature 1 -->
+          <div class="group">
+            <div class="w-11 h-11 rounded-xl bg-primary-50 flex items-center justify-center mb-4 group-hover:bg-primary-100 transition-colors">
+              <svg class="w-5 h-5 text-primary-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+            </div>
+            <h3 class="text-base font-bold mb-2">Dashboard &amp; Reports</h3>
+            <p class="text-sm text-gray-600 leading-relaxed">See your income, expenses, and net worth at a glance. Generate clean reports for yourself or your accountant at tax time.</p>
+          </div>
+          <!-- Feature 2 -->
+          <div class="group">
+            <div class="w-11 h-11 rounded-xl bg-emerald-50 flex items-center justify-center mb-4 group-hover:bg-emerald-100 transition-colors">
+              <svg class="w-5 h-5 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+            </div>
+            <h3 class="text-base font-bold mb-2">Bank Statement Import</h3>
+            <p class="text-sm text-gray-600 leading-relaxed">Drag and drop your PDF bank statements. LocalBooks reads them automatically and categorizes your transactions &mdash; supports major Canadian and US banks.</p>
+          </div>
+          <!-- Feature 3 -->
+          <div class="group">
+            <div class="w-11 h-11 rounded-xl bg-violet-50 flex items-center justify-center mb-4 group-hover:bg-violet-100 transition-colors">
+              <svg class="w-5 h-5 text-violet-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/></svg>
+            </div>
+            <h3 class="text-base font-bold mb-2">Smart Categorization</h3>
+            <p class="text-sm text-gray-600 leading-relaxed">Set rules once, and LocalBooks remembers how to categorize your vendors. The more you use it, the smarter it gets.</p>
+          </div>
+          <!-- Feature 4 -->
+          <div class="group">
+            <div class="w-11 h-11 rounded-xl bg-amber-50 flex items-center justify-center mb-4 group-hover:bg-amber-100 transition-colors">
+              <svg class="w-5 h-5 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+            </div>
+            <h3 class="text-base font-bold mb-2">Privacy First</h3>
+            <p class="text-sm text-gray-600 leading-relaxed">Your financial data never leaves your computer. No cloud sync, no tracking, no third-party access. Period.</p>
+          </div>
+          <!-- Feature 5 -->
+          <div class="group">
+            <div class="w-11 h-11 rounded-xl bg-cyan-50 flex items-center justify-center mb-4 group-hover:bg-cyan-100 transition-colors">
+              <svg class="w-5 h-5 text-cyan-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4"/></svg>
+            </div>
+            <h3 class="text-base font-bold mb-2">Backup &amp; Restore</h3>
+            <p class="text-sm text-gray-600 leading-relaxed">One-click backup to any drive. Restore anytime, even preview historical states without affecting your live data.</p>
+          </div>
+          <!-- Feature 6 -->
+          <div class="group">
+            <div class="w-11 h-11 rounded-xl bg-rose-50 flex items-center justify-center mb-4 group-hover:bg-rose-100 transition-colors">
+              <svg class="w-5 h-5 text-rose-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+            </div>
+            <h3 class="text-base font-bold mb-2">Free Updates Forever</h3>
+            <p class="text-sm text-gray-600 leading-relaxed">Buy once, get every future update for free. New features, improvements, and fixes &mdash; all included. No upgrade fees.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== HOW IT WORKS ===================== -->
+    <section class="py-16 sm:py-20 bg-gray-50 border-y border-gray-100">
+      <div class="max-w-4xl mx-auto px-4 sm:px-6">
+        <h2 class="text-3xl font-extrabold text-center mb-12">Up and Running in 2 Minutes</h2>
+        <div class="grid sm:grid-cols-3 gap-8 text-center">
+          <div>
+            <div class="w-12 h-12 rounded-full bg-primary-600 text-white font-bold text-lg flex items-center justify-center mx-auto mb-4">1</div>
+            <h3 class="font-bold mb-1">Buy</h3>
+            <p class="text-sm text-gray-600">One-time $49.99 payment. Secure checkout via Stripe. No account required.</p>
+          </div>
+          <div>
+            <div class="w-12 h-12 rounded-full bg-primary-600 text-white font-bold text-lg flex items-center justify-center mx-auto mb-4">2</div>
+            <h3 class="font-bold mb-1">Download</h3>
+            <p class="text-sm text-gray-600">Get the Windows installer instantly. One file, under a minute to install.</p>
+          </div>
+          <div>
+            <div class="w-12 h-12 rounded-full bg-primary-600 text-white font-bold text-lg flex items-center justify-center mx-auto mb-4">3</div>
+            <h3 class="font-bold mb-1">Start Bookkeeping</h3>
+            <p class="text-sm text-gray-600">Launch the app and start tracking. Your data stays on your machine. Always.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== COMPARISON TABLE ===================== -->
+    <section id="compare" class="py-16 sm:py-24 bg-white">
+      <div class="max-w-5xl mx-auto px-4 sm:px-6">
+        <h2 class="text-3xl sm:text-4xl font-extrabold text-center text-balance mb-4">How LocalBooks Compares</h2>
+        <p class="text-center text-gray-500 max-w-2xl mx-auto mb-12">See why people are switching from subscription software to something they actually own.</p>
+        <div class="overflow-x-auto -mx-4 sm:mx-0">
+          <table class="w-full min-w-[600px] text-sm">
+            <thead>
+              <tr class="border-b-2 border-gray-200">
+                <th class="text-left py-4 px-4 font-semibold text-gray-500 w-1/4"></th>
+                <th class="py-4 px-4 text-center">
+                  <span class="inline-flex flex-col items-center">
+                    <span class="text-primary-700 font-bold text-base">LocalBooks</span>
+                  </span>
+                </th>
+                <th class="py-4 px-4 text-center font-semibold text-gray-500">QuickBooks Online</th>
+                <th class="py-4 px-4 text-center font-semibold text-gray-500">Wave</th>
+                <th class="py-4 px-4 text-center font-semibold text-gray-500">Spreadsheets</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+              <tr>
+                <td class="py-3 px-4 text-gray-700 font-medium">Cost</td>
+                <td class="py-3 px-4 text-center font-bold text-primary-700">$49.99 once</td>
+                <td class="py-3 px-4 text-center text-gray-600">$30+/month</td>
+                <td class="py-3 px-4 text-center text-gray-600">Free*</td>
+                <td class="py-3 px-4 text-center text-gray-600">$150+/year</td>
+              </tr>
+              <tr class="bg-gray-50/50">
+                <td class="py-3 px-4 text-gray-700 font-medium">Data on your computer</td>
+                <td class="py-3 px-4 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg></td>
+                <td class="py-3 px-4 text-center"><svg class="w-5 h-5 text-red-400 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg></td>
+                <td class="py-3 px-4 text-center"><svg class="w-5 h-5 text-red-400 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg></td>
+                <td class="py-3 px-4 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg></td>
+              </tr>
+              <tr>
+                <td class="py-3 px-4 text-gray-700 font-medium">Bank statement import</td>
+                <td class="py-3 px-4 text-center text-gray-700">PDF auto-import</td>
+                <td class="py-3 px-4 text-center text-gray-600">Bank API</td>
+                <td class="py-3 px-4 text-center text-gray-600">Bank API</td>
+                <td class="py-3 px-4 text-center text-gray-600">Manual</td>
+              </tr>
+              <tr class="bg-gray-50/50">
+                <td class="py-3 px-4 text-gray-700 font-medium">Works offline</td>
+                <td class="py-3 px-4 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg></td>
+                <td class="py-3 px-4 text-center"><svg class="w-5 h-5 text-red-400 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg></td>
+                <td class="py-3 px-4 text-center"><svg class="w-5 h-5 text-red-400 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg></td>
+                <td class="py-3 px-4 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg></td>
+              </tr>
+              <tr>
+                <td class="py-3 px-4 text-gray-700 font-medium">Reports &amp; budgets</td>
+                <td class="py-3 px-4 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg></td>
+                <td class="py-3 px-4 text-center"><svg class="w-5 h-5 text-emerald-500 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg></td>
+                <td class="py-3 px-4 text-center text-gray-600">Limited</td>
+                <td class="py-3 px-4 text-center text-gray-600">Manual</td>
+              </tr>
+              <tr class="bg-gray-50/50">
+                <td class="py-3 px-4 text-gray-700 font-medium">Account required</td>
+                <td class="py-3 px-4 text-center text-gray-700">No</td>
+                <td class="py-3 px-4 text-center text-gray-600">Yes</td>
+                <td class="py-3 px-4 text-center text-gray-600">Yes</td>
+                <td class="py-3 px-4 text-center text-gray-600">N/A</td>
+              </tr>
+              <!-- Highlight row -->
+              <tr class="bg-primary-50 border-t-2 border-primary-200">
+                <td class="py-4 px-4 font-bold text-gray-900">3-year total cost</td>
+                <td class="py-4 px-4 text-center text-xl font-extrabold text-primary-700">$49.99</td>
+                <td class="py-4 px-4 text-center font-bold text-gray-500">$1,080+</td>
+                <td class="py-4 px-4 text-center font-bold text-gray-500">Free*</td>
+                <td class="py-4 px-4 text-center font-bold text-gray-500">$450+</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="text-xs text-gray-400 mt-4 text-center">*Wave is free but displays ads and shares your financial data with third parties for revenue.</p>
+      </div>
+    </section>
+
+    <!-- ===================== TESTIMONIALS ===================== -->
+    <section class="py-16 sm:py-24 bg-gray-50">
+      <div class="max-w-6xl mx-auto px-4 sm:px-6">
+        <h2 class="text-3xl sm:text-4xl font-extrabold text-center mb-12">Trusted by Canadians Who Take Their Finances Seriously</h2>
+        <div class="grid md:grid-cols-3 gap-8">
+          <div class="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+            <div class="flex gap-1 mb-4">
+              <svg class="w-4 h-4 text-amber-400" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+              <svg class="w-4 h-4 text-amber-400" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+              <svg class="w-4 h-4 text-amber-400" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+              <svg class="w-4 h-4 text-amber-400" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+              <svg class="w-4 h-4 text-amber-400" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+            </div>
+            <blockquote class="text-gray-700 text-sm leading-relaxed mb-4">"I wanted something simple to track my personal income and expenses without signing up for another cloud service. LocalBooks is exactly that &mdash; and I paid once."</blockquote>
+            <div class="text-sm"><span class="font-semibold text-gray-900">Sarah M.</span> <span class="text-gray-400">&middot;</span> <span class="text-gray-500">Toronto, ON</span></div>
+          </div>
+          <div class="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+            <div class="flex gap-1 mb-4">
+              <svg class="w-4 h-4 text-amber-400" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+              <svg class="w-4 h-4 text-amber-400" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+              <svg class="w-4 h-4 text-amber-400" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+              <svg class="w-4 h-4 text-amber-400" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+              <svg class="w-4 h-4 text-amber-400" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+            </div>
+            <blockquote class="text-gray-700 text-sm leading-relaxed mb-4">"As a freelancer, I don't need 200 features. I need to track income, categorize expenses, and hand my accountant a clean report at tax time. LocalBooks nails it."</blockquote>
+            <div class="text-sm"><span class="font-semibold text-gray-900">David R.</span> <span class="text-gray-400">&middot;</span> <span class="text-gray-500">Freelance Photographer, Vancouver</span></div>
+          </div>
+          <div class="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+            <div class="flex gap-1 mb-4">
+              <svg class="w-4 h-4 text-amber-400" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+              <svg class="w-4 h-4 text-amber-400" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+              <svg class="w-4 h-4 text-amber-400" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+              <svg class="w-4 h-4 text-amber-400" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+              <svg class="w-4 h-4 text-amber-400" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+            </div>
+            <blockquote class="text-gray-700 text-sm leading-relaxed mb-4">"The bank statement import alone is worth it. I drag in my PDF statements and transactions are categorized automatically. Finally know exactly where my money goes."</blockquote>
+            <div class="text-sm"><span class="font-semibold text-gray-900">James L.</span> <span class="text-gray-400">&middot;</span> <span class="text-gray-500">Calgary, AB</span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== PRICING ===================== -->
+    <section id="pricing" class="py-16 sm:py-24 bg-white">
+      <div class="max-w-xl mx-auto px-4 sm:px-6 text-center">
+        <h2 class="text-3xl sm:text-4xl font-extrabold mb-4">One Price. No Surprises. No Subscriptions.</h2>
+        <p class="text-gray-500 mb-10">Everything included. Pay once, own it forever.</p>
+        <!-- Pricing card -->
+        <div class="bg-white rounded-2xl border-2 border-primary-200 shadow-xl shadow-primary-100/50 p-8 sm:p-10 relative">
+          <!-- Launch badge -->
+          <div class="absolute -top-4 left-1/2 -translate-x-1/2">
+            <span class="bg-primary-600 text-white text-xs font-bold px-4 py-1.5 rounded-full uppercase tracking-wide">Launch Price</span>
+          </div>
+          <div class="mt-2 mb-6">
+            <span class="text-gray-400 line-through text-lg">$79.99</span>
+            <div class="flex items-baseline justify-center gap-1 mt-1">
+              <span class="text-5xl font-extrabold text-gray-900">$49</span>
+              <span class="text-2xl font-bold text-gray-900">.99</span>
+              <span class="text-gray-400 ml-2">CAD</span>
+            </div>
+            <p class="text-sm text-gray-500 mt-2">One-time payment &middot; Lifetime access</p>
+          </div>
+          <!-- Scarcity counter -->
+          <div class="mb-6 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3">
+            <div class="flex items-center justify-center gap-2 text-sm font-semibold text-amber-800">
+              <svg class="w-4 h-4 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+              23 of 100 launch copies sold
+            </div>
+            <div class="mt-2 w-full bg-amber-200 rounded-full h-2">
+              <div class="bg-amber-500 h-2 rounded-full" style="width: 23%"></div>
+            </div>
+            <p class="text-xs text-amber-600 mt-1.5">*Launch price applies to the first 100 customers only. Updated Apr 3, 2026 at 6:00 AM.</p>
+          </div>
+          <!-- Checklist -->
+          <ul class="text-left space-y-3 mb-8 max-w-xs mx-auto">
+            <li class="flex items-start gap-3 text-sm text-gray-700">
+              <svg class="w-5 h-5 text-emerald-500 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+              All features included
+            </li>
+            <li class="flex items-start gap-3 text-sm text-gray-700">
+              <svg class="w-5 h-5 text-emerald-500 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+              Free updates forever
+            </li>
+            <li class="flex items-start gap-3 text-sm text-gray-700">
+              <svg class="w-5 h-5 text-emerald-500 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+              Unlimited transactions
+            </li>
+            <li class="flex items-start gap-3 text-sm text-gray-700">
+              <svg class="w-5 h-5 text-emerald-500 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+              Multi-company support
+            </li>
+            <li class="flex items-start gap-3 text-sm text-gray-700">
+              <svg class="w-5 h-5 text-emerald-500 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+              No cloud fees, ever
+            </li>
+            <li class="flex items-start gap-3 text-sm text-gray-700">
+              <svg class="w-5 h-5 text-emerald-500 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+              30-day money-back guarantee
+            </li>
+          </ul>
+          <!-- CTA -->
+          <!-- STRIPE: Replace href with your Stripe Payment Link -->
+          <a href="https://buy.stripe.com/REPLACE_ME" class="w-full inline-flex items-center justify-center gap-2 bg-primary-600 text-white text-base font-semibold px-8 py-4 rounded-xl hover:bg-primary-700 transition-colors shadow-lg shadow-primary-600/25">
+            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+            Get Lifetime Access &mdash; $49.99
+          </a>
+          <p class="text-xs text-gray-400 mt-3 flex items-center justify-center gap-1">
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+            Secure checkout via Stripe
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== FAQ ===================== -->
+    <section id="faq" class="py-16 sm:py-24 bg-gray-50">
+      <div class="max-w-3xl mx-auto px-4 sm:px-6">
+        <h2 class="text-3xl sm:text-4xl font-extrabold text-center mb-12">Common Questions</h2>
+        <div class="space-y-3">
+          <details class="bg-white rounded-xl border border-gray-100 shadow-sm">
+            <summary class="flex items-center justify-between cursor-pointer px-6 py-4 text-sm font-semibold text-gray-900">
+              Is LocalBooks a good alternative to QuickBooks for small businesses?
+              <svg class="faq-chevron w-5 h-5 text-gray-400 flex-shrink-0 ml-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+            </summary>
+            <div class="px-6 pb-5 text-sm text-gray-600 leading-relaxed">
+              Yes. LocalBooks offers the core features small businesses need &mdash; income and expense tracking, bank statement import, financial reports, and budget management &mdash; for a one-time payment of $49.99 instead of $30+/month. Your data stays on your computer, not in the cloud.
+            </div>
+          </details>
+          <details class="bg-white rounded-xl border border-gray-100 shadow-sm">
+            <summary class="flex items-center justify-between cursor-pointer px-6 py-4 text-sm font-semibold text-gray-900">
+              Do I need an internet connection to use LocalBooks?
+              <svg class="faq-chevron w-5 h-5 text-gray-400 flex-shrink-0 ml-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+            </summary>
+            <div class="px-6 pb-5 text-sm text-gray-600 leading-relaxed">
+              No. LocalBooks runs entirely on your desktop. All your data is stored locally in a secure database on your machine. No internet connection is required to use any feature.
+            </div>
+          </details>
+          <details class="bg-white rounded-xl border border-gray-100 shadow-sm">
+            <summary class="flex items-center justify-between cursor-pointer px-6 py-4 text-sm font-semibold text-gray-900">
+              What bank statements can LocalBooks import?
+              <svg class="faq-chevron w-5 h-5 text-gray-400 flex-shrink-0 ml-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+            </summary>
+            <div class="px-6 pb-5 text-sm text-gray-600 leading-relaxed">
+              LocalBooks can import PDF bank statements from major Canadian and US banks including RBC, TD, BMO, Scotiabank, CIBC, Chase, and more. Simply drag and drop your statement PDF, and transactions are extracted and auto-categorized.
+            </div>
+          </details>
+          <details class="bg-white rounded-xl border border-gray-100 shadow-sm">
+            <summary class="flex items-center justify-between cursor-pointer px-6 py-4 text-sm font-semibold text-gray-900">
+              Is my financial data secure with LocalBooks?
+              <svg class="faq-chevron w-5 h-5 text-gray-400 flex-shrink-0 ml-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+            </summary>
+            <div class="px-6 pb-5 text-sm text-gray-600 leading-relaxed">
+              Absolutely. Your data never leaves your computer. There is no cloud sync, no tracking, and no third-party access. LocalBooks uses a secure SQLite database stored locally on your machine with WAL (Write-Ahead Logging) for data integrity.
+            </div>
+          </details>
+          <details class="bg-white rounded-xl border border-gray-100 shadow-sm">
+            <summary class="flex items-center justify-between cursor-pointer px-6 py-4 text-sm font-semibold text-gray-900">
+              What happens if I need help or have a problem?
+              <svg class="faq-chevron w-5 h-5 text-gray-400 flex-shrink-0 ml-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+            </summary>
+            <div class="px-6 pb-5 text-sm text-gray-600 leading-relaxed">
+              Reach out to us at <a href="mailto:support@llmboost.ca" class="text-primary-600 hover:underline">support@llmboost.ca</a>. We respond to all support requests within 24 hours on business days.
+            </div>
+          </details>
+          <details class="bg-white rounded-xl border border-gray-100 shadow-sm">
+            <summary class="flex items-center justify-between cursor-pointer px-6 py-4 text-sm font-semibold text-gray-900">
+              Will LocalBooks work on Mac?
+              <svg class="faq-chevron w-5 h-5 text-gray-400 flex-shrink-0 ml-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+            </summary>
+            <div class="px-6 pb-5 text-sm text-gray-600 leading-relaxed">
+              LocalBooks currently supports Windows 10 and Windows 11. Mac support is on our roadmap. If you purchase now, the Mac version will be included free when it's available.
+            </div>
+          </details>
+          <details class="bg-white rounded-xl border border-gray-100 shadow-sm">
+            <summary class="flex items-center justify-between cursor-pointer px-6 py-4 text-sm font-semibold text-gray-900">
+              Can I import data from QuickBooks or other software?
+              <svg class="faq-chevron w-5 h-5 text-gray-400 flex-shrink-0 ml-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+            </summary>
+            <div class="px-6 pb-5 text-sm text-gray-600 leading-relaxed">
+              You can import your bank statements as PDFs to quickly populate your transaction history. Direct QuickBooks data import is on our roadmap for a future update.
+            </div>
+          </details>
+          <details class="bg-white rounded-xl border border-gray-100 shadow-sm">
+            <summary class="flex items-center justify-between cursor-pointer px-6 py-4 text-sm font-semibold text-gray-900">
+              What is included in the $49.99 price?
+              <svg class="faq-chevron w-5 h-5 text-gray-400 flex-shrink-0 ml-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+            </summary>
+            <div class="px-6 pb-5 text-sm text-gray-600 leading-relaxed">
+              Everything. All current features plus all future updates are included. There are no tiers, no add-ons, and no recurring fees. One payment gives you lifetime access to LocalBooks, including multi-company support, unlimited transactions, and every future version.
+            </div>
+          </details>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== FINAL CTA ===================== -->
+    <section class="py-16 sm:py-20 bg-primary-700">
+      <div class="max-w-3xl mx-auto px-4 sm:px-6 text-center">
+        <h2 class="text-3xl sm:text-4xl font-extrabold text-white mb-4">Ready to Own Your Books?</h2>
+        <p class="text-primary-200 text-lg mb-8">Join the people who stopped renting their bookkeeping software. One payment. Yours forever.</p>
+        <!-- STRIPE: Replace href with your Stripe Payment Link -->
+        <a href="https://buy.stripe.com/REPLACE_ME" class="inline-flex items-center justify-center gap-2 bg-white text-primary-700 text-base font-bold px-8 py-4 rounded-xl hover:bg-primary-50 transition-colors shadow-lg">
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+          Get LocalBooks &mdash; $49.99 Once
+        </a>
+        <p class="text-primary-300 text-sm mt-4">30-day money-back guarantee &middot; Secure payment via Stripe</p>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ===================== FOOTER ===================== -->
+  <footer class="py-8 bg-gray-900 text-gray-400 text-sm">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+      <div class="flex items-center gap-2">
+        <svg class="w-5 h-5 text-primary-400" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="4" y="4" width="24" height="24" rx="3" fill="#2563eb"/>
+          <path d="M16 6v20" stroke="#1e40af" stroke-width="1.5"/>
+          <path d="M8 10h5M8 13h5M8 16h5" stroke="#93c5fd" stroke-width="1" stroke-linecap="round"/>
+          <path d="M19 10h5M19 13h5M19 16h5" stroke="#93c5fd" stroke-width="1" stroke-linecap="round"/>
+          <circle cx="24" cy="24" r="6" fill="#10b981"/>
+          <path d="M21.5 24l1.5 1.5 3-3" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <span class="text-gray-300 font-semibold">LocalBooks</span>
+        <span>&copy; 2025</span>
+      </div>
+      <div class="flex items-center gap-6">
+        <a href="#" class="hover:text-gray-200 transition-colors">Privacy Policy</a>
+        <a href="#" class="hover:text-gray-200 transition-colors">Terms of Service</a>
+        <a href="mailto:support@llmboost.ca" class="hover:text-gray-200 transition-colors">Contact</a>
+      </div>
+    </div>
+  </footer>
+
+</body>
+</html>

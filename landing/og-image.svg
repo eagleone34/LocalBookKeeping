@@ -1,0 +1,139 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" fill="none">
+  <!-- Background gradient -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1200" y2="630" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#1e3a8a"/>
+      <stop offset="100%" stop-color="#2563eb"/>
+    </linearGradient>
+    <linearGradient id="card" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.15"/>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0.05"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1200" height="630" fill="url(#bg)"/>
+
+  <!-- Subtle grid pattern -->
+  <g opacity="0.05">
+    <line x1="0" y1="0" x2="0" y2="630" stroke="white" stroke-width="1" transform="translate(100,0)"/>
+    <line x1="0" y1="0" x2="0" y2="630" stroke="white" stroke-width="1" transform="translate(200,0)"/>
+    <line x1="0" y1="0" x2="0" y2="630" stroke="white" stroke-width="1" transform="translate(300,0)"/>
+    <line x1="0" y1="0" x2="0" y2="630" stroke="white" stroke-width="1" transform="translate(400,0)"/>
+    <line x1="0" y1="0" x2="0" y2="630" stroke="white" stroke-width="1" transform="translate(500,0)"/>
+    <line x1="0" y1="0" x2="1200" y2="0" stroke="white" stroke-width="1" transform="translate(0,100)"/>
+    <line x1="0" y1="0" x2="1200" y2="0" stroke="white" stroke-width="1" transform="translate(0,200)"/>
+    <line x1="0" y1="0" x2="1200" y2="0" stroke="white" stroke-width="1" transform="translate(0,300)"/>
+    <line x1="0" y1="0" x2="1200" y2="0" stroke="white" stroke-width="1" transform="translate(0,400)"/>
+    <line x1="0" y1="0" x2="1200" y2="0" stroke="white" stroke-width="1" transform="translate(0,500)"/>
+  </g>
+
+  <!-- LEFT SIDE: Text content -->
+  <!-- Book icon -->
+  <g transform="translate(80, 160)">
+    <rect x="0" y="0" width="48" height="48" rx="6" fill="#3b82f6"/>
+    <path d="M24 8v32" stroke="#1e40af" stroke-width="2"/>
+    <path d="M10 14h8M10 20h8M10 26h8" stroke="#93c5fd" stroke-width="1.5" stroke-linecap="round"/>
+    <path d="M30 14h8M30 20h8M30 26h8" stroke="#93c5fd" stroke-width="1.5" stroke-linecap="round"/>
+    <circle cx="40" cy="40" r="10" fill="#10b981"/>
+    <path d="M35 40l3 3 5-5" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+
+  <!-- "LocalBooks" brand -->
+  <text x="140" y="196" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif" font-size="28" font-weight="700" fill="#93c5fd">LocalBooks</text>
+
+  <!-- Main headline -->
+  <text x="80" y="280" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif" font-size="52" font-weight="800" fill="white">Your Books.</text>
+  <text x="80" y="340" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif" font-size="52" font-weight="800" fill="white">Your Computer.</text>
+  <text x="80" y="400" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif" font-size="52" font-weight="800" fill="#60a5fa">No Subscriptions.</text>
+
+  <!-- Subheadline -->
+  <text x="80" y="450" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif" font-size="20" fill="#bfdbfe">Desktop bookkeeping software. One-time payment.</text>
+
+  <!-- Price badge -->
+  <rect x="80" y="480" width="180" height="50" rx="25" fill="#10b981"/>
+  <text x="170" y="512" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif" font-size="22" font-weight="700" fill="white" text-anchor="middle">$49.99 Once</text>
+
+  <!-- RIGHT SIDE: Dashboard mockup -->
+  <g transform="translate(640, 80)">
+    <!-- App window frame -->
+    <rect x="0" y="0" width="480" height="470" rx="12" fill="#1e293b" stroke="#334155" stroke-width="1"/>
+    <!-- Title bar -->
+    <rect x="0" y="0" width="480" height="36" rx="12" fill="#0f172a"/>
+    <rect x="0" y="12" width="480" height="24" fill="#0f172a"/>
+    <circle cx="20" cy="18" r="5" fill="#ef4444"/>
+    <circle cx="38" cy="18" r="5" fill="#f59e0b"/>
+    <circle cx="56" cy="18" r="5" fill="#10b981"/>
+
+    <!-- Sidebar -->
+    <rect x="0" y="36" width="100" height="434" fill="#1e293b"/>
+    <rect x="0" y="458" width="100" height="12" rx="0 0 12 0" fill="#1e293b"/>
+    <!-- Sidebar items -->
+    <rect x="12" y="52" width="76" height="8" rx="2" fill="#3b82f6" opacity="0.6"/>
+    <rect x="12" y="72" width="60" height="6" rx="2" fill="#475569"/>
+    <rect x="12" y="88" width="68" height="6" rx="2" fill="#475569"/>
+    <rect x="12" y="104" width="55" height="6" rx="2" fill="#475569"/>
+    <rect x="12" y="120" width="64" height="6" rx="2" fill="#475569"/>
+    <rect x="12" y="136" width="58" height="6" rx="2" fill="#475569"/>
+
+    <!-- Main content area -->
+    <rect x="100" y="36" width="380" height="434" fill="#0f172a"/>
+    <rect x="100" y="458" width="380" height="12" rx="0 0 12 0" fill="#0f172a"/>
+
+    <!-- Stat cards row -->
+    <!-- Income card -->
+    <rect x="116" y="56" width="108" height="60" rx="8" fill="#1e293b"/>
+    <rect x="128" y="68" width="40" height="6" rx="2" fill="#6b7280"/>
+    <text x="128" y="98" font-family="system-ui, sans-serif" font-size="16" font-weight="700" fill="#10b981">$24,500</text>
+
+    <!-- Expenses card -->
+    <rect x="236" y="56" width="108" height="60" rx="8" fill="#1e293b"/>
+    <rect x="248" y="68" width="48" height="6" rx="2" fill="#6b7280"/>
+    <text x="248" y="98" font-family="system-ui, sans-serif" font-size="16" font-weight="700" fill="#ef4444">-$18,200</text>
+
+    <!-- Net card -->
+    <rect x="356" y="56" width="108" height="60" rx="8" fill="#1e293b"/>
+    <rect x="368" y="68" width="36" height="6" rx="2" fill="#6b7280"/>
+    <text x="368" y="98" font-family="system-ui, sans-serif" font-size="16" font-weight="700" fill="#3b82f6">$6,300</text>
+
+    <!-- Bar chart -->
+    <rect x="116" y="132" width="230" height="180" rx="8" fill="#1e293b"/>
+    <rect x="128" y="144" width="60" height="6" rx="2" fill="#6b7280"/>
+    <!-- Chart bars -->
+    <rect x="138" y="220" width="20" height="76" rx="2" fill="#10b981" opacity="0.8"/>
+    <rect x="164" y="246" width="20" height="50" rx="2" fill="#ef4444" opacity="0.8"/>
+    <rect x="196" y="200" width="20" height="96" rx="2" fill="#10b981" opacity="0.8"/>
+    <rect x="222" y="236" width="20" height="60" rx="2" fill="#ef4444" opacity="0.8"/>
+    <rect x="254" y="190" width="20" height="106" rx="2" fill="#10b981" opacity="0.8"/>
+    <rect x="280" y="250" width="20" height="46" rx="2" fill="#ef4444" opacity="0.8"/>
+    <rect x="312" y="210" width="20" height="86" rx="2" fill="#10b981" opacity="0.8"/>
+    <!-- X axis -->
+    <line x1="132" y1="300" x2="338" y2="300" stroke="#334155" stroke-width="1"/>
+
+    <!-- Pie chart -->
+    <rect x="358" y="132" width="106" height="180" rx="8" fill="#1e293b"/>
+    <rect x="370" y="144" width="50" height="6" rx="2" fill="#6b7280"/>
+    <!-- Pie slices (simplified as arcs) -->
+    <circle cx="411" cy="230" r="40" fill="none" stroke="#3b82f6" stroke-width="16" stroke-dasharray="75 176" stroke-dashoffset="0"/>
+    <circle cx="411" cy="230" r="40" fill="none" stroke="#10b981" stroke-width="16" stroke-dasharray="50 201" stroke-dashoffset="-75"/>
+    <circle cx="411" cy="230" r="40" fill="none" stroke="#f59e0b" stroke-width="16" stroke-dasharray="40 211" stroke-dashoffset="-125"/>
+    <circle cx="411" cy="230" r="40" fill="none" stroke="#ef4444" stroke-width="16" stroke-dasharray="36 215" stroke-dashoffset="-165"/>
+    <circle cx="411" cy="230" r="24" fill="#1e293b"/>
+
+    <!-- Transaction list -->
+    <rect x="116" y="328" width="348" height="140" rx="8" fill="#1e293b"/>
+    <rect x="128" y="340" width="80" height="6" rx="2" fill="#6b7280"/>
+    <!-- Transaction rows -->
+    <rect x="128" y="360" width="120" height="6" rx="2" fill="#94a3b8"/>
+    <text x="430" y="366" font-family="system-ui, sans-serif" font-size="11" font-weight="600" fill="#10b981" text-anchor="end">+$2,400</text>
+    <line x1="128" y1="376" x2="452" y2="376" stroke="#334155" stroke-width="0.5"/>
+    <rect x="128" y="386" width="100" height="6" rx="2" fill="#94a3b8"/>
+    <text x="430" y="392" font-family="system-ui, sans-serif" font-size="11" font-weight="600" fill="#ef4444" text-anchor="end">-$850</text>
+    <line x1="128" y1="402" x2="452" y2="402" stroke="#334155" stroke-width="0.5"/>
+    <rect x="128" y="412" width="140" height="6" rx="2" fill="#94a3b8"/>
+    <text x="430" y="418" font-family="system-ui, sans-serif" font-size="11" font-weight="600" fill="#ef4444" text-anchor="end">-$1,200</text>
+    <line x1="128" y1="428" x2="452" y2="428" stroke="#334155" stroke-width="0.5"/>
+    <rect x="128" y="438" width="90" height="6" rx="2" fill="#94a3b8"/>
+    <text x="430" y="444" font-family="system-ui, sans-serif" font-size="11" font-weight="600" fill="#10b981" text-anchor="end">+$3,100</text>
+  </g>
+</svg>

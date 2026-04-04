@@ -1,0 +1,11 @@
+{
+  "name": "LocalBooks",
+  "short_name": "LocalBooks",
+  "icons": [
+    { "src": "/favicon.svg", "type": "image/svg+xml", "sizes": "any" },
+    { "src": "/apple-touch-icon.png", "sizes": "180x180", "type": "image/png" }
+  ],
+  "theme_color": "#2563eb",
+  "background_color": "#ffffff",
+  "display": "browser"
+}
