@@ -152,6 +152,13 @@ def count_account_transactions(conn: sqlite3.Connection, account_id: int) -> int
 
 
 def delete_account(conn: sqlite3.Connection, account_id: int) -> None:
+    # Clean up in FK order: reconciliations -> bank_accounts -> account
+    conn.execute(
+        "DELETE FROM reconciliations WHERE bank_account_id IN "
+        "(SELECT id FROM bank_accounts WHERE ledger_account_id=?)",
+        (account_id,),
+    )
+    conn.execute("DELETE FROM bank_accounts WHERE ledger_account_id=?", (account_id,))
     conn.execute("DELETE FROM accounts WHERE id=?", (account_id,))
     conn.commit()
 

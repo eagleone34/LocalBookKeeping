@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   getAccounts, createAccount, updateAccount, archiveAccount,
@@ -36,6 +36,7 @@ export default function Accounts() {
   const [newForm, setNewForm] = useState({ name: '', type: 'expense', code: '', description: '', parent_id: null, currency: 'USD' });
   const [collapsedTypes, setCollapsedTypes] = useState(new Set());
   const [deleteError, setDeleteError] = useState(null);
+  const deleteErrorRef = useRef(null);
 
   const hasMultiCurrency = getHasMultiCurrency(accounts);
 
@@ -105,17 +106,21 @@ export default function Accounts() {
 
   const handleDelete = async (acc) => {
     setDeleteError(null);
+    const showError = (msg) => {
+      setDeleteError(msg);
+      setTimeout(() => deleteErrorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 50);
+    };
     try {
       const { count } = await getAccountTransactionCount(acc.id);
       if (count > 0) {
-        setDeleteError(`Cannot delete "${acc.name}": it has ${count} transaction(s). Re-categorize them first or archive the account.`);
+        showError(`Cannot delete "${acc.name}": it has ${count} transaction(s). Re-categorize them first or archive the account.`);
         return;
       }
       if (!confirm(`Delete account "${acc.name}" permanently? This cannot be undone.`)) return;
       await deleteAccount(acc.id);
       load();
     } catch (err) {
-      setDeleteError(err.message || 'Failed to delete account');
+      showError(err.message || 'Failed to delete account');
     }
   };
 
@@ -178,7 +183,7 @@ export default function Accounts() {
 
       {/* Error banner */}
       {deleteError && (
-        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 px-4 py-3 rounded-xl flex items-center justify-between">
+        <div ref={deleteErrorRef} className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 px-4 py-3 rounded-xl flex items-center justify-between">
           <span className="text-sm">{deleteError}</span>
           <button onClick={() => setDeleteError(null)} className="text-red-400 hover:text-red-600"><X className="w-4 h-4" /></button>
         </div>
