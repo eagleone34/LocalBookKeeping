@@ -190,12 +190,12 @@
         <a href="#pricing" class="hover:text-gray-900 transition-colors">Pricing</a>
         <a href="#faq" class="hover:text-gray-900 transition-colors">FAQ</a>
         <!-- STRIPE: Replace href with your Stripe Payment Link -->
-        <a href="https://buy.stripe.com/REPLACE_ME" class="inline-flex items-center gap-1.5 bg-primary-600 text-white text-sm font-semibold px-4 py-2 rounded-lg hover:bg-primary-700 transition-colors shadow-sm">
+        <a href="#" data-stripe-link class="inline-flex items-center gap-1.5 bg-primary-600 text-white text-sm font-semibold px-4 py-2 rounded-lg hover:bg-primary-700 transition-colors shadow-sm">
           Get LocalBooks
         </a>
       </div>
       <!-- Mobile CTA -->
-      <a href="https://buy.stripe.com/REPLACE_ME" class="sm:hidden inline-flex items-center bg-primary-600 text-white text-sm font-semibold px-4 py-2 rounded-lg hover:bg-primary-700 transition-colors">
+      <a href="#" data-stripe-link class="sm:hidden inline-flex items-center bg-primary-600 text-white text-sm font-semibold px-4 py-2 rounded-lg hover:bg-primary-700 transition-colors">
         Get LocalBooks
       </a>
     </nav>
@@ -216,9 +216,9 @@
           </p>
           <div class="mt-8 flex flex-col sm:flex-row gap-4">
             <!-- STRIPE: Replace href with your Stripe Payment Link -->
-            <a href="https://buy.stripe.com/REPLACE_ME" class="inline-flex items-center justify-center gap-2 bg-primary-600 text-white text-base font-semibold px-7 py-3.5 rounded-xl hover:bg-primary-700 transition-colors shadow-lg shadow-primary-600/25">
+            <a href="#" data-stripe-link class="inline-flex items-center justify-center gap-2 bg-primary-600 text-white text-base font-semibold px-7 py-3.5 rounded-xl hover:bg-primary-700 transition-colors shadow-lg shadow-primary-600/25">
               <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
-              Get LocalBooks &mdash; $49.99 Once
+              Get LocalBooks &mdash; <span data-stripe-price>$49.99 USD</span> Once
             </a>
             <a href="#features" class="inline-flex items-center justify-center text-gray-600 text-base font-medium px-6 py-3.5 rounded-xl border border-gray-200 hover:border-gray-300 hover:text-gray-900 transition-colors">
               See Features
@@ -640,9 +640,9 @@
           </ul>
           <!-- CTA -->
           <!-- STRIPE: Replace href with your Stripe Payment Link -->
-          <a href="https://buy.stripe.com/REPLACE_ME" class="w-full inline-flex items-center justify-center gap-2 bg-primary-600 text-white text-base font-semibold px-8 py-4 rounded-xl hover:bg-primary-700 transition-colors shadow-lg shadow-primary-600/25">
+          <a href="#" data-stripe-link class="w-full inline-flex items-center justify-center gap-2 bg-primary-600 text-white text-base font-semibold px-8 py-4 rounded-xl hover:bg-primary-700 transition-colors shadow-lg shadow-primary-600/25">
             <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
-            Get Lifetime Access &mdash; $49.99
+            Get Lifetime Access &mdash; <span data-stripe-price>$49.99 USD</span>
           </a>
           <p class="text-xs text-gray-400 mt-3 flex items-center justify-center gap-1">
             <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
@@ -739,9 +739,9 @@
         <h2 class="text-3xl sm:text-4xl font-extrabold text-white mb-4">Ready to Own Your Books?</h2>
         <p class="text-primary-200 text-lg mb-8">Join the people who stopped renting their bookkeeping software. One payment. Yours forever.</p>
         <!-- STRIPE: Replace href with your Stripe Payment Link -->
-        <a href="https://buy.stripe.com/REPLACE_ME" class="inline-flex items-center justify-center gap-2 bg-white text-primary-700 text-base font-bold px-8 py-4 rounded-xl hover:bg-primary-50 transition-colors shadow-lg">
+        <a href="#" data-stripe-link class="inline-flex items-center justify-center gap-2 bg-white text-primary-700 text-base font-bold px-8 py-4 rounded-xl hover:bg-primary-50 transition-colors shadow-lg">
           <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
-          Get LocalBooks &mdash; $49.99 Once
+          Get LocalBooks &mdash; <span data-stripe-price>$49.99 USD</span> Once
         </a>
         <p class="text-primary-300 text-sm mt-4">30-day money-back guarantee &middot; Secure payment via Stripe</p>
       </div>
@@ -771,6 +771,38 @@
       </div>
     </div>
   </footer>
+
+  <!-- Geo-based pricing: CAD for Canada, USD for everyone else -->
+  <script>
+    (function() {
+      var CAD_LINK = 'https://buy.stripe.com/aFa6oH7sY2facr29F06Na00';
+      var USD_LINK = 'https://buy.stripe.com/5kQ4gz5kQ4nifDe3gC6Na01';
+
+      function applyPricing(isCanada) {
+        var link = isCanada ? CAD_LINK : USD_LINK;
+        var label = isCanada ? 'C$49.99' : '$49.99 USD';
+
+        document.querySelectorAll('[data-stripe-link]').forEach(function(el) {
+          el.href = link;
+        });
+
+        document.querySelectorAll('[data-stripe-price]').forEach(function(el) {
+          el.textContent = label;
+        });
+      }
+
+      // Default to USD immediately
+      applyPricing(false);
+
+      // Detect country and swap to CAD if Canadian
+      fetch('https://ip-api.com/json/?fields=countryCode', { signal: AbortSignal.timeout(3000) })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          if (data.countryCode === 'CA') applyPricing(true);
+        })
+        .catch(function() { /* keep USD default */ });
+    })();
+  </script>
 
 </body>
 </html>
