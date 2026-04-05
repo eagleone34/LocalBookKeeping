@@ -795,10 +795,10 @@
       applyPricing(false);
 
       // Detect country and swap to CAD if Canadian
-      fetch('https://ip-api.com/json/?fields=countryCode', { signal: AbortSignal.timeout(3000) })
-        .then(function(r) { return r.json(); })
-        .then(function(data) {
-          if (data.countryCode === 'CA') applyPricing(true);
+      fetch('https://ipapi.co/country_code/', { signal: AbortSignal.timeout(3000) })
+        .then(function(r) { return r.text(); })
+        .then(function(code) {
+          if (code.trim() === 'CA') applyPricing(true);
         })
         .catch(function() { /* keep USD default */ });
     })();
