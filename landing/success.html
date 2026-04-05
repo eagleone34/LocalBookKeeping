@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Download LocalBooks — Thank You!</title>
+  <meta name="robots" content="noindex, nofollow">
+
+  <!-- Favicons -->
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+  <meta name="theme-color" content="#2563eb">
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: {
+              50: '#eff6ff', 100: '#dbeafe', 200: '#bfdbfe',
+              300: '#93c5fd', 400: '#60a5fa', 500: '#3b82f6',
+              600: '#2563eb', 700: '#1d4ed8', 800: '#1e40af',
+              900: '#1e3a8a',
+            }
+          }
+        }
+      }
+    }
+  </script>
+</head>
+
+<body class="bg-white text-gray-900 antialiased">
+
+  <!-- NAVBAR (same as landing page) -->
+  <header class="fixed top-0 inset-x-0 z-50 bg-white/80 backdrop-blur-md border-b border-gray-100">
+    <nav class="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
+      <a href="/" class="flex items-center gap-2 text-primary-700 font-bold text-lg">
+        <svg class="w-7 h-7" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="4" y="4" width="24" height="24" rx="3" fill="#2563eb"/>
+          <path d="M16 6v20" stroke="#1e40af" stroke-width="1.5"/>
+          <path d="M8 10h5M8 13h5M8 16h5M8 19h4" stroke="#93c5fd" stroke-width="1" stroke-linecap="round"/>
+          <path d="M19 10h5M19 13h5M19 16h5M19 19h4" stroke="#93c5fd" stroke-width="1" stroke-linecap="round"/>
+          <circle cx="24" cy="24" r="6" fill="#10b981"/>
+          <path d="M21.5 24l1.5 1.5 3-3" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        LocalBooks
+      </a>
+    </nav>
+  </header>
+
+  <!-- MAIN CONTENT -->
+  <main class="min-h-screen flex items-center justify-center pt-16 px-4">
+
+    <!-- STATE: Verifying -->
+    <div id="state-verifying" class="text-center max-w-md">
+      <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary-50 mb-6">
+        <svg class="w-8 h-8 text-primary-600 animate-spin" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+        </svg>
+      </div>
+      <h1 class="text-2xl font-bold text-gray-900 mb-2">Verifying your payment...</h1>
+      <p class="text-gray-500">This will only take a moment.</p>
+    </div>
+
+    <!-- STATE: Success -->
+    <div id="state-success" class="text-center max-w-lg hidden">
+      <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-green-50 mb-6">
+        <svg class="w-8 h-8 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
+        </svg>
+      </div>
+      <h1 class="text-2xl font-bold text-gray-900 mb-2">Thank you for your purchase!</h1>
+      <p class="text-gray-600 mb-1" id="email-line"></p>
+      <p class="text-gray-500 text-sm mb-8">Your download should start automatically. If it doesn't, click the button below.</p>
+
+      <a id="download-btn" href="#"
+         class="inline-flex items-center gap-2 bg-primary-600 hover:bg-primary-700 text-white font-semibold px-8 py-3.5 rounded-lg shadow-lg shadow-primary-600/25 transition-all text-lg">
+        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5m0 0l5-5m-5 5V3"/>
+        </svg>
+        Download LocalBooks
+      </a>
+
+      <div class="mt-8 p-4 bg-gray-50 rounded-lg text-sm text-gray-500 text-left space-y-2">
+        <p><strong class="text-gray-700">What happens next?</strong></p>
+        <ol class="list-decimal list-inside space-y-1">
+          <li>Run <code class="bg-gray-200 px-1 rounded">LocalBooks_Setup.exe</code> after downloading</li>
+          <li>Accept the license agreement and choose an install location</li>
+          <li>LocalBooks opens automatically — start tracking your finances!</li>
+        </ol>
+        <p class="pt-2">This download link is valid for <strong>24 hours</strong>. Need help? Email
+          <a href="mailto:support@llmboost.ca" class="text-primary-600 hover:underline">support@llmboost.ca</a>
+        </p>
+      </div>
+    </div>
+
+    <!-- STATE: Error -->
+    <div id="state-error" class="text-center max-w-md hidden">
+      <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-red-50 mb-6">
+        <svg class="w-8 h-8 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01M12 2a10 10 0 100 20 10 10 0 000-20z"/>
+        </svg>
+      </div>
+      <h1 class="text-2xl font-bold text-gray-900 mb-2">Something went wrong</h1>
+      <p class="text-gray-600 mb-6" id="error-message">We couldn't verify your payment.</p>
+      <p class="text-gray-500 text-sm">
+        If you completed your purchase, please contact
+        <a href="mailto:support@llmboost.ca" class="text-primary-600 hover:underline">support@llmboost.ca</a>
+        and we'll get your download sorted out right away.
+      </p>
+      <a href="/" class="inline-block mt-6 text-primary-600 hover:underline text-sm">Back to LocalBooks</a>
+    </div>
+  </main>
+
+  <!-- FOOTER -->
+  <footer class="border-t border-gray-100 py-6 text-center text-sm text-gray-400">
+    &copy; 2025 Snowbird Ventures Inc. All rights reserved.
+  </footer>
+
+  <script>
+    (function () {
+      var stateVerifying = document.getElementById('state-verifying');
+      var stateSuccess = document.getElementById('state-success');
+      var stateError = document.getElementById('state-error');
+      var errorMessage = document.getElementById('error-message');
+      var emailLine = document.getElementById('email-line');
+      var downloadBtn = document.getElementById('download-btn');
+
+      function showState(state, msg) {
+        stateVerifying.classList.add('hidden');
+        stateSuccess.classList.add('hidden');
+        stateError.classList.add('hidden');
+        state.classList.remove('hidden');
+        if (msg && state === stateError) {
+          errorMessage.textContent = msg;
+        }
+      }
+
+      // Read session_id from URL
+      var params = new URLSearchParams(window.location.search);
+      var sessionId = params.get('session_id');
+
+      if (!sessionId) {
+        showState(stateError, 'No payment session found. If you just completed a purchase, please check your email or contact support.');
+        return;
+      }
+
+      // Call the verify-session function
+      fetch('/api/verify-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ session_id: sessionId }),
+      })
+        .then(function (res) {
+          return res.json().then(function (data) {
+            return { ok: res.ok, data: data };
+          });
+        })
+        .then(function (result) {
+          if (!result.ok) {
+            showState(stateError, result.data.error || 'Payment verification failed.');
+            return;
+          }
+
+          var downloadUrl = result.data.downloadUrl;
+
+          // Show success state
+          if (result.data.customerEmail) {
+            emailLine.textContent = 'Confirmation sent to ' + result.data.customerEmail;
+          }
+
+          downloadBtn.href = downloadUrl;
+          showState(stateSuccess);
+
+          // Auto-start download after a short delay
+          setTimeout(function () {
+            window.location.href = downloadUrl;
+          }, 1500);
+        })
+        .catch(function () {
+          showState(stateError, 'Could not connect to our server. Please try again or contact support@llmboost.ca.');
+        });
+    })();
+  </script>
+</body>
+</html>
