@@ -316,30 +316,15 @@
         <h2 class="text-3xl sm:text-4xl font-extrabold text-center text-balance mb-4">Everything You Need. Nothing You Don't.</h2>
         <p class="text-center text-gray-500 max-w-2xl mx-auto mb-16">Import a bank statement and categorize a month of transactions in under 5 minutes.</p>
 
-        <!-- Screenshot 1: Smart Categorization -->
+        <!-- Screenshot 1: Dashboard (image LEFT) -->
         <div class="grid lg:grid-cols-2 gap-10 lg:gap-16 items-center mb-20">
-          <div class="relative">
-            <img src="/screenshot-categorization.png" alt="LocalBooks Smart Categorization showing automatic transaction matching with 95% confidence" class="rounded-xl shadow-xl border border-gray-200" loading="lazy" width="1280" height="800">
-          </div>
-          <div>
-            <div class="inline-flex items-center gap-2 bg-violet-50 text-violet-700 text-xs font-bold px-3 py-1.5 rounded-full mb-4 uppercase tracking-wide">
-              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/></svg>
-              Smart Categorization
-            </div>
-            <h3 class="text-2xl font-bold mb-3">It learns how you categorize &mdash; so you don&rsquo;t have to</h3>
-            <p class="text-gray-600 leading-relaxed mb-4">Import a bank statement and LocalBooks suggests categories based on your past decisions. It shows you the confidence level and how many similar transactions it&rsquo;s seen before. Accept with one click, or override &mdash; it learns either way.</p>
-            <ul class="space-y-2 text-sm text-gray-600">
-              <li class="flex items-center gap-2"><svg class="w-4 h-4 text-emerald-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>Confidence scores on every suggestion</li>
-              <li class="flex items-center gap-2"><svg class="w-4 h-4 text-emerald-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>Learns from every transaction you categorize</li>
-              <li class="flex items-center gap-2"><svg class="w-4 h-4 text-emerald-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>Less manual work every month</li>
-            </ul>
-          </div>
-        </div>
-
-        <!-- Screenshot 2: Dashboard (was 1) -->
-        <div class="grid lg:grid-cols-2 gap-10 lg:gap-16 items-center mb-20">
-          <div class="relative">
+          <div class="relative group cursor-pointer" onclick="openLightbox('/screenshot-dashboard.png', this.querySelector('img').alt)">
             <img src="/screenshot-dashboard.png" alt="LocalBooks Dashboard with income, expenses, monthly trends and expense breakdown" class="rounded-xl shadow-xl border border-gray-200" loading="lazy" width="1280" height="800">
+            <div class="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors rounded-xl flex items-center justify-center">
+              <span class="opacity-0 group-hover:opacity-100 transition-opacity bg-white/90 rounded-full p-3 shadow-lg">
+                <svg class="w-6 h-6 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7"/></svg>
+              </span>
+            </div>
           </div>
           <div>
             <div class="inline-flex items-center gap-2 bg-primary-50 text-primary-700 text-xs font-bold px-3 py-1.5 rounded-full mb-4 uppercase tracking-wide">
@@ -356,12 +341,42 @@
           </div>
         </div>
 
-        <!-- Screenshot 3: Budgets (reversed layout) -->
+        <!-- Screenshot 2: Smart Categorization (image RIGHT) -->
         <div class="grid lg:grid-cols-2 gap-10 lg:gap-16 items-center mb-20">
-          <div class="lg:order-2 relative">
-            <img src="/screenshot-budgets.png" alt="LocalBooks Budget vs Actual variance chart showing spending by category" class="rounded-xl shadow-xl border border-gray-200" loading="lazy" width="1280" height="800">
+          <div class="lg:order-2 relative group cursor-pointer" onclick="openLightbox('/screenshot-categorization.png', this.querySelector('img').alt)">
+            <img src="/screenshot-categorization.png" alt="LocalBooks Smart Categorization showing automatic transaction matching with 95% confidence" class="rounded-xl shadow-xl border border-gray-200" loading="lazy" width="1280" height="800">
+            <div class="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors rounded-xl flex items-center justify-center">
+              <span class="opacity-0 group-hover:opacity-100 transition-opacity bg-white/90 rounded-full p-3 shadow-lg">
+                <svg class="w-6 h-6 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7"/></svg>
+              </span>
+            </div>
           </div>
           <div class="lg:order-1">
+            <div class="inline-flex items-center gap-2 bg-violet-50 text-violet-700 text-xs font-bold px-3 py-1.5 rounded-full mb-4 uppercase tracking-wide">
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/></svg>
+              Smart Categorization
+            </div>
+            <h3 class="text-2xl font-bold mb-3">It learns how you categorize &mdash; so you don&rsquo;t have to</h3>
+            <p class="text-gray-600 leading-relaxed mb-4">Import a bank statement and LocalBooks suggests categories based on your past decisions. It shows you the confidence level and how many similar transactions it&rsquo;s seen before. Accept with one click, or override &mdash; it learns either way.</p>
+            <ul class="space-y-2 text-sm text-gray-600">
+              <li class="flex items-center gap-2"><svg class="w-4 h-4 text-emerald-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>Confidence scores on every suggestion</li>
+              <li class="flex items-center gap-2"><svg class="w-4 h-4 text-emerald-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>Learns from every transaction you categorize</li>
+              <li class="flex items-center gap-2"><svg class="w-4 h-4 text-emerald-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>Less manual work every month</li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- Screenshot 3: Budgets (image LEFT) -->
+        <div class="grid lg:grid-cols-2 gap-10 lg:gap-16 items-center mb-20">
+          <div class="relative group cursor-pointer" onclick="openLightbox('/screenshot-budgets.png', this.querySelector('img').alt)">
+            <img src="/screenshot-budgets.png" alt="LocalBooks Budget vs Actual variance chart showing spending by category" class="rounded-xl shadow-xl border border-gray-200" loading="lazy" width="1280" height="800">
+            <div class="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors rounded-xl flex items-center justify-center">
+              <span class="opacity-0 group-hover:opacity-100 transition-opacity bg-white/90 rounded-full p-3 shadow-lg">
+                <svg class="w-6 h-6 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7"/></svg>
+              </span>
+            </div>
+          </div>
+          <div>
             <div class="inline-flex items-center gap-2 bg-emerald-50 text-emerald-700 text-xs font-bold px-3 py-1.5 rounded-full mb-4 uppercase tracking-wide">
               <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
               Budgets
@@ -376,12 +391,17 @@
           </div>
         </div>
 
-        <!-- Screenshot 4: Reports -->
+        <!-- Screenshot 4: Reports (image RIGHT) -->
         <div class="grid lg:grid-cols-2 gap-10 lg:gap-16 items-center">
-          <div class="relative">
+          <div class="lg:order-2 relative group cursor-pointer" onclick="openLightbox('/screenshot-reports.png', this.querySelector('img').alt)">
             <img src="/screenshot-reports.png" alt="LocalBooks Expense by Category report with pie chart and detailed breakdown" class="rounded-xl shadow-xl border border-gray-200" loading="lazy" width="1280" height="800">
+            <div class="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors rounded-xl flex items-center justify-center">
+              <span class="opacity-0 group-hover:opacity-100 transition-opacity bg-white/90 rounded-full p-3 shadow-lg">
+                <svg class="w-6 h-6 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7"/></svg>
+              </span>
+            </div>
           </div>
-          <div>
+          <div class="lg:order-1">
             <div class="inline-flex items-center gap-2 bg-violet-50 text-violet-700 text-xs font-bold px-3 py-1.5 rounded-full mb-4 uppercase tracking-wide">
               <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
               Reports
@@ -802,7 +822,7 @@
   <!-- Geo-based pricing: CAD for Canada, USD for everyone else -->
   <script>
     (function() {
-      var CAD_LINK = 'https://buy.stripe.com/test_aFa6oH7sY2facr29F06Na00';
+      var CAD_LINK = 'https://buy.stripe.com/aFa6oH7sY2facr29F06Na00';
       var USD_LINK = 'https://buy.stripe.com/5kQ4gz5kQ4nifDe3gC6Na01';
 
       function applyPricing(isCanada) {
@@ -829,6 +849,35 @@
         })
         .catch(function() { /* keep USD default */ });
     })();
+  </script>
+
+  <!-- Lightbox Modal -->
+  <div id="lightbox" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/80 backdrop-blur-sm cursor-pointer" onclick="closeLightbox()">
+    <button onclick="closeLightbox()" class="absolute top-4 right-4 text-white/80 hover:text-white transition-colors p-2" aria-label="Close">
+      <svg class="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+    </button>
+    <img id="lightbox-img" src="" alt="" class="max-w-[90vw] max-h-[90vh] rounded-xl shadow-2xl" onclick="event.stopPropagation()">
+  </div>
+
+  <script>
+    function openLightbox(src, alt) {
+      var lb = document.getElementById('lightbox');
+      var img = document.getElementById('lightbox-img');
+      img.src = src;
+      img.alt = alt || '';
+      lb.classList.remove('hidden');
+      lb.classList.add('flex');
+      document.body.style.overflow = 'hidden';
+    }
+    function closeLightbox() {
+      var lb = document.getElementById('lightbox');
+      lb.classList.add('hidden');
+      lb.classList.remove('flex');
+      document.body.style.overflow = '';
+    }
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') closeLightbox();
+    });
   </script>
 
 </body>
