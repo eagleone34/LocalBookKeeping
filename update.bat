@@ -1,10 +1,27 @@
 @echo off
 setlocal DisableDelayedExpansion
+
+REM --- Safety: must be run from the DEV repo, not the installed app folder ---
+if not exist ".git" (
+    echo.
+    echo  ERROR: update.bat must be run from the LocalBookKeeping git repo.
+    echo  It looks like you're running it from: %CD%
+    echo  Navigate to your DEV folder and try again.
+    echo.
+    pause
+    exit /b 1
+)
+
 echo.
 echo ==========================================
-echo  LocalBooks Updater
-echo  Your data will be protected throughout.
+echo  LocalBooks Updater  (run from DEV repo)
+echo  Your data in Documents\LocalBooks is safe.
 echo ==========================================
+echo.
+
+echo [0/3] Freeing port 8000 (killing any dev server or stale app)...
+powershell -Command "$conn = Get-NetTCPConnection -LocalPort 8000 -State Listen -ErrorAction SilentlyContinue; if ($conn) { $procId = $conn.OwningProcess; $proc = Get-Process -Id $procId -ErrorAction SilentlyContinue; Write-Host ('  Killing PID ' + $procId + ' (' + $proc.Name + ')...'); Stop-Process -Id $procId -Force -ErrorAction SilentlyContinue } else { Write-Host '  Port 8000 is free - nothing to kill.' }"
+ping -n 3 127.0.0.1 >nul
 echo.
 
 echo [1/3] Pulling latest code from git...
