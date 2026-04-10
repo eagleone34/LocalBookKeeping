@@ -314,6 +314,7 @@ def _bank_to_out(row: dict) -> BankAccountOut:
         nickname=row.get("nickname"),
         ledger_account_id=row.get("ledger_account_id"),
         ledger_account_name=row.get("ledger_account_name"),
+        ledger_account_currency=row.get("ledger_account_currency"),
         opening_balance=float(row.get("opening_balance") or 0),
         opening_balance_date=row.get("opening_balance_date"),
         created_at=row["created_at"],

@@ -1118,7 +1118,7 @@ def get_bank_account(conn: sqlite3.Connection, bank_account_id: int) -> Optional
 
 def list_bank_accounts(conn: sqlite3.Connection, company_id: int) -> List[Dict]:
     return [dict(r) for r in conn.execute(
-        "SELECT ba.*, a.name AS ledger_account_name FROM bank_accounts ba LEFT JOIN accounts a ON ba.ledger_account_id = a.id WHERE ba.company_id=? ORDER BY ba.bank_name, ba.last_four",
+        "SELECT ba.*, a.name AS ledger_account_name, a.currency AS ledger_account_currency FROM bank_accounts ba LEFT JOIN accounts a ON ba.ledger_account_id = a.id WHERE ba.company_id=? ORDER BY ba.bank_name, ba.last_four",
         (company_id,),
     ).fetchall()]
 
@@ -1222,6 +1222,18 @@ def get_reconciliation_status(conn: sqlite3.Connection, company_id: int, bank_ac
     if not ba:
         return {}
 
+    # Resolve linked ledger account's currency and name
+    ledger_account_name = None
+    account_currency = None
+    if ba.get("ledger_account_id"):
+        acct_row = conn.execute(
+            "SELECT name, currency FROM accounts WHERE id=?",
+            (ba["ledger_account_id"],),
+        ).fetchone()
+        if acct_row:
+            ledger_account_name = acct_row["name"]
+            account_currency = acct_row["currency"]
+
     last_rec = get_last_reconciliation(conn, company_id, bank_account_id)
 
     # Current balance (all transactions + opening balance)
@@ -1261,6 +1273,8 @@ def get_reconciliation_status(conn: sqlite3.Connection, company_id: int, bank_ac
         "bank_account_id": bank_account_id,
         "bank_name": ba["bank_name"],
         "last_four": ba["last_four"],
+        "ledger_account_name": ledger_account_name,
+        "currency": account_currency,
         "last_reconciled_date": last_rec["reconciled_date"] if last_rec else None,
         "last_reconciled_balance": float(last_rec["statement_balance"]) if last_rec else None,
         "localbooks_balance_today": round(current_balance, 2),

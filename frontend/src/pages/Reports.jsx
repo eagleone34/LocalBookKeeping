@@ -7,6 +7,7 @@ import {
 } from 'recharts';
 import DatePresetPicker from '../components/DatePresetPicker';
 import { useCurrency } from '../hooks/useCurrency';
+import SecondaryAmount from '../components/SecondaryAmount';
 
 const COLORS = ['#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16', '#f97316', '#6366f1'];
 
@@ -37,7 +38,7 @@ const CustomYTick = ({ x, y, payload }) => {
 const tabs = ['Profit & Loss', 'Expense by Category', 'Expense by Vendor', 'Monthly Trends', 'Balance Sheet'];
 
 export default function Reports() {
-  const { formatMoney } = useCurrency();
+  const { formatMoney, formatPrimary, globalCurrency } = useCurrency();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState(0);
   const [pnl, setPnl] = useState([]);
@@ -49,6 +50,15 @@ export default function Reports() {
   const [selectedBankAccountId, setSelectedBankAccountId] = useState('');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
+  const [showSecondary, setShowSecondary] = useState(false);
+
+  // Determine selected account's currency for multi-currency display
+  const selectedBa = bankAccounts.find(ba => String(ba.id) === selectedBankAccountId);
+  const selectedAccountCurrency = selectedBa?.ledger_account_currency || selectedBa?.currency || globalCurrency;
+  const isMultiCurrency = selectedBankAccountId && selectedAccountCurrency !== globalCurrency;
+  const fmt = (val) => selectedBankAccountId
+    ? formatPrimary(val ?? 0, selectedAccountCurrency)
+    : formatMoney(val ?? 0);
 
   /** Navigate to Transactions page with current date/bank filters + extra params */
   const drillDown = (extraParams = {}) => {
@@ -138,10 +148,18 @@ export default function Reports() {
           <option value="">All accounts</option>
           {bankAccounts.map(ba => (
             <option key={ba.id} value={ba.id}>
-              {ba.bank_name} {ba.last_four ? `(*${ba.last_four})` : ''}
+              {ba.ledger_account_name || ba.bank_name}
             </option>
           ))}
         </select>
+        {isMultiCurrency && (
+          <button
+            onClick={() => setShowSecondary(s => !s)}
+            className={`text-xs px-3 py-1.5 rounded-lg border transition-colors ${showSecondary ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-300' : 'border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:border-gray-300'}`}
+          >
+            {showSecondary ? `Hide ${selectedAccountCurrency}` : `Show ${selectedAccountCurrency}`}
+          </button>
+        )}
         <div className="flex items-center gap-3">
           <DatePresetPicker
             dateFrom={dateFrom}
@@ -175,15 +193,15 @@ export default function Reports() {
           <div className="grid grid-cols-3 gap-4">
             <div className="card text-center cursor-pointer hover:shadow-md hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-all" onClick={() => drillDown({ category_type: 'income' })}>
               <p className="text-sm text-gray-500 dark:text-gray-400">Total Income</p>
-              <p className="text-2xl font-bold text-emerald-600">{formatMoney(ytdIncome)}</p>
+              <p className="text-2xl font-bold text-emerald-600">{fmt(ytdIncome)}<SecondaryAmount amount={ytdIncome} accountCurrency={selectedAccountCurrency} show={showSecondary && !!isMultiCurrency} /></p>
             </div>
             <div className="card text-center cursor-pointer hover:shadow-md hover:bg-red-50 dark:hover:bg-red-900/20 transition-all" onClick={() => drillDown({ category_type: 'expense' })}>
               <p className="text-sm text-gray-500 dark:text-gray-400">Total Expenses</p>
-              <p className="text-2xl font-bold text-red-600">{formatMoney(ytdExpense)}</p>
+              <p className="text-2xl font-bold text-red-600">{fmt(ytdExpense)}<SecondaryAmount amount={ytdExpense} accountCurrency={selectedAccountCurrency} show={showSecondary && !!isMultiCurrency} /></p>
             </div>
             <div className="card text-center">
               <p className="text-sm text-gray-500 dark:text-gray-400">Net Income</p>
-              <p className={`text-2xl font-bold ${ytdNet >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>{formatMoney(ytdNet)}</p>
+              <p className={`text-2xl font-bold ${ytdNet >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>{fmt(ytdNet)}<SecondaryAmount amount={ytdNet} accountCurrency={selectedAccountCurrency} show={showSecondary && !!isMultiCurrency} /></p>
             </div>
           </div>
           <div className="card">
@@ -193,7 +211,7 @@ export default function Reports() {
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                 <XAxis dataKey="month" tick={{ fontSize: 12 }} />
                 <YAxis tickFormatter={v => `$${(v/1000).toFixed(0)}k`} />
-                <Tooltip formatter={v => formatMoney(v)} />
+                <Tooltip formatter={v => fmt(v)} />
                 <Legend />
                 <Bar dataKey="income" fill="#10b981" name="Income" radius={[4,4,0,0]} />
                 <Bar dataKey="expense" fill="#ef4444" name="Expenses" radius={[4,4,0,0]} />
@@ -215,9 +233,9 @@ export default function Reports() {
                   <tr key={r.month} className="border-b border-gray-100 dark:border-gray-700 cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
                       onClick={() => drillDown({ date_from: `${r.month}-01`, date_to: `${r.month}-31` })}>
                     <td className="py-3 px-4 font-medium">{r.month}</td>
-                    <td className="py-3 px-4 text-right text-emerald-600">{formatMoney(r.income)}</td>
-                    <td className="py-3 px-4 text-right text-red-600">{formatMoney(r.expense)}</td>
-                    <td className={`py-3 px-4 text-right font-bold ${r.net >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>{formatMoney(r.net)}</td>
+                    <td className="py-3 px-4 text-right text-emerald-600">{fmt(r.income)}</td>
+                    <td className="py-3 px-4 text-right text-red-600">{fmt(r.expense)}</td>
+                    <td className={`py-3 px-4 text-right font-bold ${r.net >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>{fmt(r.net)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -236,7 +254,7 @@ export default function Reports() {
                 <Pie data={categories} dataKey="total" nameKey="account_name" cx="50%" cy="50%" outerRadius={120}>
                   {categories.map((r, i) => <Cell key={i} fill={getColor(r.account_name)} />)}
                 </Pie>
-                <Tooltip formatter={(v, name) => [formatMoney(v), name]} />
+                <Tooltip formatter={(v, name) => [fmt(v), name]} />
               </PieChart>
             </ResponsiveContainer>
           </div>
@@ -258,7 +276,7 @@ export default function Reports() {
                       <div className="w-3 h-3 rounded-full" style={{ backgroundColor: getColor(r.account_name) }} />
                       {r.account_name}
                     </td>
-                    <td className="py-3 px-4 text-right">{formatMoney(r.total)}</td>
+                    <td className="py-3 px-4 text-right">{fmt(r.total)}</td>
                     <td className="py-3 px-4 text-right text-gray-500 dark:text-gray-400">{r.percentage}%</td>
                     <td className="py-3 px-4">
                       <div className="w-full h-2 bg-gray-200 dark:bg-gray-600 rounded-full overflow-hidden">
@@ -271,7 +289,7 @@ export default function Reports() {
               <tfoot>
                 <tr className="font-bold border-t-2 border-gray-300 dark:border-gray-600">
                   <td className="py-3 px-4">Total</td>
-                  <td className="py-3 px-4 text-right">{formatMoney(grandTotal)}</td>
+                  <td className="py-3 px-4 text-right">{fmt(grandTotal)}</td>
                   <td className="py-3 px-4 text-right">100%</td>
                   <td></td>
                 </tr>
@@ -291,7 +309,7 @@ export default function Reports() {
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                 <XAxis type="number" tickFormatter={v => `$${(v/1000).toFixed(0)}k`} />
                 <YAxis type="category" dataKey="vendor_name" width={160} tick={<CustomYTick />} />
-                <Tooltip formatter={v => formatMoney(v)} />
+                <Tooltip formatter={v => fmt(v)} />
                 <Bar dataKey="total" fill="#3b82f6" radius={[0,4,4,0]}>
                   {vendors.slice(0, 10).map((r, i) => <Cell key={i} fill={getColor(r.vendor_name)} />)}
                 </Bar>
@@ -312,7 +330,7 @@ export default function Reports() {
                   <tr key={r.vendor_name} className="border-b border-gray-100 dark:border-gray-700 cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
                       onClick={() => drillDown({ search: r.vendor_name })}>
                     <td className="py-3 px-4 font-medium">{r.vendor_name}</td>
-                    <td className="py-3 px-4 text-right">{formatMoney(r.total)}</td>
+                    <td className="py-3 px-4 text-right">{fmt(r.total)}</td>
                     <td className="py-3 px-4 text-right text-gray-500 dark:text-gray-400">{r.percentage}%</td>
                   </tr>
                 ))}
@@ -320,7 +338,7 @@ export default function Reports() {
               <tfoot>
                 <tr className="font-bold border-t-2 border-gray-300 dark:border-gray-600">
                   <td className="py-3 px-4">Total</td>
-                  <td className="py-3 px-4 text-right">{formatMoney(vendorGrandTotal)}</td>
+                  <td className="py-3 px-4 text-right">{fmt(vendorGrandTotal)}</td>
                   <td className="py-3 px-4 text-right">100%</td>
                 </tr>
               </tfoot>
@@ -339,7 +357,7 @@ export default function Reports() {
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                 <XAxis dataKey="month" tick={{ fontSize: 12 }} />
                 <YAxis tickFormatter={v => `$${(v/1000).toFixed(0)}k`} />
-                <Tooltip formatter={v => formatMoney(v)} />
+                <Tooltip formatter={v => fmt(v)} />
                 <Legend />
                 <Area type="monotone" dataKey="income" fill="#d1fae5" stroke="#10b981" strokeWidth={2} name="Income" />
                 <Area type="monotone" dataKey="expenses" fill="#fecaca" stroke="#ef4444" strokeWidth={2} name="Expenses" />
@@ -353,7 +371,7 @@ export default function Reports() {
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                 <XAxis dataKey="month" tick={{ fontSize: 12 }} />
                 <YAxis tickFormatter={v => `$${(v/1000).toFixed(0)}k`} />
-                <Tooltip formatter={v => formatMoney(v)} />
+                <Tooltip formatter={v => fmt(v)} />
                 <Line type="monotone" dataKey="net" stroke="#3b82f6" strokeWidth={3} dot={{ fill: '#3b82f6', r: 5 }} name="Net Income" />
               </LineChart>
             </ResponsiveContainer>
@@ -372,14 +390,14 @@ export default function Reports() {
                   <tr key={r.account_name} className="border-b border-gray-100 dark:border-gray-700 cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
                       onClick={() => drillDown({ category_id: r.account_id })}>
                     <td className="py-3 px-2 font-medium">{r.account_name}</td>
-                    <td className="py-3 px-2 text-right text-blue-600 font-medium">{formatMoney(r.balance)}</td>
+                    <td className="py-3 px-2 text-right text-blue-600 font-medium">{fmt(r.balance)}</td>
                   </tr>
                 ))}
               </tbody>
               <tfoot>
                 <tr className="border-t-2 border-blue-200">
                   <td className="py-3 px-2 font-bold">Total Assets</td>
-                  <td className="py-3 px-2 text-right font-bold text-blue-700">{formatMoney(totalAssets)}</td>
+                  <td className="py-3 px-2 text-right font-bold text-blue-700">{fmt(totalAssets)}</td>
                 </tr>
               </tfoot>
             </table>
@@ -393,14 +411,14 @@ export default function Reports() {
                     <tr key={r.account_name} className="border-b border-gray-100 dark:border-gray-700 cursor-pointer hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors"
                         onClick={() => drillDown({ category_id: r.account_id })}>
                       <td className="py-3 px-2 font-medium">{r.account_name}</td>
-                      <td className="py-3 px-2 text-right text-amber-600 font-medium">{formatMoney(Math.abs(r.balance))}</td>
+                      <td className="py-3 px-2 text-right text-amber-600 font-medium">{fmt(Math.abs(r.balance))}</td>
                     </tr>
                   ))}
                 </tbody>
                 <tfoot>
                   <tr className="border-t-2 border-amber-200">
                     <td className="py-3 px-2 font-bold">Total Liabilities</td>
-                    <td className="py-3 px-2 text-right font-bold text-amber-700">{formatMoney(totalLiabilities)}</td>
+                    <td className="py-3 px-2 text-right font-bold text-amber-700">{fmt(totalLiabilities)}</td>
                   </tr>
                 </tfoot>
               </table>
@@ -413,7 +431,7 @@ export default function Reports() {
                     <tr key={r.account_name} className="border-b border-gray-100 dark:border-gray-700 cursor-pointer hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors"
                         onClick={() => drillDown({ category_id: r.account_id })}>
                       <td className="py-3 px-2 font-medium">{r.account_name}</td>
-                      <td className="py-3 px-2 text-right text-purple-600 font-medium">{formatMoney(r.balance)}</td>
+                      <td className="py-3 px-2 text-right text-purple-600 font-medium">{fmt(r.balance)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -421,7 +439,7 @@ export default function Reports() {
                   <tr className="border-t-2 border-purple-200">
                     <td className="py-3 px-2 font-bold">Total Equity</td>
                     <td className="py-3 px-2 text-right font-bold text-purple-700">
-                      {formatMoney(balanceSheet.filter(r => r.type === 'equity').reduce((s, r) => s + r.balance, 0))}
+                      {fmt(balanceSheet.filter(r => r.type === 'equity').reduce((s, r) => s + r.balance, 0))}
                     </td>
                   </tr>
                 </tfoot>
@@ -431,7 +449,7 @@ export default function Reports() {
           <div className="card lg:col-span-2 text-center">
             <p className="text-sm text-gray-500 dark:text-gray-400">Net Worth (Assets - Liabilities)</p>
             <p className={`text-3xl font-bold ${totalAssets - totalLiabilities >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-              {formatMoney(totalAssets - totalLiabilities)}
+              {fmt(totalAssets - totalLiabilities)}
             </p>
           </div>
         </div>

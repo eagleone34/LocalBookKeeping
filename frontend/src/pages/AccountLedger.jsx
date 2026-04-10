@@ -155,7 +155,6 @@ export default function AccountLedger() {
             {accountInfo?.bank_name && (
               <span className="font-medium text-blue-700 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 px-2 py-0.5 rounded border border-blue-100 dark:border-blue-800">
                 {accountInfo.bank_name}
-                {accountInfo.last_four ? ` ****${accountInfo.last_four}` : ''}
               </span>
             )}
             <span className="capitalize badge bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400">{accountInfo?.account_type}</span>

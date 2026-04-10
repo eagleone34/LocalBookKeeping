@@ -344,6 +344,7 @@ class BankAccountOut(BaseModel):
     nickname: Optional[str] = None
     ledger_account_id: Optional[int] = None
     ledger_account_name: Optional[str] = None
+    ledger_account_currency: Optional[str] = None
     opening_balance: float = 0.0
     opening_balance_date: Optional[str] = None
     created_at: str

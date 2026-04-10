@@ -704,8 +704,7 @@ export default function ImportWizard({ onClose, onSuccess, accounts: initialAcco
                         ) : (
                           bankAccounts.map(ba => (
                             <option key={ba.id} value={ba.id}>
-                              {ba.bank_name} {ba.last_four ? `(...${ba.last_four})` : ''}
-                              {ba.ledger_account_name ? ` → ${ba.ledger_account_name}` : ''}
+                              {ba.ledger_account_name || ba.bank_name}
                             </option>
                           ))
                         )}
@@ -1137,10 +1136,7 @@ export default function ImportWizard({ onClose, onSuccess, accounts: initialAcco
                 <div className="text-sm space-y-1">
                   <p>
                     <span className="font-medium">Bank Account:</span>{' '}
-                    {bankAccounts.find(ba => ba.id === parseInt(selectedBankAccountId))?.bank_name || 'Unknown'}{' '}
-                    {bankAccounts.find(ba => ba.id === parseInt(selectedBankAccountId))?.last_four
-                      ? `(...${bankAccounts.find(ba => ba.id === parseInt(selectedBankAccountId))?.last_four})`
-                      : ''}
+                    {(() => { const ba = bankAccounts.find(b => b.id === parseInt(selectedBankAccountId)); return ba?.ledger_account_name || ba?.bank_name || 'Unknown'; })()}
                   </p>
                   <p>
                     <span className="font-medium">Categorized:</span>{' '}

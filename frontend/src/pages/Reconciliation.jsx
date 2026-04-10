@@ -9,6 +9,7 @@ import {
   ChevronDown, ChevronUp, History, Check, X,
 } from 'lucide-react';
 import { useCurrency } from '../hooks/useCurrency';
+import SecondaryAmount from '../components/SecondaryAmount';
 
 function formatDate(iso) {
   if (!iso) return '—';
@@ -22,8 +23,7 @@ function formatDate(iso) {
 }
 
 export default function Reconciliation() {
-  const { formatMoney: formatMoneyHook } = useCurrency();
-  const formatMoney = (val) => formatMoneyHook(val ?? 0, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const { formatPrimary, globalCurrency } = useCurrency();
   const { bankAccountId } = useParams();
   const navigate = useNavigate();
   const baId = parseInt(bankAccountId);
@@ -33,6 +33,7 @@ export default function Reconciliation() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
+  const [showSecondary, setShowSecondary] = useState(false);
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
 
@@ -146,6 +147,10 @@ export default function Reconciliation() {
     );
   }
 
+  const accountCurrency = status?.currency || globalCurrency;
+  const isMultiCurrency = accountCurrency !== globalCurrency;
+  const formatMoney = (val) => formatPrimary(val ?? 0, accountCurrency, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
   const allChecked = status.unreconciled_transactions.length > 0 &&
     checkedIds.size === status.unreconciled_transactions.length;
   const someChecked = checkedIds.size > 0 && !allChecked;
@@ -171,18 +176,27 @@ export default function Reconciliation() {
             Reconcile Account
           </h1>
           <p className="text-gray-500 dark:text-gray-400 mt-0.5">
-            {status.bank_name}
-            {status.last_four ? ` ****${status.last_four}` : ''}
+            {status.ledger_account_name || status.bank_name}
           </p>
         </div>
-        <button
-          onClick={() => setShowHistory(!showHistory)}
-          className="flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-        >
-          <History className="w-4 h-4" />
-          History
-          {showHistory ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-        </button>
+        <div className="flex items-center gap-2">
+          {isMultiCurrency && (
+            <button
+              onClick={() => setShowSecondary(s => !s)}
+              className={`text-xs px-3 py-1.5 rounded-lg border transition-colors ${showSecondary ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-300' : 'border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:border-gray-300'}`}
+            >
+              {showSecondary ? `Hide ${accountCurrency}` : `Show ${accountCurrency}`}
+            </button>
+          )}
+          <button
+            onClick={() => setShowHistory(!showHistory)}
+            className="flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+          >
+            <History className="w-4 h-4" />
+            History
+            {showHistory ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+          </button>
+        </div>
       </div>
 
       {/* Success / Error messages */}
@@ -223,8 +237,14 @@ export default function Reconciliation() {
                 {history.map(rec => (
                   <tr key={rec.id} className="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700">
                     <td className="py-2 px-3">{formatDate(rec.reconciled_date)}</td>
-                    <td className="py-2 px-3 text-right font-medium">{formatMoney(rec.statement_balance)}</td>
-                    <td className="py-2 px-3 text-right">{formatMoney(rec.localbooks_balance)}</td>
+                    <td className="py-2 px-3 text-right font-medium">
+                      {formatMoney(rec.statement_balance)}
+                      <SecondaryAmount amount={rec.statement_balance} accountCurrency={accountCurrency} show={showSecondary} />
+                    </td>
+                    <td className="py-2 px-3 text-right">
+                      {formatMoney(rec.localbooks_balance)}
+                      <SecondaryAmount amount={rec.localbooks_balance} accountCurrency={accountCurrency} show={showSecondary} />
+                    </td>
                     <td className={`py-2 px-3 text-right font-semibold ${Math.abs(rec.difference) < 0.01 ? 'text-emerald-600' : 'text-red-600'}`}>
                       {formatMoney(rec.difference)}
                     </td>
@@ -251,13 +271,17 @@ export default function Reconciliation() {
             {status.last_reconciled_date ? formatDate(status.last_reconciled_date) : 'Never'}
           </p>
           {status.last_reconciled_balance !== null && (
-            <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{formatMoney(status.last_reconciled_balance)}</p>
+            <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
+              {formatMoney(status.last_reconciled_balance)}
+              <SecondaryAmount amount={status.last_reconciled_balance} accountCurrency={accountCurrency} show={showSecondary} />
+            </p>
           )}
         </div>
         <div className="card text-center py-4">
           <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Current Balance</p>
           <p className={`text-lg font-bold ${status.localbooks_balance_today >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
             {formatMoney(status.localbooks_balance_today)}
+            <SecondaryAmount amount={status.localbooks_balance_today} accountCurrency={accountCurrency} show={showSecondary} />
           </p>
         </div>
         <div className="card text-center py-4">
@@ -269,6 +293,7 @@ export default function Reconciliation() {
           <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Checked Sum</p>
           <p className={`text-lg font-bold ${checkedSum >= 0 ? 'text-gray-800 dark:text-gray-200' : 'text-red-600'}`}>
             {formatMoney(checkedSum)}
+            <SecondaryAmount amount={checkedSum} accountCurrency={accountCurrency} show={showSecondary} />
           </p>
           <p className="text-xs text-gray-400 dark:text-gray-500">{checkedIds.size} selected</p>
         </div>
@@ -322,7 +347,7 @@ export default function Reconciliation() {
             <div>
               <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Statement Balance</p>
               <p className="text-lg font-bold text-gray-800 dark:text-gray-200">
-                {isNaN(parsedStatementBalance) ? '—' : formatMoney(parsedStatementBalance)}
+                {isNaN(parsedStatementBalance) ? '—' : (<>{formatMoney(parsedStatementBalance)}<SecondaryAmount amount={parsedStatementBalance} accountCurrency={accountCurrency} show={showSecondary} /></>)}
               </p>
             </div>
             <div>
@@ -331,7 +356,7 @@ export default function Reconciliation() {
                 {statementDate && <span className="ml-1 text-gray-400 dark:text-gray-500">as of {formatDate(statementDate)}</span>}
               </p>
               <p className="text-lg font-bold text-gray-800 dark:text-gray-200">
-                {loadingBalance ? '…' : localBooksBalance !== null ? formatMoney(localBooksBalance) : '—'}
+                {loadingBalance ? '…' : localBooksBalance !== null ? (<>{formatMoney(localBooksBalance)}<SecondaryAmount amount={localBooksBalance} accountCurrency={accountCurrency} show={showSecondary} /></>) : '—'}
               </p>
             </div>
             <div>
@@ -345,6 +370,7 @@ export default function Reconciliation() {
               ) : (
                 <p className="text-lg font-bold text-red-600 flex items-center justify-center gap-1">
                   <AlertTriangle className="w-5 h-5" /> {formatMoney(difference)}
+                  <SecondaryAmount amount={difference} accountCurrency={accountCurrency} show={showSecondary} />
                 </p>
               )}
             </div>
@@ -449,9 +475,11 @@ export default function Reconciliation() {
                         txn.amount >= 0 ? 'text-emerald-600' : 'text-red-600'
                       }`}>
                         {formatMoney(txn.amount)}
+                        <SecondaryAmount amount={txn.amount} accountCurrency={accountCurrency} show={showSecondary} />
                       </td>
                       <td className="py-2.5 px-4 text-right text-gray-600 dark:text-gray-400 font-medium">
                         {formatMoney(txn.running_balance)}
+                        <SecondaryAmount amount={txn.running_balance} accountCurrency={accountCurrency} show={showSecondary} />
                       </td>
                     </tr>
                   );
@@ -464,6 +492,7 @@ export default function Reconciliation() {
                   </td>
                   <td className="py-3 px-4 text-right font-bold text-gray-800 dark:text-gray-200">
                     {formatMoney(checkedSum)}
+                    <SecondaryAmount amount={checkedSum} accountCurrency={accountCurrency} show={showSecondary} />
                   </td>
                   <td />
                 </tr>

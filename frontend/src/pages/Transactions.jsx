@@ -296,7 +296,7 @@ export default function Transactions() {
               <option value="">All accounts</option>
               {bankAccounts.map(ba => (
                 <option key={ba.id} value={ba.id}>
-                  {ba.bank_name} ****{ba.last_four}
+                  {ba.ledger_account_name || ba.bank_name}
                 </option>
               ))}
             </select>
@@ -358,7 +358,7 @@ export default function Transactions() {
                 <option value="">Select account...</option>
                 {bankAccounts.map(ba => (
                   <option key={ba.id} value={ba.id}>
-                    {ba.bank_name} ****{ba.last_four}
+                    {ba.ledger_account_name || ba.bank_name}
                   </option>
                 ))}
               </select>
@@ -452,7 +452,7 @@ export default function Transactions() {
                       >
                         {bankAccounts.map(ba => (
                           <option key={ba.id} value={ba.id}>
-                            {ba.bank_name} ****{ba.last_four}
+                            {ba.ledger_account_name || ba.bank_name}
                           </option>
                         ))}
                       </select>
